@@ -1,0 +1,604 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+  pending
+  completed
+  cancelled
+  refunded
+}
+
+enum PaymentMethod {
+  cash
+  card
+  mpesa
+  bank_transfer
+}
+
+enum TransactionType {
+  sale
+  purchase
+  return
+  adjustment
+}
+
+enum ReportType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+  CUSTOM
+}
+
+enum BusinessType {
+  RETAIL
+  RESTAURANT
+  PHARMACY
+  GROCERY
+  ELECTRONICS
+  FASHION
+  SERVICE
+  WHOLESALE
+  CUSTOM
+}
+
+enum ModuleAccess {
+  INVENTORY
+  POS
+  REPORTING
+  CUSTOMERS
+  SUPPLIER_MANAGEMENT
+  EMPLOYEE_MANAGEMENT
+  ACCOUNTING
+  LOYALTY
+  AI_ASSISTANT
+  BOOKING
+  RENTAL
+  CUSTOM
+}
+
+model Organization {
+  id                 String       @id
+  name               String
+  slug               String?      @unique
+  logo               String?
+  createdAt          DateTime
+  metadata           String?
+  // Business details fields
+  address            String
+  city               String
+  state              String
+  zipCode            String
+  country            String
+  phone              String
+  email              String
+  website            String?
+  taxId              String?
+  taxRate            Float        @default(8)
+  type               BusinessType @default(RETAIL)
+  currency           String       @default("KES")
+  timeZone           String       @default("Africa/Nairobi")
+  defaultLanguage    String       @default("en")
+  activeModules      ModuleAccess[] @default([INVENTORY, POS, REPORTING, CUSTOMERS])
+  subscriptionTier   String       @default("BASIC")
+  subscriptionStatus String       @default("ACTIVE")
+  subscriptionExpiry DateTime?
+  // Customization fields
+  primaryColor       String?      @default("#4f46e5")
+  secondaryColor     String?      @default("#f97316")
+  receiptHeader      String?
+  receiptFooter      String?
+  invoiceTemplate    String?      @default("DEFAULT")
+  tableLayout        Json?        // For restaurant table layouts
+  theme              String?      @default("DEFAULT")
+  customFields       Json?        // Store custom fields configuration
+  // Relations
+  members            Member[]
+  invitations        Invitation[]
+  locations          Location[]
+  orders             Order[]
+  categories         Category[]
+  products           Product[]
+  customers          Customer[]
+  suppliers          Supplier[]
+  stockTransactions  StockTransaction[]
+  inventoryAdjustments InventoryAdjustment[]
+  reportDocuments    ReportDocument[]
+
+  @@map("organization")
+}
+
+model User {
+  id              String             @id @default(cuid())
+  name            String
+  email           String             @unique
+  emailVerified   Boolean
+  image           String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  role            String?
+  banned          Boolean?
+  banReason       String?
+  banExpires      DateTime?
+  username        String?            @unique
+  cardId          String?
+  orders          Order[]
+  createdOrders   Order[]            @relation("OrderCreator")
+  sessions        Session[]
+  accounts        Account[]
+  passkeys        Passkey[]
+  auditLogs       AuditLog[]
+  stocks          StockTransaction[]
+  reportDocuments ReportDocument[]
+
+  displayUsername String?
+  members         Member[]
+  invitations     Invitation[]
+
+  @@map("users")
+}
+
+model Customer {
+  id             Int          @id @default(autoincrement())
+  orgId          String
+  org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name           String
+  email          String?      @unique
+  phone          String?      @unique
+  phone_number   String?
+  id_number      String?
+  image_url      String?
+  address        String?
+  loyalty_points Int         @default(0)
+  notes          String?
+  created_at     DateTime    @default(now())
+  updated_at     DateTime    @default(now()) @updatedAt
+  orders         Order[]
+
+  @@map("customers")
+}
+
+model Order {
+  id                Int                @id @default(autoincrement())
+  customerId        Int?
+  userId            String?
+  created_by_id     String?
+  orgId             String
+  org               Organization       @relation(fields: [orgId], references: [id])
+  locationId        Int?
+  location          Location?          @relation(fields: [locationId], references: [id])
+  deliveryAddress   String?
+  deliveryMethod    String             @default("pickup") // pickup or delivery
+  deliveryNotes     String? // special instructions for delivery
+  deliveryFee       Float? // optional delivery fee
+  priority          String?            @default("normal")
+  subtotal          Float
+  discount          Float?             @default(0)
+  couponId          Int?
+  total             Float
+  receiptUrl        String?
+  paymentMethod     PaymentMethod
+  status            OrderStatus        @default(completed)
+  notes             String?
+  taxRate           Float              @default(0)
+  tax               Float
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @default(now()) @updatedAt
+  customer          Customer?          @relation(fields: [customerId], references: [id])
+  user              User?              @relation(fields: [userId], references: [id])
+  createdBy         User?              @relation("OrderCreator", fields: [created_by_id], references: [id])
+  items             OrderItem[]
+  coupon            Coupon?            @relation(fields: [couponId], references: [id])
+  mpesaTransactions MpesaTransaction[]
+  customFields      Json? // Store custom fields per business type
+  tableNumber       String? // For restaurant orders
+  guestCount        Int? // For restaurant orders
+  reservation       Reservation? // For restaurant reservations
+
+  @@map("orders")
+}
+
+model Reservation {
+  id              Int      @id @default(autoincrement())
+  orderId         Int      @unique
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  reservationDate DateTime
+  reservationTime String
+  duration        Int      @default(60) // Duration in minutes
+  status          String   @default("CONFIRMED") // CONFIRMED, CANCELLED, COMPLETED
+  specialRequests String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("reservations")
+}
+
+model OrderItem {
+  id        Int      @id @default(autoincrement())
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId   Int
+  productId Int
+  quantity  Int
+  price     Float
+  createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+model Category {
+  id          Int          @id @default(autoincrement())
+  orgId       String
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  products    Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id                    Int                   @id @default(autoincrement())
+  orgId                 String
+  org                   Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name                  String
+  sku                   String?
+  barcode               String?               @unique
+  stock                 Int                   @default(0)
+  updatedAt             DateTime              @default(now()) @updatedAt
+  createdAt             DateTime              @default(now())
+  description           String?
+  image_url             String?
+  price                 Float
+  purchase_price        Float? // Price at which the product is purchased
+  profit_margin         Float? // Profit margin percentage
+  min_stock_level       Int?                  @default(5) // Minimum stock level for alerts
+  category_id           Int
+  unit                  String?               @default("piece")
+  unit_quantity         Float? // Number of pieces in one unit (e.g., 12 for dozen)
+  unit_price            Float? // Price per unit (e.g., price per dozen)
+  selling_unit          String? // Unit used for selling (e.g., piece, dozen, box)
+  selling_unit_quantity Float? // Number of pieces in selling unit
+  orderItems            OrderItem[]
+  category              Category              @relation(fields: [category_id], references: [id])
+  stockTransactions     StockTransaction[]
+  inventoryAdjustments  InventoryAdjustment[]
+  stock_history         StockHistory[]
+  locationInventory     InventoryByLocation[]
+  taxRate               Float? // Product-specific tax rate
+  isActive              Boolean               @default(true)
+  isService             Boolean               @default(false) // True for service products
+  customFields          Json? // Store custom fields per business type
+  variants              ProductVariant[] // Product variants
+
+  @@map("products")
+}
+
+model ProductVariant {
+  id         Int      @id @default(autoincrement())
+  productId  Int
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name       String
+  sku        String?
+  barcode    String?  @unique
+  price      Float
+  stock      Int      @default(0)
+  attributes Json // Store variant attributes like size, color, etc.
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("product_variants")
+}
+
+model AuditLog {
+  id               Int      @id @default(autoincrement())
+  user_id          String?
+  action           String
+  entity_type      String
+  entity_id        Int?
+  details          String?
+  ip_address       String?
+  user_agent       String?
+  operation_status String?  @default("SUCCESS")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  user             User?    @relation(fields: [user_id], references: [id])
+
+  @@map("audit_logs")
+}
+
+model Coupon {
+  id            Int       @id @default(autoincrement())
+  code          String    @unique
+  description   String?
+  discountType  String // percentage or fixed
+  discountValue Float
+  minPurchase   Float     @default(0)
+  maxDiscount   Float     @default(0)
+  expiryDate    DateTime?
+  isActive      Boolean   @default(true)
+  usageLimit    Int       @default(0)
+  usageCount    Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
+  orders        Order[]
+
+  @@map("coupons")
+}
+
+model MpesaTransaction {
+  id                   Int      @id @default(autoincrement())
+  order_id             Int?
+  phone_number         String
+  amount               Float
+  transaction_type     String // stk_push, paybill, buy_goods
+  mpesa_receipt_number String?
+  checkout_request_id  String?
+  merchant_request_id  String?
+  result_code          Int?
+  result_desc          String?
+  status               String   @default("pending") // pending, completed, failed
+  created_at           DateTime @default(now())
+  updated_at           DateTime @default(now()) @updatedAt
+  order                Order?   @relation(fields: [order_id], references: [id])
+
+  @@map("mpesa_transactions")
+}
+
+model Session {
+  id             String   @id
+  expiresAt      DateTime
+  token          String   @unique
+  createdAt      DateTime
+  updatedAt      DateTime
+  ipAddress      String?
+  userAgent      String?
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  impersonatedBy String?
+  apartmentId    String?
+
+  activeOrganizationId String?
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime
+  updatedAt             DateTime
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+
+  @@map("verification")
+}
+
+model Passkey {
+  id           String    @id
+  name         String?
+  publicKey    String
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialID String
+  counter      Int
+  deviceType   String
+  backedUp     Boolean
+  transports   String?
+  createdAt    DateTime?
+
+  @@map("passkey")
+}
+
+enum StockTransactionType {
+  PURCHASE
+  SALE
+  RETURN
+  ADJUSTMENT
+  TRANSFER
+  DAMAGED
+}
+
+model StockTransaction {
+  id               Int                  @id @default(autoincrement())
+  orgId            String
+  org              Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  transaction_date DateTime             @default(now())
+  product_id       Int
+  quantity         Int
+  transaction_type StockTransactionType
+  unit_price       Float // Price per unit for this transaction
+  total_amount     Float // Total transaction amount
+  reference_id     String? // Reference to order, purchase, etc.
+  notes            String?
+  createdBy        String? // User who created the transaction
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @default(now()) @updatedAt
+  direction        String               @default("IN") // Consider making this an enum (IN/OUT)
+  supplier_id      Int? // Foreign key for Supplier
+  product          Product              @relation(fields: [product_id], references: [id])
+  supplier         Supplier?            @relation(fields: [supplier_id], references: [id])
+
+  user User? @relation(fields: [createdBy], references: [id])
+
+  @@map("stock_transactions")
+}
+
+model Attachment {
+  id         Int      @id @default(autoincrement())
+  filename   String?
+  url        String
+  type       String?
+  size       Int?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+}
+model Supplier {
+  id             Int                @id @default(autoincrement())
+  orgId          String
+  org            Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name           String             @unique
+  contact_person String?
+  phone          String?
+  email          String?
+  address        String?
+  transactions   StockTransaction[]
+
+  @@map("suppliers")
+}
+
+enum AdjustmentReason {
+  DAMAGED
+  EXPIRED
+  LOST
+  FOUND
+  CORRECTION
+  OTHER
+}
+
+
+
+model InventoryAdjustment {
+  id                Int              @id @default(autoincrement())
+  orgId             String
+  org               Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  adjustment_date   DateTime         @default(now())
+  product_id        Int
+  previous_quantity Int
+  new_quantity      Int
+  adjusted_quantity Int // Can be positive or negative
+  reason            AdjustmentReason
+  notes             String?
+  created_by        String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @default(now()) @updatedAt
+  product           Product          @relation(fields: [product_id], references: [id])
+
+  @@map("inventory_adjustments")
+}
+
+model ReportDocument {
+  id          String       @id @default(cuid())
+  orgId       String
+  org         Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  title       String
+  reportType  ReportType
+  startDate   DateTime
+  endDate     DateTime
+  pdfUrl      String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  createdById String?
+  createdBy   User?      @relation(fields: [createdById], references: [id])
+  description String?
+  isAutomated Boolean    @default(false)
+  summary     String?    @db.Text
+
+  @@map("report_documents")
+}
+
+model StockHistory {
+  id             Int      @id @default(autoincrement())
+  product_id     Int
+  product        Product  @relation(fields: [product_id], references: [id])
+  quantity       Int // Total number of pieces
+  type           String // "IN" or "OUT"
+  unit           String? // Unit used (e.g., "dozen", "box")
+  unit_quantity  Int? // Number of units
+  purchase_price Float? // Price per unit
+  notes          String?
+  created_at     DateTime @default(now())
+
+  @@map("stock_history")
+}
+
+model Location {
+  id         Int          @id @default(autoincrement())
+  orgId      String
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name       String
+  address    String
+  city       String?
+  state      String?
+  zipCode    String?
+  country    String?
+  phone      String?
+  email      String?
+  isDefault  Boolean      @default(false)
+  active     Boolean      @default(true)
+  inventory  InventoryByLocation[]
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  orders     Order[]
+
+  @@map("locations")
+}
+
+model InventoryByLocation {
+  id            Int      @id @default(autoincrement())
+  locationId    Int
+  location      Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  productId     Int
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  stock         Int      @default(0)
+  minStockLevel Int      @default(5)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([locationId, productId])
+  @@map("inventory_by_location")
+}
+
+model Member {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String
+  createdAt      DateTime
+
+  @@map("member")
+}
+
+model Invitation {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           String?
+  status         String
+  expiresAt      DateTime
+  inviterId      String
+  user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@map("invitation")
+}
