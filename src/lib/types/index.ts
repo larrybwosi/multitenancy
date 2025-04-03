@@ -1,393 +1,463 @@
-import { Prisma } from "@prisma/client";
-
-// Base Prisma types from generated client
-export type User = Prisma.UserGetPayload<{}>;
-export type Organization = Prisma.OrganizationGetPayload<{}>;
-export type Order = Prisma.OrderGetPayload<{}>;
-export type OrderItem = Prisma.OrderItemGetPayload<{}>;
-export type Product = Prisma.ProductGetPayload<{}>;
-export type Category = Prisma.CategoryGetPayload<{}>;
-export type Customer = Prisma.CustomerGetPayload<{}>;
-export type Supplier = Prisma.SupplierGetPayload<{}>;
-export type Location = Prisma.LocationGetPayload<{}>;
-export type StockTransaction = Prisma.StockTransactionGetPayload<{}>;
-export type ProductVariant = Prisma.ProductVariantGetPayload<{}>;
-export type Reservation = Prisma.ReservationGetPayload<{}>;
-export type InventoryByLocation = Prisma.InventoryByLocationGetPayload<{}>;
-
 // Enums
+export enum MemberRole {
+  OWNER = "OWNER",
+  ADMIN = "ADMIN",
+  STAFF = "STAFF",
+  VIEWER = "VIEWER",
+}
+
+export enum ProductType {
+  PHYSICAL = "PHYSICAL",
+  SERVICE = "SERVICE",
+}
+
+export enum StockTransactionType {
+  PURCHASE = "PURCHASE",
+  SALE = "SALE",
+  ADJUSTMENT = "ADJUSTMENT",
+  RETURN = "RETURN",
+  SPOILAGE = "SPOILAGE",
+  TRANSFER_IN = "TRANSFER_IN",
+  TRANSFER_OUT = "TRANSFER_OUT",
+}
+
 export enum OrderStatus {
-  PENDING = "pending",
-  COMPLETED = "completed",
-  CANCELLED = "cancelled",
-  REFUNDED = "refunded",
+  PENDING = "PENDING",
+  PROCESSING = "PROCESSING",
+  AWAITING_PAYMENT = "AWAITING_PAYMENT",
+  PAID = "PAID",
+  SHIPPED = "SHIPPED",
+  DELIVERED = "DELIVERED",
+  COMPLETED = "COMPLETED",
+  CANCELLED = "CANCELLED",
+  REFUNDED = "REFUNDED",
+}
+
+export enum DeliveryType {
+  DELIVERY = "DELIVERY",
+  IN_STORE = "IN_STORE",
 }
 
 export enum PaymentMethod {
-  CASH = "cash",
-  CARD = "card",
-  MPESA = "mpesa",
-  BANK_TRANSFER = "bank_transfer",
-}
-
-export enum TransactionType {
-  SALE = "sale",
-  PURCHASE = "purchase",
-  RETURN = "return",
-  ADJUSTMENT = "adjustment",
+  CASH = "CASH",
+  CARD_ONLINE = "CARD_ONLINE",
+  CARD_TERMINAL = "CARD_TERMINAL",
+  BANK_TRANSFER = "BANK_TRANSFER",
+  MOBILE_MONEY = "MOBILE_MONEY",
+  VOUCHER = "VOUCHER",
+  OTHER = "OTHER",
 }
 
 export enum ReportType {
   DAILY = "DAILY",
   WEEKLY = "WEEKLY",
   MONTHLY = "MONTHLY",
-  QUARTERLY = "QUARTERLY",
   ANNUAL = "ANNUAL",
   CUSTOM = "CUSTOM",
 }
 
-export enum BusinessType {
-  RETAIL = "RETAIL",
-  RESTAURANT = "RESTAURANT",
-  PHARMACY = "PHARMACY",
-  GROCERY = "GROCERY",
-  ELECTRONICS = "ELECTRONICS",
-  FASHION = "FASHION",
-  SERVICE = "SERVICE",
-  WHOLESALE = "WHOLESALE",
-  CUSTOM = "CUSTOM",
+export enum ReportStatus {
+  PENDING = "PENDING",
+  GENERATING = "GENERATING",
+  COMPLETED = "COMPLETED",
+  FAILED = "FAILED",
 }
 
-export enum ModuleAccess {
-  INVENTORY = "INVENTORY",
-  POS = "POS",
-  REPORTING = "REPORTING",
-  CUSTOMERS = "CUSTOMERS",
-  SUPPLIER_MANAGEMENT = "SUPPLIER_MANAGEMENT",
-  EMPLOYEE_MANAGEMENT = "EMPLOYEE_MANAGEMENT",
-  ACCOUNTING = "ACCOUNTING",
-  LOYALTY = "LOYALTY",
-  AI_ASSISTANT = "AI_ASSISTANT",
-  BOOKING = "BOOKING",
-  RENTAL = "RENTAL",
-  CUSTOM = "CUSTOM",
-}
-
-export enum StockTransactionType {
-  PURCHASE = "PURCHASE",
-  SALE = "SALE",
-  RETURN = "RETURN",
-  ADJUSTMENT = "ADJUSTMENT",
-  TRANSFER = "TRANSFER",
-  DAMAGED = "DAMAGED",
-}
-
-export enum AdjustmentReason {
-  DAMAGED = "DAMAGED",
-  EXPIRED = "EXPIRED",
-  LOST = "LOST",
-  FOUND = "FOUND",
-  CORRECTION = "CORRECTION",
-  OTHER = "OTHER",
-}
-
-// Extended types with relations
-
-export type ProductWithCategory = Product & {
-  category: Category;
+// Base Types
+export type User = {
+  id: string;
+  email: string;
+  name?: string | null;
+  passwordHash: string;
+  createdAt: Date;
+  updatedAt: Date;
+  memberships?: Member[];
+  stockTransactions?: StockTransaction[];
+  uploadedAttachments?: Attachment[];
 };
 
-export type ProductWithInventory = Product & {
-  locationInventory: InventoryByLocation[];
-  variants?: ProductVariant[];
+export type Organisation = {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  members?: Member[];
+  categories?: Category[];
+  products?: Product[];
+  stock?: Stock[];
+  stockTransactions?: StockTransaction[];
+  customers?: Customer[];
+  orders?: Order[];
+  suppliers?: Supplier[];
+  reports?: Report[];
 };
 
-export type ProductFull = Product & {
-  category: Category;
+export type Member = {
+  id: string;
+  userId: string;
+  organisationId: string;
+  role: MemberRole;
+  createdAt: Date;
+  updatedAt: Date;
+  user?: User;
+  organisation?: Organisation;
+  createdOrders?: Order[];
+  reports?: Report[];
+};
+
+export type Category = {
+  id: string;
+  name: string;
+  description?: string | null;
+  organisationId: string;
+  createdAt: Date;
+  updatedAt: Date;
+  organisation?: Organisation;
+  products?: Product[];
+};
+
+export type Product = {
+  id: string;
+  name: string;
+  description?: string | null;
+  sku?: string | null;
+  type: ProductType;
+  unit: string;
+  currentSellingPrice: number;
+  categoryId?: string | null;
+  organisationId: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  organisation?: Organisation;
+  category?: Category | null;
+  stockEntries?: Stock[];
+  orderItems?: OrderItem[];
+  stockTransactions?: StockTransaction[];
+};
+
+export type Stock = {
+  id: string;
+  productId: string;
+  organisationId: string;
+  quantityAvailable: number;
+  unit: string;
+  buyingPricePerUnit: number;
+  batchNumber?: string | null;
+  purchaseDate?: Date | null;
+  expiryDate?: Date | null;
+  notes?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  supplierId?: string | null;
+  product?: Product;
+  organisation?: Organisation;
+  stockTransactions?: StockTransaction[];
+  supplier?: Supplier | null;
+};
+
+export type StockTransaction = {
+  id: string;
+  productId: string;
+  stockId?: string | null;
+  organisationId: string;
+  type: StockTransactionType;
+  quantityChange: number;
+  reason?: string | null;
+  relatedOrderId?: string | null;
+  createdById?: string | null;
+  transactionDate: Date;
+  createdAt: Date;
+  product?: Product;
+  stock?: Stock | null;
+  organisation?: Organisation;
+  relatedOrder?: Order | null;
+  createdBy?: User | null;
+};
+
+export type Supplier = {
+  id: string;
+  name: string;
+  contactPerson?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  organisationId: string;
+  createdAt: Date;
+  updatedAt: Date;
+  organisation?: Organisation;
+  stockEntries?: Stock[];
+};
+
+export type Customer = {
+  id: string;
+  customerId: string;
+  name: string;
+  phone?: string | null;
+  email?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
+  totalLoyaltyPoints: number;
+  organisationId: string;
+  createdAt: Date;
+  updatedAt: Date;
+  organisation?: Organisation;
+  orders?: Order[];
+};
+
+export type Order = {
+  id: string;
+  orderNumber: string;
+  customerId: string;
+  organisationId: string;
+  createdById: string;
+  status: OrderStatus;
+  totalAmount: number;
+  discountAmount?: number | null;
+  finalAmount: number;
+  loyaltyPointsEarned: number;
+  notes?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  customer?: Customer;
+  organisation?: Organisation;
+  createdBy?: Member;
+  items?: OrderItem[];
+  delivery?: Delivery | null;
+  attachments?: Attachment[];
+  stockTransactions?: StockTransaction[];
+};
+
+export type OrderItem = {
+  id: string;
+  orderId: string;
+  productId: string;
+  quantity: number;
+  unitPriceAtSale: number;
+  totalPrice: number;
+  loyaltyPointsAwarded: number;
+  createdAt: Date;
+  updatedAt: Date;
+  order?: Order;
+  product?: Product;
+};
+
+export type Delivery = {
+  id: string;
+  orderId: string;
+  type: DeliveryType;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
+  status?: string | null;
+  trackingNumber?: string | null;
+  estimatedDeliveryDate?: Date | null;
+  actualDeliveryDate?: Date | null;
+  deliveryCost?: number | null;
+  notes?: string | null;
+  paymentMethod?: PaymentMethod | null;
+  paymentReference?: string | null;
+  paymentDate?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  order?: Order;
+};
+
+export type Attachment = {
+  id: string;
+  orderId?: string | null;
+  fileName: string;
+  storagePath: string;
+  url?: string | null;
+  mimeType: string;
+  sizeBytes?: number | null;
+  uploadedById: string;
+  description?: string | null;
+  createdAt: Date;
+  attachmentUrl?: string | null;
+  order?: Order | null;
+  uploadedBy?: User;
+};
+
+export type Report = {
+  id: string;
+  organisationId: string;
+  type: ReportType;
+  status: ReportStatus;
+  startDate: Date;
+  endDate: Date;
+  generatedAt?: Date | null;
+  reportUrl?: string | null;
+  errorMessage?: string | null;
+  requestedById: string;
+  createdAt: Date;
+  organisation?: Organisation;
+  requestedBy?: Member;
+};
+
+// Extended Types with full relationships
+export type OrderWithRelations = Order & {
+  customer: Customer;
+  organisation: Organisation;
+  createdBy: Member;
+  items: OrderItem[];
+  delivery?: Delivery | null;
+  attachments: Attachment[];
   stockTransactions: StockTransaction[];
-  locationInventory: InventoryByLocation[];
-  variants: ProductVariant[];
-};
-
-export type OrderItemWithProduct = OrderItem & {
-  product: Product;
 };
 
 export type OrderWithItems = Order & {
   items: OrderItem[];
 };
 
+export type OrderItemWithProduct = OrderItem & {
+  product: Product;
+};
+
 export type OrderWithItemsAndProducts = Order & {
   items: OrderItemWithProduct[];
 };
 
-export type OrderWithCustomer = Order & {
-  customer: Customer | null;
+export type OrderWithItemsAndDelivery = OrderWithItems & {
+  delivery?: Delivery | null;
 };
 
-export type OrderWithReservation = Order & {
-  reservation: Reservation | null;
-};
-
-export type OrderFull = Order & {
-  items: OrderItemWithProduct[];
-  customer: Customer | null;
-  user: User | null;
-  createdBy: User | null;
-  reservation: Reservation | null;
-  location: Location | null;
-};
-
-export type OrganizationWithMembers = Organization & {
+export type OrganisationWithMembers = Organisation & {
   members: Member[];
 };
 
-export type OrganizationWithLocations = Organization & {
-  locations: Location[];
+export type OrganisationWithProducts = Organisation & {
+  products: Product[];
 };
 
-export type OrganizationWithCategories = Organization & {
+export type OrganisationWithCategories = Organisation & {
   categories: Category[];
 };
 
-export type OrganizationWithProducts = Organization & {
-  products: ProductWithCategory[];
+export type ProductWithStock = Product & {
+  stockEntries: Stock[];
 };
 
-export type OrganizationFull = Organization & {
-  members: Member[];
-  locations: Location[];
-  categories: Category[];
-  products: ProductWithCategory[];
-  customers: Customer[];
-  suppliers: Supplier[];
+export type ProductWithCategory = Product & {
+  category?: Category | null;
 };
 
-export type LocationWithInventory = Location & {
-  inventory: (InventoryByLocation & {
-    product: Product;
-  })[];
+export type ProductWithStockAndCategory = Product & {
+  stockEntries: Stock[];
+  category?: Category | null;
 };
 
-export type SupplierWithTransactions = Supplier & {
-  transactions: StockTransaction[];
+export type StockWithSupplier = Stock & {
+  supplier?: Supplier | null;
+};
+
+export type StockWithProduct = Stock & {
+  product: Product;
+};
+
+export type StockWithProductAndSupplier = Stock & {
+  product: Product;
+  supplier?: Supplier | null;
+};
+
+export type StockTransactionWithRelations = StockTransaction & {
+  product: Product;
+  stock?: Stock | null;
+  organisation: Organisation;
+  relatedOrder?: Order | null;
+  createdBy?: User | null;
 };
 
 export type CustomerWithOrders = Customer & {
   orders: Order[];
 };
 
-export type UserWithOrders = User & {
-  orders: Order[];
-  createdOrders: Order[];
-};
-
-export type UserWithMemberships = User & {
-  members: Member[];
-};
-
-export type Member = Prisma.MemberGetPayload<{}>;
-
-export type MemberWithOrganization = Member & {
-  organization: Organization;
+export type MemberWithUser = Member & {
   user: User;
 };
 
-// Request/Response types for API endpoints
+export type ReportWithOrganisation = Report & {
+  organisation: Organisation;
+  requestedBy: Member;
+};
 
+// Request and Response Types
 export type CreateOrderRequest = {
-  customerId?: number;
-  locationId?: number;
-  deliveryAddress?: string;
-  deliveryMethod?: string;
-  deliveryNotes?: string;
-  deliveryFee?: number;
-  priority?: string;
-  subtotal: number;
-  discount?: number;
-  total: number;
-  paymentMethod: PaymentMethod;
-  status?: OrderStatus;
-  notes?: string;
-  taxRate?: number;
-  tax: number;
+  customerId: string;
+  organisationId: string;
   items: {
-    productId: number;
+    productId: string;
     quantity: number;
-    price: number;
   }[];
-  tableNumber?: string;
-  guestCount?: number;
-  reservation?: {
-    reservationDate: Date;
-    reservationTime: string;
-    duration?: number;
-    specialRequests?: string;
+  deliveryInfo?: {
+    type: DeliveryType;
+    addressLine1?: string;
+    addressLine2?: string;
+    city?: string;
+    postalCode?: string;
+    country?: string;
+    estimatedDeliveryDate?: Date;
+    deliveryCost?: number;
+    notes?: string;
+  };
+  discountAmount?: number;
+  notes?: string;
+};
+
+export type UpdateOrderStatusRequest = {
+  status: OrderStatus;
+  paymentInfo?: {
+    method: PaymentMethod;
+    reference?: string;
+    date: Date;
   };
 };
 
-export type UpdateProductRequest = {
-  name?: string;
-  sku?: string;
-  barcode?: string;
-  stock?: number;
-  description?: string;
-  image_url?: string;
-  price?: number;
-  purchase_price?: number;
-  profit_margin?: number;
-  min_stock_level?: number;
-  category_id?: number;
-  unit?: string;
-  unit_quantity?: number;
-  unit_price?: number;
-  selling_unit?: string;
-  selling_unit_quantity?: number;
-  taxRate?: number;
-  isActive?: boolean;
-  isService?: boolean;
-  customFields?: Record<string, any>;
+export type StockSummary = {
+  productId: string;
+  productName: string;
+  totalQuantity: number;
+  unit: string;
+  averageBuyingPrice: number;
+  currentSellingPrice: number;
+  lowStockAlert: boolean;
 };
 
-export type DashboardStats = {
-  totalSales: number;
-  salesCount: number;
-  topProducts: {
-    id: number;
-    name: string;
-    quantity: number;
-    revenue: number;
-  }[];
-  recentOrders: OrderWithItems[];
-  lowStockProducts: ProductWithCategory[];
-  dailySales: {
-    date: string;
-    sales: number;
-    orders: number;
-  }[];
-};
-
-export type SalesReportData = {
-  period: string;
+export type SalesReport = {
+  period: {
+    start: Date;
+    end: Date;
+  };
   totalSales: number;
   totalOrders: number;
   averageOrderValue: number;
-  salesByProduct: {
-    productId: number;
+  topProducts: {
+    productId: string;
     productName: string;
-    quantity: number;
+    quantitySold: number;
     revenue: number;
   }[];
-  salesByCategory: {
-    categoryId: number;
-    categoryName: string;
+  salesByStatus: Record<OrderStatus, number>;
+};
+
+export type ProductInventoryReport = {
+  productId: string;
+  productName: string;
+  sku?: string;
+  currentStock: number;
+  stockValue: number;
+  reorderPoint?: number;
+  transactions: {
+    date: Date;
+    type: StockTransactionType;
     quantity: number;
-    revenue: number;
+    balance: number;
   }[];
-  salesByPaymentMethod: {
-    method: string;
-    count: number;
-    amount: number;
-  }[];
-  salesByDay?: {
-    date: string;
-    sales: number;
-    orders: number;
-  }[];
-  salesByMonth?: {
-    month: string;
-    sales: number;
-    orders: number;
-  }[];
-};
-
-export type InventoryReportData = {
-  totalProducts: number;
-  totalStockValue: number;
-  lowStockProducts: ProductWithCategory[];
-  outOfStockProducts: ProductWithCategory[];
-  stockMovement: {
-    productId: number;
-    productName: string;
-    startingStock: number;
-    purchases: number;
-    sales: number;
-    adjustments: number;
-    endingStock: number;
-  }[];
-  productPerformance: {
-    productId: number;
-    productName: string;
-    stock: number;
-    stockValue: number;
-    turnoverRate: number;
-  }[];
-};
-
-export type PaginationParams = {
-  page?: number;
-  limit?: number;
-  sortBy?: string;
-  sortOrder?: "asc" | "desc";
-};
-
-export type FilterParams = {
-  search?: string;
-  dateFrom?: string;
-  dateTo?: string;
-  status?: OrderStatus;
-  categoryId?: number;
-  locationId?: number;
-  paymentMethod?: PaymentMethod;
-};
-
-export type ApiResponse<T> = {
-  success: boolean;
-  data?: T;
-  error?: string;
-  message?: string;
-  meta?: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  };
-};
-
-// Context types for auth and state management
-export type AuthContextType = {
-  user: User | null;
-  loading: boolean;
-  error: string | null;
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
-  updateProfile: (userData: Partial<User>) => Promise<void>;
-};
-
-export type OrganizationContextType = {
-  organization: Organization | null;
-  loading: boolean;
-  error: string | null;
-  locations: Location[];
-  categories: Category[];
-  activeLocation: Location | null;
-  setActiveLocation: (location: Location) => void;
-  refreshOrganization: () => Promise<void>;
-};
-
-// Utility types
-export type JsonObject = {
-  [key: string]: any;
-};
-
-export type DateRange = {
-  startDate: Date;
-  endDate: Date;
-};
-
-export type SelectOption = {
-  value: string | number;
-  label: string;
 };

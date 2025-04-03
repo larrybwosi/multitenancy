@@ -3,27 +3,18 @@ import {
   adminClient,
   customSessionClient,
   passkeyClient,
-  organizationClient,
 } from "better-auth/client/plugins";
 import { auth } from ".";
 import { redirect } from "next/navigation";
-import { ac, owner, member, myCustomRole } from "./organisation/permisions";
+// import { ac, owner, member, myCustomRole } from "./organisation/permisions";
 
-export const { signIn, signUp, useSession, signOut, admin, changePassword, organization } =
+export const { signIn, signUp, useSession, signOut, admin, changePassword } =
   createAuthClient({
     baseURL: process.env.BETTER_AUTH_URL,
     plugins: [
       customSessionClient<typeof auth>(),
       adminClient(),
       passkeyClient(),
-      organizationClient({
-        ac,
-        roles: {
-          owner,
-          member,
-          myCustomRole,
-        },
-      }),
     ],
     fetchOptions: {
       onError: async (context) => {

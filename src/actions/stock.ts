@@ -5,9 +5,9 @@ import {
   FilterParams,
   ProductWithInventory,
   ProductWithCategory,
-  StockTransaction,
-  InventoryByLocation,
+  StockTransaction as DBStockTransaction
 } from "@/lib/types";
+import { StockTransaction } from "@/app/stock/types";
 
 const prisma = new PrismaClient();
 
@@ -77,7 +77,7 @@ export async function getProducts(
 
 
 export async function getLowStockItems(
-  organizationId: number,
+  organizationId: string,
   locationId?: number,
   limit = 10
 ): Promise<ApiResponse<ProductWithCategory[]>> {
@@ -85,7 +85,7 @@ export async function getLowStockItems(
     // Get products that are below their minimum stock level
     const lowStockProducts = await prisma.product.findMany({
       where: {
-        organizationId,
+        orgId:organizationId,
         // Only include products that have a min_stock_level set
         min_stock_level: { not: null },
         // For location-specific low stock
@@ -110,7 +110,7 @@ export async function getLowStockItems(
                 },
               },
             }),
-      } as any,
+      },
       include: {
         category: true,
         locationInventory: locationId ? { where: { locationId } } : true,
@@ -142,7 +142,7 @@ export async function getStockTransactions(
       productId?: number;
       transactionType?: string;
     }
-): Promise<ApiResponse<StockTransaction[]>> {
+): Promise<ApiResponse<DBStockTransaction[]>> {
   try {
 
     const {
@@ -184,7 +184,7 @@ export async function getStockTransactions(
 
     return {
       success: true,
-      data: transactions as StockTransaction[],
+      data: transactions as DBStockTransaction[],
       meta: {
         total,
         page,
@@ -217,6 +217,7 @@ export async function getInventoryOverview(
       itemCount: number;
       totalValue: number;
     }[];
+    recentTransactions: StockTransaction[];
   }>
 > {
   try {
@@ -240,53 +241,97 @@ export async function getInventoryOverview(
     let outOfStockCount = 0;
 
     // Group by category for the category breakdown
-    const categoryMap = new Map();
+    const categoryMap = new Map<number, {
+      categoryId: number;
+      categoryName: string;
+      itemCount: number;
+      totalValue: number;
+    }>();
 
     products.forEach((product) => {
-      // Calculate total quantity across locations or at specific location
-      const totalQuantity = product.locationInventory.reduce(
-        (sum, inv) => sum + inv.quantity,
-        0
-      );
+      // For location-specific inventory, use the quantity at that location
+      // Otherwise use the product's global stock value
+      let stockQuantity = 0;
+      
+      if (locationId) {
+        stockQuantity = product.locationInventory.reduce(
+          (sum, inv) => sum + inv.stock,
+          0
+        );
+      } else {
+        stockQuantity = product.stock;
+      }
 
-      // Update metrics
-      totalItems += totalQuantity;
-      const productValue = totalQuantity * (product.purchase_price || 0);
+      // Calculate product value
+      const productValue = stockQuantity * (product.purchase_price || 0);
+      
+      // Calculate potential profit
+      const potentialSaleValue = stockQuantity * product.price;
+      const productProfit = potentialSaleValue - productValue;
+
+      // Add to totals
+      totalItems += stockQuantity;
       totalValue += productValue;
+      potentialProfit += productProfit;
 
-      // Calculate potential profit (selling price - purchase price) * quantity
-      const potentialProfitForProduct =
-        totalQuantity * ((product.price || 0) - (product.purchase_price || 0));
-      potentialProfit += potentialProfitForProduct;
-
-      // Check if low stock or out of stock
-      if (totalQuantity === 0) {
+      // Check stock status
+      if (stockQuantity === 0) {
         outOfStockCount++;
-      } else if (
-        product.min_stock_level !== null &&
-        totalQuantity < product.min_stock_level
-      ) {
+      } else if (product.min_stock_level && stockQuantity < product.min_stock_level) {
         lowStockCount++;
       }
 
-      // Update category data
-      if (product.category) {
-        const categoryId = product.category.id;
-        const categoryName = product.category.name;
+      // Add to category breakdown
+      const categoryId = product.category_id;
+      const categoryName = product.category.name;
 
-        if (!categoryMap.has(categoryId)) {
-          categoryMap.set(categoryId, {
-            categoryId,
-            categoryName,
-            itemCount: 0,
-            totalValue: 0,
-          });
-        }
-
-        const categoryData = categoryMap.get(categoryId);
-        categoryData.itemCount += totalQuantity;
-        categoryData.totalValue += productValue;
+      if (!categoryMap.has(categoryId)) {
+        categoryMap.set(categoryId, {
+          categoryId,
+          categoryName,
+          itemCount: 0,
+          totalValue: 0,
+        });
       }
+
+      const categoryData = categoryMap.get(categoryId)!;
+      categoryData.itemCount += stockQuantity;
+      categoryData.totalValue += productValue;
+    });
+
+    // Get recent transactions
+    const recentTransactions = await prisma.stockTransaction.findMany({
+      where: {
+        orgId: organizationId,
+      },
+      include: {
+        product: true,
+        supplier: true,
+      },
+      orderBy: {
+        transaction_date: 'desc',
+      },
+      take: 10,
+    });
+
+    // Transform transactions to match the expected format
+    const formattedTransactions: StockTransaction[] = recentTransactions.map(transaction => {
+      // Access properties directly from the transaction object
+      return {
+        id: transaction.id,
+        productId: transaction.product_id,
+        productName: transaction.product.name,
+        transactionType: transaction.transaction_type as string,
+        quantity: transaction.quantity,
+        unitPrice: transaction.unit_price,
+        totalAmount: transaction.total_amount,
+        direction: transaction.direction as "IN" | "OUT",
+        transactionDate: transaction.transaction_date,
+        notes: transaction.notes,
+        supplierName: transaction.supplier?.name || null,
+        createdBy: transaction.createdBy,
+        attachments: [] // Attachments would need a separate query if needed
+      };
     });
 
     return {
@@ -298,6 +343,7 @@ export async function getInventoryOverview(
         lowStockCount,
         outOfStockCount,
         inventoryByCategory: Array.from(categoryMap.values()),
+        recentTransactions: formattedTransactions,
       },
     };
   } catch (error) {
@@ -361,6 +407,159 @@ export async function getInventoryByLocation(organizationId: string): Promise<
     return {
       success: false,
       error: "Failed to retrieve inventory by location",
+    };
+  }
+}
+
+/**
+ * Get products with their inventory information for the InventoryTab component
+ */
+export async function getInventoryProducts(
+  organizationId: string,
+  params?: PaginationParams & FilterParams
+): Promise<ApiResponse<ProductWithInventory[]>> {
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      sortBy = "name",
+      sortOrder = "asc",
+      search,
+      categoryId,
+    } = params || {};
+
+    // Build filter conditions
+    const where: Prisma.ProductWhereInput = {
+      orgId: organizationId,
+      ...(search && {
+        OR: [
+          { name: { contains: search, mode: "insensitive" } },
+          { sku: { contains: search, mode: "insensitive" } },
+          { barcode: { contains: search, mode: "insensitive" } },
+        ],
+      }),
+      ...(categoryId && { category_id: Number(categoryId) }),
+    };
+
+    // Count total results for pagination
+    const total = await prisma.product.count({ where });
+
+    // Get products with their inventory information
+    const products = await prisma.product.findMany({
+      where,
+      include: {
+        category: true,
+        locationInventory: true,
+        variants: true,
+      },
+      orderBy: { [sortBy]: sortOrder },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    return {
+      success: true,
+      data: products as unknown as ProductWithInventory[],
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  } catch (error) {
+    console.error("Error getting inventory products:", error);
+    return {
+      success: false,
+      error: "Failed to retrieve inventory products",
+    };
+  }
+}
+
+/**
+ * Get stock transactions for the TransactionsTab component
+ */
+export async function getStockTransactionsForTab(
+  organizationId: string,
+  params?: PaginationParams & FilterParams & {
+    productId?: number;
+    transactionType?: string;
+    dateRange?: [Date, Date];
+  }
+): Promise<ApiResponse<StockTransaction[]>> {
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      sortBy = "transactionDate",
+      sortOrder = "desc",
+      dateFrom,
+      dateTo,
+      productId,
+      transactionType,
+    } = params || {};
+
+    // Build filter conditions
+    const where: Prisma.StockTransactionWhereInput = {
+      orgId: organizationId,
+      ...(dateFrom && { transaction_date: { gte: new Date(dateFrom) } }),
+      ...(dateTo && { transaction_date: { lte: new Date(dateTo) } }),
+      ...(productId && { product_id: Number(productId) }),
+      ...(transactionType && { transaction_type: transactionType }),
+    };
+
+    // Count total results for pagination
+    const total = await prisma.stockTransaction.count({ where });
+
+    // Get stock transactions
+    const dbTransactions = await prisma.stockTransaction.findMany({
+      where,
+      include: {
+        product: true,
+        supplier: true,
+      },
+      orderBy: { 
+        // Map frontend sortBy fields to DB field names
+        ...(sortBy === 'transactionDate' 
+          ? { transaction_date: sortOrder } 
+          : { [sortBy]: sortOrder })
+      },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    // Transform DB transactions to the expected frontend format
+    const transactions: StockTransaction[] = dbTransactions.map(transaction => ({
+      id: transaction.id,
+      productId: transaction.product_id,
+      productName: transaction.product.name,
+      transactionType: transaction.transaction_type as string,
+      quantity: transaction.quantity,
+      unitPrice: transaction.unit_price,
+      totalAmount: transaction.total_amount,
+      direction: transaction.direction as "IN" | "OUT",
+      transactionDate: transaction.transaction_date,
+      notes: transaction.notes,
+      supplierName: transaction.supplier?.name || null,
+      createdBy: transaction.createdBy,
+      attachments: [],
+    }));
+
+    return {
+      success: true,
+      data: transactions,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  } catch (error) {
+    console.error("Error getting stock transactions:", error);
+    return {
+      success: false,
+      error: "Failed to retrieve stock transactions",
     };
   }
 }

@@ -18,21 +18,16 @@ import { Button } from "@/components/ui/button";
 import TransactionDetailsSheet from "./transaction-details";
 import { Sheet, SheetTrigger } from "@/components/ui/sheet";
 import { AlertTriangle } from "lucide-react";
-
-// Import mock data
-import {
-  inventoryReport,
-  lowStockReport,
-  recentTransactions,
-} from "../mock-data";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { StockTransaction } from "../types";
 
 interface OverviewTabProps {
   totalItems: number;
   totalValue: number;
   lowStockCount: number;
   outOfStockCount: number;
-  recentTransactions: any[];
+  recentTransactions: StockTransaction[];
+  organizationId: string;
 }
 
 const OverviewTab = ({
@@ -41,7 +36,9 @@ const OverviewTab = ({
   lowStockCount,
   outOfStockCount,
   recentTransactions,
+  organizationId,
 }: OverviewTabProps) => {
+  // organizationId is available for future use if needed
   return (
     <div className="space-y-6">
       {/* Stats Cards Row */}
@@ -78,12 +75,11 @@ const OverviewTab = ({
           </CardHeader>
           <CardContent className="flex items-center gap-2">
             <p className="text-2xl font-bold text-orange-500">
-              {lowStockReport.totalLowStockItems +
-                lowStockReport.totalOutOfStockItems}
+              {lowStockCount + outOfStockCount}
             </p>
-            {lowStockReport.totalLowStockItems +
-              lowStockReport.totalOutOfStockItems >
-              0 && <AlertTriangle className="h-5 w-5 text-orange-500" />}
+            {(lowStockCount + outOfStockCount) > 0 && (
+              <AlertTriangle className="h-5 w-5 text-orange-500" />
+            )}
           </CardContent>
         </Card>
       </div>
@@ -111,29 +107,13 @@ const OverviewTab = ({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {lowStockReport.items.map((item) => (
-                    <TableRow
-                      key={item.id}
-                      className={
-                        item.stockStatus === "OUT_OF_STOCK"
-                          ? "bg-red-50 hover:bg-red-100"
-                          : "bg-yellow-50 hover:bg-yellow-100"
-                      }
-                    >
-                      <TableCell className="font-medium">{item.name}</TableCell>
-                      <TableCell>{item.category}</TableCell>
-                      <TableCell className="tabular-nums">
-                        {item.stock}/{item.minStockLevel}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="whitespace-nowrap">
-                          {item.stockStatus === "OUT_OF_STOCK"
-                            ? "Out of Stock"
-                            : "Low Stock"}
-                        </Badge>
+                  {(lowStockCount + outOfStockCount) === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-8">
+                        No items need attention 👍
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : null}
                 </TableBody>
               </Table>
             </div>
@@ -161,53 +141,61 @@ const OverviewTab = ({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {recentTransactions.map((transaction) => (
-                    <TableRow key={transaction.id} className="hover:bg-gray-50">
-                      <TableCell className="text-gray-500 text-sm">
-                        {formatDate(transaction.transactionDate)}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {transaction.productName}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Badge
-                            variant="outline"
-                            className="whitespace-nowrap"
-                          >
-                            {transaction.transactionType}
-                          </Badge>
-                          <span
-                            className={`text-sm font-medium ${
-                              transaction.direction === "IN"
-                                ? "text-green-600"
-                                : "text-red-600"
-                            }`}
-                          >
-                            {transaction.direction === "IN" ? "+" : "-"}
-                            {transaction.quantity}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-medium tabular-nums">
-                        {formatCurrency(transaction.totalAmount)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Sheet>
-                          <SheetTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="hover:bg-gray-100"
-                            >
-                              View
-                            </Button>
-                          </SheetTrigger>
-                          <TransactionDetailsSheet transaction={transaction} />
-                        </Sheet>
+                  {recentTransactions.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-8">
+                        No recent transactions
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    recentTransactions.map((transaction) => (
+                      <TableRow key={transaction.id} className="hover:bg-gray-50">
+                        <TableCell className="text-gray-500 text-sm">
+                          {formatDate(transaction.transactionDate)}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {transaction.productName}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Badge
+                              variant="outline"
+                              className="whitespace-nowrap"
+                            >
+                              {transaction.transactionType}
+                            </Badge>
+                            <span
+                              className={`text-sm font-medium ${
+                                transaction.direction === "IN"
+                                  ? "text-green-600"
+                                  : "text-red-600"
+                              }`}
+                            >
+                              {transaction.direction === "IN" ? "+" : "-"}
+                              {transaction.quantity}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-medium tabular-nums">
+                          {formatCurrency(transaction.totalAmount)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Sheet>
+                            <SheetTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="hover:bg-gray-100"
+                              >
+                                View
+                              </Button>
+                            </SheetTrigger>
+                            <TransactionDetailsSheet transaction={transaction} />
+                          </Sheet>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </div>

@@ -30,7 +30,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <NuqsAdapter>{children}</NuqsAdapter>
-        <Toaster position="bottom-right" toastOptions={{ duration: 3000 }} />
+        <Toaster position="bottom-right" toastOptions={{ duration: 3000, }}  />
       </body>
     </html>
   );

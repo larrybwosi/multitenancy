@@ -3,10 +3,12 @@ import OverviewTab from "./components/overview";
 import InventoryTab from "./components/inventory";
 import TransactionsTab from "./components/transactions";
 import { getInventoryOverview } from "@/actions/stock";
-import { recentTransactions } from "./mock-data";
 
 const StockManagementPage = async () => {
-  const { data } = await getInventoryOverview('org1', 1);
+  // TODO: Replace with proper auth integration once the auth system is properly configured
+  const organizationId = 'org1'; // Default organization ID
+  
+  const { data } = await getInventoryOverview(organizationId);
   
   return (
     <div className="p-6 space-y-6">
@@ -25,16 +27,17 @@ const StockManagementPage = async () => {
             totalValue={data?.totalValue || 0}
             outOfStockCount={data?.outOfStockCount || 0}
             lowStockCount={data?.lowStockCount || 0}
-            recentTransactions={recentTransactions}
+            recentTransactions={data?.recentTransactions || []}
+            organizationId={organizationId}
           />
         </TabsContent>
 
         <TabsContent value="inventory">
-          <InventoryTab />
+          <InventoryTab organizationId={organizationId} />
         </TabsContent>
 
         <TabsContent value="transactions">
-          <TransactionsTab />
+          <TransactionsTab organizationId={organizationId} />
         </TabsContent>
       </Tabs>
     </div>
