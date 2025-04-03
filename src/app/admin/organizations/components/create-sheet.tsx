@@ -28,7 +28,7 @@ import {
   OrganizationCreationData,
 } from "@/lib/validations/organization";
 import { toast } from "sonner";
-import { admin, organization, useSession } from '@/lib/auth/authClient'
+import { organization } from '@/lib/auth/authClient'
 
 interface CreateOrganizationSheetProps {
   open: boolean;

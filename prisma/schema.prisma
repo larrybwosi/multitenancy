@@ -1,10 +1,12 @@
 
 datasource db {
-  provider = "postgresql" // Or your preferred database: mysql, sqlite, sqlserver, mongodb
+  provider = "postgresql"
+  // Or your preferred database: mysql, sqlite, sqlserver, mongodb
   url      = env("DATABASE_URL")
 }
 
 // Define the Prisma Client generator
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -20,29 +22,29 @@ enum MemberRole {
 
 enum ProductType {
   PHYSICAL // Tangible goods with stock
-  SERVICE  // Services offered, no stock tracking needed
+  SERVICE // Services offered, no stock tracking needed
 }
 
 enum StockTransactionType {
-  PURCHASE       // Initial stock addition or restocking
-  SALE           // Stock reduction due to sale
-  ADJUSTMENT     // Manual correction (e.g., stock count discrepancy)
-  RETURN         // Stock increase due to customer return
-  SPOILAGE       // Stock reduction due to damage/expiry
-  TRANSFER_IN    // Stock movement between locations (if needed later)
-  TRANSFER_OUT   // Stock movement between locations (if needed later)
+  PURCHASE // Initial stock addition or restocking
+  SALE // Stock reduction due to sale
+  ADJUSTMENT // Manual correction (e.g., stock count discrepancy)
+  RETURN // Stock increase due to customer return
+  SPOILAGE // Stock reduction due to damage/expiry
+  TRANSFER_IN // Stock movement between locations (if needed later)
+  TRANSFER_OUT // Stock movement between locations (if needed later)
 }
 
 enum OrderStatus {
-  PENDING     // Order created, awaiting payment/processing
-  PROCESSING  // Order is being prepared
+  PENDING // Order created, awaiting payment/processing
+  PROCESSING // Order is being prepared
   AWAITING_PAYMENT
   PAID
-  SHIPPED     // For delivered orders
-  DELIVERED   // For delivered orders
-  COMPLETED   // Order fulfilled (either delivered or picked up in-store)
-  CANCELLED   // Order cancelled
-  REFUNDED    // Order refunded
+  SHIPPED // For delivered orders
+  DELIVERED // For delivered orders
+  COMPLETED // Order fulfilled (either delivered or picked up in-store)
+  CANCELLED // Order cancelled
+  REFUNDED // Order refunded
 }
 
 enum DeliveryType {
@@ -63,174 +65,202 @@ enum PaymentMethod {
 // --- Core Models ---
 
 // Represents individual users of the system
+
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  name          String?
-  passwordHash  String // Store securely hashed passwords
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  // Relation: A user can be a member of multiple organisations
-  memberships   Member[]
+  id                  String             @id @default(cuid())
+  email               String             @unique
+  name                String?
+  passwordHash        String // Store securely hashed passwords
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
   // Relation: User who created a stock transaction (optional tracking)
-  stockTransactions StockTransaction[]
+  stockTransactions   StockTransaction[]
   // Relation: User (staff/member) who uploaded an attachment
   uploadedAttachments Attachment[]
+  emailVerified       Boolean
+  image               String?
+  role                String?
+  banned              Boolean?
+  banReason           String?
+  banExpires          DateTime?
+  username            String?
+  displayUsername     String?
+  accounts            Account[]
+  members             Member[]
+  invitations         Invitation[]
+
+  @@unique([username])
+  @@map("user")
 }
 
 // Represents a business entity
+
 model Organisation {
-  id            String    @id @default(cuid())
-  name          String
-  slug          String    @unique // URL-friendly identifier
-  description   String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  members       Member[]
-  categories    Category[]
-  products      Product[]
-  stock         Stock[]
+  id                String             @id @default(cuid())
+  name              String
+  slug              String             @unique // URL-friendly identifier
+  description       String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  members           Member[]
+  categories        Category[]
+  products          Product[]
+  stock             Stock[]
   stockTransactions StockTransaction[]
-  customers     Customer[]
-  orders        Order[]
-  suppliers     Supplier[]
-  reports       Report[]  
+  customers         Customer[]
+  orders            Order[]
+  suppliers         Supplier[]
+  reports           Report[]
 
   @@index([slug])
 }
 
 // Join table linking Users and Organisations with roles
+
 model Member {
-  id             String       @id @default(cuid())
+  id             String     @id @default(cuid())
   userId         String
   organisationId String
-  role           MemberRole   @default(STAFF)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  role           MemberRole @default(STAFF)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
   // Relation: The user associated with this membership
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade) // If user deleted, remove membership
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade) // If user deleted, remove membership
   // Relation: The organisation associated with this membership
-  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade) // If org deleted, remove membership
+  organisation  Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade) // If org deleted, remove membership
   // Relation: Orders created by this member
-  createdOrders  Order[]
-  reports        Report[]
+  createdOrders Order[]
+  reports       Report[]
 
-  @@unique([userId, organisationId]) // A user can only have one role per organisation
+  // A user can only have one role per organisation
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organisationId])
   @@index([userId])
   @@index([organisationId])
+  @@map("member")
 }
 
 // Categories for grouping products/services
+
 model Category {
-  id             String        @id @default(cuid())
+  id             String   @id @default(cuid())
   name           String
   description    String?
   organisationId String
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   // Relation: The organisation this category belongs to
-  organisation   Organisation  @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   // Relation: Products within this category
-  products       Product[]
+  products     Product[]
 
-  @@unique([organisationId, name]) // Category names should be unique within an organisation
+  // Category names should be unique within an organisation
+  @@unique([organisationId, name])
   @@index([organisationId])
 }
 
 // Products or Services offered by the Organisation
+
 model Product {
-  id                   String        @id @default(cuid())
-  name                 String
-  description          String?
-  sku                  String?       // Stock Keeping Unit - can be null for services or if not used
-  type                 ProductType   @default(PHYSICAL) // Differentiates between goods and services
-  unit                 String        // e.g., 'pcs', 'kg', 'litre', 'hour', 'session'
-  currentSellingPrice  Decimal       @db.Decimal(12, 2) // Current price per unit. Price history could be a separate model if needed.
-  categoryId           String?       // Optional category link
-  organisationId       String
-  isActive             Boolean       @default(true) // To enable/disable products without deleting
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
+  id                  String      @id @default(cuid())
+  name                String
+  description         String?
+  sku                 String? // Stock Keeping Unit - can be null for services or if not used
+  type                ProductType @default(PHYSICAL) // Differentiates between goods and services
+  unit                String // e.g., 'pcs', 'kg', 'litre', 'hour', 'session'
+  currentSellingPrice Decimal     @db.Decimal(12, 2) // Current price per unit. Price history could be a separate model if needed.
+  categoryId          String? // Optional category link
+  organisationId      String
+  isActive            Boolean     @default(true) // To enable/disable products without deleting
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
 
   // Relation: The organisation offering this product
-  organisation         Organisation  @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  organisation      Organisation       @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   // Relation: The category this product belongs to (optional)
-  category             Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull) // If category deleted, product remains but un-categorized
+  category          Category?          @relation(fields: [categoryId], references: [id], onDelete: SetNull) // If category deleted, product remains but un-categorized
   // Relation: Stock records associated with this product (only for PHYSICAL type)
-  stockEntries         Stock[]
+  stockEntries      Stock[]
   // Relation: Items included in orders
-  orderItems           OrderItem[]
+  orderItems        OrderItem[]
   // Relation: Stock transactions related to this product
-  stockTransactions    StockTransaction[]
+  stockTransactions StockTransaction[]
 
-  @@unique([organisationId, sku]) // SKU should be unique within an organisation if used
+  // SKU should be unique within an organisation if used
+  @@unique([organisationId, sku])
   @@index([organisationId])
   @@index([categoryId])
   @@index([name])
 }
 
 // Represents batches of products bought in bulk
+
 model Stock {
-  id                   String    @id @default(cuid())
-  productId            String
-  organisationId       String
-  quantityAvailable    Decimal   @db.Decimal(12, 4) // Current available quantity in this batch/lot (allows fractional quantities)
-  unit                 String    // Should match Product.unit for consistency check
-  buyingPricePerUnit   Decimal   @db.Decimal(12, 4) // Price paid per unit for this specific batch
+  id                 String    @id @default(cuid())
+  productId          String
+  organisationId     String
+  quantityAvailable  Decimal   @db.Decimal(12, 4) // Current available quantity in this batch/lot (allows fractional quantities)
+  unit               String // Should match Product.unit for consistency check
+  buyingPricePerUnit Decimal   @db.Decimal(12, 4) // Price paid per unit for this specific batch
   // unitPrice field from prompt seems redundant with buyingPricePerUnit, using the latter.
-  batchNumber          String?   // Optional identifier for the specific purchase batch/lot
-  purchaseDate         DateTime? // Date this batch was purchased/received
-  expiryDate           DateTime? // Optional expiry date for perishable goods
-  notes                String?
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  batchNumber        String? // Optional identifier for the specific purchase batch/lot
+  purchaseDate       DateTime? // Date this batch was purchased/received
+  expiryDate         DateTime? // Optional expiry date for perishable goods
+  notes              String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   // Relation: The product this stock belongs to
-  product              Product      @relation(fields: [productId], references: [id], onDelete: Cascade) // If product deleted, associated stock deleted
+  product           Product            @relation(fields: [productId], references: [id], onDelete: Cascade) // If product deleted, associated stock deleted
   // Relation: The organisation this stock belongs to
-  organisation         Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade) // If org deleted, associated stock deleted
+  organisation      Organisation       @relation(fields: [organisationId], references: [id], onDelete: Cascade) // If org deleted, associated stock deleted
   // Relation: Transactions affecting this specific stock batch (more granular tracking)
-  stockTransactions    StockTransaction[]
+  stockTransactions StockTransaction[]
 
- supplierId           String?   // ID of the supplier for this batch
- // supplier             String? // REMOVE THIS LINE
+  supplierId String? // ID of the supplier for this batch
+  // supplier             String? // REMOVE THIS LINE
 
- // Relation: The supplier this stock was purchased from (optional)
- supplier             Supplier?    @relation(fields: [supplierId], references: [id], onDelete: SetNull) // If supplier deleted, keep stock record but unlink supplier
+  // Relation: The supplier this stock was purchased from (optional)
+  supplier Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull) // If supplier deleted, keep stock record but unlink supplier
 
- @@index([supplierId]) // Add index
+  // Add index
+  // Useful for finding expiring stock
+  @@index([supplierId])
   @@index([productId])
   @@index([organisationId])
-  @@index([expiryDate]) // Useful for finding expiring stock
+  @@index([expiryDate])
 }
 
 // Records changes in stock levels
+
 model StockTransaction {
-  id             String               @id @default(cuid())
-  productId      String               // Link to the general product
-  stockId        String?              // Optional: Link to a specific Stock batch if tracking per batch
-  organisationId String
-  type           StockTransactionType // Type of transaction (Purchase, Sale, Adjustment etc.)
-  quantityChange Decimal              @db.Decimal(12, 4) // Positive for increase, Negative for decrease
-  reason         String?              // Explanation for adjustments, returns, spoilage etc.
-  relatedOrderId String?              // Link to the Order if transaction type is SALE or RETURN
-  createdById    String?              // Optional: Link to the User/Member who performed the action
-  transactionDate DateTime            @default(now()) // When the transaction occurred
-  createdAt      DateTime            @default(now())  // When the record was created
-  attachmentUrl  String?
+  id              String               @id @default(cuid())
+  productId       String // Link to the general product
+  stockId         String? // Optional: Link to a specific Stock batch if tracking per batch
+  organisationId  String
+  type            StockTransactionType // Type of transaction (Purchase, Sale, Adjustment etc.)
+  quantityChange  Decimal              @db.Decimal(12, 4) // Positive for increase, Negative for decrease
+  reason          String? // Explanation for adjustments, returns, spoilage etc.
+  relatedOrderId  String? // Link to the Order if transaction type is SALE or RETURN
+  createdById     String? // Optional: Link to the User/Member who performed the action
+  transactionDate DateTime             @default(now()) // When the transaction occurred
+  createdAt       DateTime             @default(now()) // When the record was created
+  attachmentUrl   String?
 
   // Relation: The product involved
-  product        Product              @relation(fields: [productId], references: [id], onDelete: Restrict) // Don't delete product if transactions exist
+  product      Product      @relation(fields: [productId], references: [id], onDelete: Restrict) // Don't delete product if transactions exist
   // Relation: The specific stock batch involved (optional)
-  stock          Stock?               @relation(fields: [stockId], references: [id], onDelete: SetNull) // If specific batch deleted, keep transaction record but unlink batch
+  stock        Stock?       @relation(fields: [stockId], references: [id], onDelete: SetNull) // If specific batch deleted, keep transaction record but unlink batch
   // Relation: The organisation this transaction belongs to
-  organisation   Organisation         @relation(fields: [organisationId], references: [id], onDelete: Cascade) // Delete transactions if org deleted
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade) // Delete transactions if org deleted
   // Relation: The order related to this transaction (if applicable)
-  relatedOrder   Order?               @relation(fields: [relatedOrderId], references: [id], onDelete: SetNull) // If order deleted, keep transaction but unlink order
+  relatedOrder Order?       @relation(fields: [relatedOrderId], references: [id], onDelete: SetNull) // If order deleted, keep transaction but unlink order
   // Relation: The user who initiated the transaction (optional)
-  createdBy      User?                @relation(fields: [createdById], references: [id], onDelete: SetNull) // If user deleted, keep transaction but unlink user
+  createdBy    User?        @relation(fields: [createdById], references: [id], onDelete: SetNull) // If user deleted, keep transaction but unlink user
 
   @@index([productId])
   @@index([organisationId])
@@ -241,50 +271,55 @@ model StockTransaction {
 }
 
 model Supplier {
-  id             String    @id @default(cuid())
+  id             String   @id @default(cuid())
   name           String
   contactPerson  String?
-  email          String?   @unique // Make unique within org? Add @@unique([organisationId, email])
+  email          String?  @unique // Make unique within org? Add @@unique([organisationId, email])
   phone          String?
   address        String?
   organisationId String
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   // Relation: The organisation this supplier belongs to
-  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   // Relation: Stock entries purchased from this supplier
-  stockEntries   Stock[]
+  stockEntries Stock[]
 
-  @@unique([organisationId, name]) // Supplier name unique within the org
+  // Supplier name unique within the org
+  @@unique([organisationId, name])
   @@index([organisationId])
 }
 
 // Represents customers of the Organisation
+
 model Customer {
-  id                  String    @id @default(cuid())
-  customerId          String    // Business-defined unique customer ID
-  name                String
-  phone               String?
-  email               String?
-  addressLine1        String?
-  addressLine2        String?
-  city                String?
-  postalCode          String?
-  country             String?
-  totalLoyaltyPoints  Int       @default(0)
-  organisationId      String
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  id                 String   @id @default(cuid())
+  customerId         String // Business-defined unique customer ID
+  name               String
+  phone              String?
+  email              String?
+  addressLine1       String?
+  addressLine2       String?
+  city               String?
+  postalCode         String?
+  country            String?
+  totalLoyaltyPoints Int      @default(0)
+  organisationId     String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   // Relation: The organisation this customer belongs to
-  organisation        Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade) // Delete customers if org deleted
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade) // Delete customers if org deleted
   // Relation: Orders placed by this customer
-  orders              Order[]
+  orders       Order[]
 
-  @@unique([organisationId, customerId]) // Customer ID unique within the organisation
-  @@unique([organisationId, email])      // Optional: Make email unique per org if desired
-  @@unique([organisationId, phone])      // Optional: Make phone unique per org if desired
+  // Customer ID unique within the organisation
+  // Optional: Make email unique per org if desired
+  // Optional: Make phone unique per org if desired
+  @@unique([organisationId, customerId])
+  @@unique([organisationId, email])
+  @@unique([organisationId, phone])
   @@index([organisationId])
   @@index([name])
   @@index([email])
@@ -292,37 +327,39 @@ model Customer {
 }
 
 // Represents sales orders
+
 model Order {
-  id                 String        @id @default(cuid())
-  orderNumber        String        // Human-readable unique order identifier (e.g., ORD-2024-0001)
-  customerId         String
-  organisationId     String
-  createdById        String        // ID of the Member who created the order
-  status             OrderStatus   @default(PENDING)
-  totalAmount        Decimal       @db.Decimal(12, 2) // Calculated sum of order items
-  discountAmount     Decimal?      @db.Decimal(12, 2) // Any discount applied to the order total
-  finalAmount        Decimal       @db.Decimal(12, 2) // totalAmount - discountAmount + deliveryCost (if applicable)
-  loyaltyPointsEarned Int          @default(0) // Points earned from this specific order
-  notes              String?       // Internal notes about the order
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
+  id                  String      @id @default(cuid())
+  orderNumber         String // Human-readable unique order identifier (e.g., ORD-2024-0001)
+  customerId          String
+  organisationId      String
+  createdById         String // ID of the Member who created the order
+  status              OrderStatus @default(PENDING)
+  totalAmount         Decimal     @db.Decimal(12, 2) // Calculated sum of order items
+  discountAmount      Decimal?    @db.Decimal(12, 2) // Any discount applied to the order total
+  finalAmount         Decimal     @db.Decimal(12, 2) // totalAmount - discountAmount + deliveryCost (if applicable)
+  loyaltyPointsEarned Int         @default(0) // Points earned from this specific order
+  notes               String? // Internal notes about the order
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
 
   // Relation: The customer who placed the order
-  customer           Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict) // Prevent customer deletion if they have orders
+  customer          Customer           @relation(fields: [customerId], references: [id], onDelete: Restrict) // Prevent customer deletion if they have orders
   // Relation: The organisation processing the order
-  organisation       Organisation  @relation(fields: [organisationId], references: [id], onDelete: Cascade) // Delete orders if org deleted
+  organisation      Organisation       @relation(fields: [organisationId], references: [id], onDelete: Cascade) // Delete orders if org deleted
   // Relation: The member (staff) who created/processed the order
-  createdBy          Member        @relation(fields: [createdById], references: [id], onDelete: Restrict) // Keep order record even if member leaves? Or SetNull? Let's Restrict for now.
+  createdBy         Member             @relation(fields: [createdById], references: [id], onDelete: Restrict) // Keep order record even if member leaves? Or SetNull? Let's Restrict for now.
   // Relation: Items included in this order
-  items              OrderItem[]
+  items             OrderItem[]
   // Relation: Optional delivery details for this order
-  delivery           Delivery?
+  delivery          Delivery?
   // Relation: Optional attachments for this order (e.g., invoice, proof of payment)
-  attachments        Attachment[]
+  attachments       Attachment[]
   // Relation: Stock transactions generated by this order (e.g., SALE type)
-  stockTransactions  StockTransaction[]
+  stockTransactions StockTransaction[]
 
-  @@unique([organisationId, orderNumber]) // Order number unique within the organisation
+  // Order number unique within the organisation
+  @@unique([organisationId, orderNumber])
   @@index([customerId])
   @@index([organisationId])
   @@index([createdById])
@@ -331,31 +368,33 @@ model Order {
 }
 
 // Represents individual items within an Order
+
 model OrderItem {
-  id                   String    @id @default(cuid())
+  id                   String   @id @default(cuid())
   orderId              String
   productId            String
-  quantity             Decimal   @db.Decimal(10, 4) // Quantity ordered (allows fractional)
-  unitPriceAtSale      Decimal   @db.Decimal(12, 2) // Price per unit *at the time of sale* (captures historical price)
-  totalPrice           Decimal   @db.Decimal(12, 2) // quantity * unitPriceAtSale
-  loyaltyPointsAwarded Int       @default(0) // Points awarded for this specific item (optional)
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  quantity             Decimal  @db.Decimal(10, 4) // Quantity ordered (allows fractional)
+  unitPriceAtSale      Decimal  @db.Decimal(12, 2) // Price per unit *at the time of sale* (captures historical price)
+  totalPrice           Decimal  @db.Decimal(12, 2) // quantity * unitPriceAtSale
+  loyaltyPointsAwarded Int      @default(0) // Points awarded for this specific item (optional)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   // Relation: The order this item belongs to
-  order                Order     @relation(fields: [orderId], references: [id], onDelete: Cascade) // If order deleted, delete its items
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade) // If order deleted, delete its items
   // Relation: The product being ordered
-  product              Product   @relation(fields: [productId], references: [id], onDelete: Restrict) // Don't delete product if it's in past orders
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict) // Don't delete product if it's in past orders
 
   @@index([orderId])
   @@index([productId])
 }
 
 // Optional details for order delivery/fulfillment
+
 model Delivery {
-  id                    String        @id @default(cuid())
-  orderId               String        @unique // Each order can have at most one delivery record
-  type                  DeliveryType  @default(IN_STORE)
+  id                    String         @id @default(cuid())
+  orderId               String         @unique // Each order can have at most one delivery record
+  type                  DeliveryType   @default(IN_STORE)
   // Delivery Address fields (nullable if IN_STORE)
   addressLine1          String?
   addressLine2          String?
@@ -363,21 +402,21 @@ model Delivery {
   postalCode            String?
   country               String?
   // ---
-  status                String?       // More specific delivery status (e.g., 'Out for Delivery', 'Attempted') - could be another enum
-  trackingNumber        String?       // Carrier tracking number
+  status                String? // More specific delivery status (e.g., 'Out for Delivery', 'Attempted') - could be another enum
+  trackingNumber        String? // Carrier tracking number
   estimatedDeliveryDate DateTime?
   actualDeliveryDate    DateTime?
-  deliveryCost          Decimal?      @db.Decimal(10, 2)
-  notes                 String?       // Delivery instructions or notes
+  deliveryCost          Decimal?       @db.Decimal(10, 2)
+  notes                 String? // Delivery instructions or notes
   // Payment details related to the order fulfillment
   paymentMethod         PaymentMethod?
-  paymentReference      String?       // e.g., Transaction ID, Check number
+  paymentReference      String? // e.g., Transaction ID, Check number
   paymentDate           DateTime?
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
 
   // Relation: The order this delivery information belongs to
-  order                 Order         @relation(fields: [orderId], references: [id], onDelete: Cascade) // If order deleted, delete delivery info
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade) // If order deleted, delete delivery info
 
   @@index([orderId])
   @@index([status])
@@ -385,22 +424,23 @@ model Delivery {
 }
 
 // Optional attachments related to orders (or potentially other entities later)
+
 model Attachment {
-  id             String    @id @default(cuid())
-  orderId        String?   // Link to Order (could be extended to other models like Product, Customer later)
-  fileName       String    // Original file name
-  storagePath    String    // Path/key in your storage service (e.g., S3 key)
-  url            String?   // Publicly accessible URL if applicable
-  mimeType       String    // e.g., 'application/pdf', 'image/jpeg'
-  sizeBytes      Int?      // File size
-  uploadedById   String    // User/Member who uploaded the file
-  description    String?   // Optional description of the attachment
-  createdAt      DateTime  @default(now())
+  id           String   @id @default(cuid())
+  orderId      String? // Link to Order (could be extended to other models like Product, Customer later)
+  fileName     String // Original file name
+  storagePath  String // Path/key in your storage service (e.g., S3 key)
+  url          String? // Publicly accessible URL if applicable
+  mimeType     String // e.g., 'application/pdf', 'image/jpeg'
+  sizeBytes    Int? // File size
+  uploadedById String // User/Member who uploaded the file
+  description  String? // Optional description of the attachment
+  createdAt    DateTime @default(now())
 
   // Relation: The order this attachment belongs to (optional)
-  order          Order?    @relation(fields: [orderId], references: [id], onDelete: Cascade) // If order deleted, delete attachments
+  order      Order? @relation(fields: [orderId], references: [id], onDelete: Cascade) // If order deleted, delete attachments
   // Relation: The user/member who uploaded the file
-  uploadedBy     User      @relation(fields: [uploadedById], references: [id], onDelete: Restrict) // Keep attachment record even if uploader deleted? Or SetNull? Restrict for now.
+  uploadedBy User   @relation(fields: [uploadedById], references: [id], onDelete: Restrict) // Keep attachment record even if uploader deleted? Or SetNull? Restrict for now.
 
   @@index([orderId])
   @@index([uploadedById])
@@ -426,21 +466,79 @@ model Report {
   organisationId String
   type           ReportType
   status         ReportStatus @default(PENDING)
-  startDate      DateTime     // Start date of the report period
-  endDate        DateTime     // End date of the report period
-  generatedAt    DateTime?    // When the report finished generating
-  reportUrl      String?      // URL to the generated PDF in the bucket
-  errorMessage   String?      // If status is FAILED
-  requestedById  String       // Member who requested the report
+  startDate      DateTime // Start date of the report period
+  endDate        DateTime // End date of the report period
+  generatedAt    DateTime? // When the report finished generating
+  reportUrl      String? // URL to the generated PDF in the bucket
+  errorMessage   String? // If status is FAILED
+  requestedById  String // Member who requested the report
   createdAt      DateTime     @default(now())
 
   // Relation: Organisation the report belongs to
-  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   // Relation: Member who requested the report
-  requestedBy    Member       @relation(fields: [requestedById], references: [id], onDelete: Restrict) // Keep report even if member leaves
+  requestedBy  Member       @relation(fields: [requestedById], references: [id], onDelete: Restrict) // Keep report even if member leaves
 
   @@index([organisationId])
   @@index([type])
   @@index([status])
   @@index([startDate, endDate])
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime
+  updatedAt             DateTime
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+
+  @@map("verification")
+}
+
+model Organization {
+  id          String       @id
+  name        String
+  slug        String?
+  logo        String?
+  createdAt   DateTime
+  metadata    String?
+  members     Member[]
+  invitations Invitation[]
+
+  @@unique([slug])
+  @@map("organization")
+}
+
+model Invitation {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           String?
+  status         String
+  expiresAt      DateTime
+  inviterId      String
+  user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@map("invitation")
 }

@@ -1,7 +1,8 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { admin, multiSession, openAPI, username } from "better-auth/plugins";
-import { db } from "../db";
+import { admin, multiSession, openAPI, organization, username } from "better-auth/plugins";
+import { db } from "./db";
+// import { member, myCustomRole, owner, ac } from "./organisation/permisions";
 import { Redis } from "@upstash/redis";
 
 const redis = new Redis({
@@ -67,6 +68,8 @@ export const auth = betterAuth({
     multiSession({
       maximumSessions: 8,
     }),
+
+    organization(),
   ],
 
   secondaryStorage: {
