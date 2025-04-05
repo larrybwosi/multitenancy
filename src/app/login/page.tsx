@@ -11,24 +11,26 @@ import { signIn } from "@/lib/auth/authClient";
 import { toast } from "sonner";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
     cardId: "",
   });
+  // const router = useRouter();
+  
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-
+    
     try {
-      const { error } = await signIn.email({
+      const { data, error } = await signIn.email({
         email: formData.email,
         password: formData.password,
+        rememberMe: true
       });
-
+      console.log(data, error)
       if (error) {
         throw error;
       }
@@ -37,7 +39,7 @@ export default function LoginPage() {
         description: "You have been logged in successfully.",
       });
 
-      router.push("/");
+      // router.push("/");
     } catch (error) {
       console.error("Error logging in:", error);
       toast.error("Error",{

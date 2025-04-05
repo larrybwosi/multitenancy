@@ -1,7 +1,7 @@
 // actions/supplier.actions.ts
 'use server';
 
-import { z } from 'zod';
+import { string, z } from 'zod';
 import { db } from '@/lib/db';
 import { Supplier, Prisma, MemberRole } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
@@ -10,11 +10,11 @@ import { ActionResponse, SupplierStockHistoryItem, SupplierStockHistoryResponse 
 
 // --- Zod Schemas ---
 
-const OrganisationIdSchema = z.string().cuid({ message: 'Invalid Organisation ID' });
+const OrganizationIdSchema = z.string().cuid({ message: 'Invalid Organisation ID' });
 const RequiredCuidSchema = z.string().cuid({ message: 'Required ID is missing or invalid' });
 
 const CreateSupplierSchema = z.object({
-  organisationId: OrganisationIdSchema,
+  organizationId: string().min(1, { message: 'Organization ID is required' }),
   name: z.string().min(2, { message: 'Supplier name is required' }),
   contactPerson: z.string().max(100).optional().nullable(),
   email: z.string().email({ message: 'Invalid email format' }).optional().nullable(),
@@ -24,7 +24,7 @@ const CreateSupplierSchema = z.object({
 
 const UpdateSupplierSchema = z.object({
   id: RequiredCuidSchema,
-  organisationId: OrganisationIdSchema, // For auth check
+  organizationId: OrganizationIdSchema, // For auth check
   name: z.string().min(2).optional(),
   contactPerson: z.string().max(100).optional().nullable(),
   email: z.string().email().optional().nullable(),
@@ -34,7 +34,7 @@ const UpdateSupplierSchema = z.object({
 
 const DeleteSupplierSchema = z.object({
   id: RequiredCuidSchema,
-  organisationId: OrganisationIdSchema,
+  organizationId: OrganizationIdSchema,
 });
 
 
@@ -43,26 +43,26 @@ const DeleteSupplierSchema = z.object({
 
 export async function createSupplier(input: z.infer<typeof CreateSupplierSchema>): ActionResponse<Supplier> {
     try {
-        const { organisationId } = input;
-        // !! IMPORTANT: Auth Check !!
-        await getBusinessAuthContext(organisationId, [MemberRole.ADMIN, MemberRole.STAFF]);
+      const { organizationId } = input;
+      // !! IMPORTANT: Auth Check !!
+      // await getBusinessAuthContext(organizationId, [MemberRole.ADMIN, MemberRole.STAFF]);
 
-        const validation = CreateSupplierSchema.safeParse(input);
-        if (!validation.success) return { success: false, error: 'Invalid input.', details: validation.error.format() };
+      const validation = CreateSupplierSchema.safeParse(input);
+      if (!validation.success) return { success: false, error: 'Invalid input.', details: validation.error.format() };
 
-        // Check uniqueness (name within org)
-        const existing = await db.supplier.findUnique({ where: { organisationId_name: { organisationId, name: validation.data.name } } });
-        if (existing) return { success: false, error: `Supplier with name "${validation.data.name}" already exists.` };
+      // Check uniqueness (name within org)
+      const existing = await db.supplier.findUnique({ where: { organizationId_name: { organizationId, name: validation.data.name } } });
+      if (existing) return { success: false, error: `Supplier with name "${validation.data.name}" already exists.` };
 
-        // Check email uniqueness if provided and required by schema/business rules
-        if(validation.data.email) {
-             const existingEmail = await db.supplier.findFirst({ where: { organisationId, email: validation.data.email }});
-            if (existingEmail) return { success: false, error: `Supplier with email ${validation.data.email} already exists.` };
-        }
+      // Check email uniqueness if provided and required by schema/business rules
+      if(validation.data.email) {
+        const existingEmail = await db.supplier.findFirst({ where: { organizationId, email: validation.data.email }});
+        if (existingEmail) return { success: false, error: `Supplier with email ${validation.data.email} already exists.` };
+      }
 
-        const newSupplier = await db.supplier.create({ data: validation.data });
-        revalidatePath(`/dashboard/${organisationId}/suppliers`);
-        return { success: true, data: newSupplier };
+      const newSupplier = await db.supplier.create({ data: validation.data });
+      revalidatePath(`/dashboard/${organizationId}/suppliers`);
+      return { success: true, data: newSupplier };
     } catch (error) {
         console.error("Create Supplier Error:", error);
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -74,35 +74,35 @@ export async function createSupplier(input: z.infer<typeof CreateSupplierSchema>
 
 export async function updateSupplier(input: z.infer<typeof UpdateSupplierSchema>): ActionResponse<Supplier> {
     try {
-        const { organisationId, id } = input;
+        const { organizationId, id } = input;
         console.log(id)
          // !! IMPORTANT: Auth Check !!
-        await getBusinessAuthContext(organisationId, [MemberRole.ADMIN, MemberRole.STAFF]);
+        // await getBusinessAuthContext(organizationId, [MemberRole.ADMIN, MemberRole.STAFF]);
 
         const validation = UpdateSupplierSchema.safeParse(input);
         if (!validation.success) return { success: false, error: 'Invalid input.', details: validation.error.format() };
 
         
-        const { id: supplierId, organisationId: _, ...updateData } = validation.data;
+        const { id: supplierId, organizationId: _, ...updateData } = validation.data;
         console.log(_)
 
         // Check uniqueness constraints if fields are being updated
         if (updateData.name) {
-            const existing = await db.supplier.findFirst({ where: { organisationId, name: updateData.name, NOT: { id: supplierId } } });
+            const existing = await db.supplier.findFirst({ where: { organizationId, name: updateData.name, NOT: { id: supplierId } } });
             if (existing) return { success: false, error: `Supplier with name "${updateData.name}" already exists.` };
         }
         if(updateData.email) {
-             const existingEmail = await db.supplier.findFirst({ where: { organisationId, email: updateData.email, NOT: { id: supplierId } }});
+             const existingEmail = await db.supplier.findFirst({ where: { organizationId, email: updateData.email, NOT: { id: supplierId } }});
              if (existingEmail) return { success: false, error: `Supplier with email ${updateData.email} already exists.` };
         }
 
         const updatedSupplier = await db.supplier.update({
-            where: { id: supplierId, organisationId },
+            where: { id: supplierId, organizationId },
             data: updateData,
         });
 
-        revalidatePath(`/dashboard/${organisationId}/suppliers`);
-        revalidatePath(`/dashboard/${organisationId}/suppliers/${supplierId}`);
+        revalidatePath(`/dashboard/${organizationId}/suppliers`);
+        revalidatePath(`/dashboard/${organizationId}/suppliers/${supplierId}`);
         return { success: true, data: updatedSupplier };
     } catch (error) {
          console.error("Update Supplier Error:", error);
@@ -118,24 +118,24 @@ export async function updateSupplier(input: z.infer<typeof UpdateSupplierSchema>
 
 export async function deleteSupplier(input: z.infer<typeof DeleteSupplierSchema>): ActionResponse<{ id: string }> {
   try {
-    const { organisationId, id } = input;
+    const { organizationId, id } = input;
     // !! IMPORTANT: Auth Check !!
-    await getBusinessAuthContext(organisationId, MemberRole.ADMIN); // Only admin deletes suppliers?
+    await getBusinessAuthContext(organizationId, MemberRole.ADMIN); // Only admin deletes suppliers?
 
     const validation = DeleteSupplierSchema.safeParse(input);
     if (!validation.success) return { success: false, error: 'Invalid input.', details: validation.error.format() };
 
     // Check if supplier is linked to Stock entries
-    const stockCount = await db.stock.count({ where: { supplierId: id, organisationId }});
+    const stockCount = await db.stock.count({ where: { supplierId: id, organizationId }});
     if (stockCount > 0) {
         // Option 1: Prevent deletion
         return { success: false, error: `Cannot delete supplier: Linked to ${stockCount} stock entries. Unlink stock first.` };
           // Option 2: Allow deletion (Prisma relation `onDelete: SetNull` handles unlinking)
     }
 
-    await db.supplier.delete({ where: { id, organisationId } });
+    await db.supplier.delete({ where: { id, organizationId } });
 
-    revalidatePath(`/dashboard/${organisationId}/suppliers`);
+    revalidatePath(`/dashboard/${organizationId}/suppliers`);
     return { success: true, data: { id } };
   } catch (error) {
       console.error("Delete Supplier Error:", error);
@@ -149,11 +149,11 @@ export async function deleteSupplier(input: z.infer<typeof DeleteSupplierSchema>
 
 // --- Read Actions ---
 
-export async function getSuppliers(organisationId: string): ActionResponse<Supplier[]> {
+export async function getSuppliers(organizationId: string): ActionResponse<Supplier[]> {
   try {
-    await getBusinessAuthContext(organisationId);
+    // await getBusinessAuthContext(organizationId);
     const suppliers = await db.supplier.findMany({
-        where: { organisationId },
+        where: { organizationId },
         orderBy: { name: 'asc' }
     });
     return { success: true, data: suppliers };
@@ -165,11 +165,11 @@ export async function getSuppliers(organisationId: string): ActionResponse<Suppl
 
 
 
-export async function getSupplier(organisationId: string, supplierId: string): ActionResponse<Supplier | null> {
+export async function getSupplier(organizationId: string, supplierId: string): ActionResponse<Supplier | null> {
   try {
-    await getBusinessAuthContext(organisationId);
+    await getBusinessAuthContext(organizationId);
     const supplier = await db.supplier.findUnique({
-        where: { id: supplierId, organisationId },
+        where: { id: supplierId, organizationId },
     });
       if (!supplier) {
         return { success: false, error: 'Supplier not found.' };
@@ -185,20 +185,20 @@ export async function getSupplier(organisationId: string, supplierId: string): A
 /**
  * Retrieves detailed stock history for a specific supplier with filtering and pagination
  * 
- * @param organisationId - The ID of the organisation
+ * @param organizationId - The ID of the organisation
  * @param supplierId - The ID of the supplier
  * @param filters - Optional filters and pagination parameters
  * @returns Detailed stock history with aggregated statistics
  */
 export async function getSupplierHistory(
-  organisationId: string,
+  organizationId: string,
   supplierId: string,
   page: number = 1,
   pageSize: number = 20
 ) {
   // Get supplier info
   const supplier = await db.supplier.findUnique({
-    where: { id: supplierId, organisationId },
+    where: { id: supplierId, organizationId },
   });
 
   if (!supplier) {
@@ -208,13 +208,13 @@ export async function getSupplierHistory(
   // Calculate pagination
   const skip = (page - 1) * pageSize;
   const totalItems = await db.stock.count({
-    where: { supplierId, organisationId },
+    where: { supplierId, organizationId },
   });
   const totalPages = Math.ceil(totalItems / pageSize);
 
   // Get stock items with related product info
   const stockItems = await db.stock.findMany({
-    where: { supplierId, organisationId },
+    where: { supplierId, organizationId },
     skip,
     take: pageSize,
     include: {
@@ -431,46 +431,46 @@ export async function getSupplierHistory(
  * Utility function to group stock history by product
  * Can be used for product-centric aggregation reports
  */
-export function groupSupplierHistoryByProduct(
-  historyItems: SupplierStockHistoryItem[]
-): Record<string, {
-  productId: string;
-  productName: string;
-  productSku: string | null;
-  totalQuantityPurchased: number;
-  totalValuePurchased: number;
-  averagePricePerUnit: number;
-  quantityRemaining: number;
-  batches: SupplierStockHistoryItem[];
-}> {
-  const groupedByProduct: Record<string, any> = {};
+//  function groupSupplierHistoryByProduct(
+//   historyItems: SupplierStockHistoryItem[]
+// ): Record<string, {
+//   productId: string;
+//   productName: string;
+//   productSku: string | null;
+//   totalQuantityPurchased: number;
+//   totalValuePurchased: number;
+//   averagePricePerUnit: number;
+//   quantityRemaining: number;
+//   batches: SupplierStockHistoryItem[];
+// }> {
+//   const groupedByProduct: Record<string, any> = {};
   
-  historyItems.forEach(item => {
-    if (!groupedByProduct[item.productId]) {
-      groupedByProduct[item.productId] = {
-        productId: item.productId,
-        productName: item.productName,
-        productSku: item.productSku,
-        totalQuantityPurchased: 0,
-        totalValuePurchased: 0,
-        quantityRemaining: 0,
-        batches: []
-      };
-    }
+//   historyItems.forEach(item => {
+//     if (!groupedByProduct[item.productId]) {
+//       groupedByProduct[item.productId] = {
+//         productId: item.productId,
+//         productName: item.productName,
+//         productSku: item.productSku,
+//         totalQuantityPurchased: 0,
+//         totalValuePurchased: 0,
+//         quantityRemaining: 0,
+//         batches: []
+//       };
+//     }
     
-    const group = groupedByProduct[item.productId];
-    group.totalQuantityPurchased += item.quantityPurchased;
-    group.totalValuePurchased += item.quantityPurchased * item.buyingPricePerUnit;
-    group.quantityRemaining += item.quantityRemaining;
-    group.batches.push(item);
-  });
+//     const group = groupedByProduct[item.productId];
+//     group.totalQuantityPurchased += item.quantityPurchased;
+//     group.totalValuePurchased += item.quantityPurchased * item.buyingPricePerUnit;
+//     group.quantityRemaining += item.quantityRemaining;
+//     group.batches.push(item);
+//   });
   
-  // Calculate average price for each product
-  Object.values(groupedByProduct).forEach((group) => {
-    group.averagePricePerUnit = group.totalQuantityPurchased > 0 
-      ? group.totalValuePurchased / group.totalQuantityPurchased 
-      : 0;
-  });
+//   // Calculate average price for each product
+//   Object.values(groupedByProduct).forEach((group) => {
+//     group.averagePricePerUnit = group.totalQuantityPurchased > 0 
+//       ? group.totalValuePurchased / group.totalQuantityPurchased 
+//       : 0;
+//   });
   
-  return groupedByProduct;
-}
+//   return groupedByProduct;
+// }

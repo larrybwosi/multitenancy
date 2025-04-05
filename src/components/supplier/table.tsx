@@ -1,22 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
+import { motion } from "framer-motion"; // For animations
 import {
   ArrowDown,
   ArrowUp,
   ChevronDown,
   ChevronUp,
-  SearchIcon,
+  Search as SearchIcon,
+  Sliders,
+  Building,
+  MoreHorizontal,
 } from "lucide-react";
+
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -25,282 +22,492 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"; // Added AvatarImage
 import { Button } from "@/components/ui/button";
-import CreateSupplier from "./create-supplier";
-import SupplierSheet from "./supplier-sheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"; // For tooltips
+
+// Assuming these components exist and work with server actions / state updates
+import CreateSupplier from "./create-supplier"; // Needs to call createSupplierAction
+import SupplierSheet from "./supplier-sheet"; // Needs props for update/delete actions
+
+// Use the enhanced type
+import type { SupplierWithStats } from "@/lib/types";
+import { Decimal } from "@prisma/client/runtime/library"; // Import Decimal
 import { Supplier } from "@prisma/client";
 
-type SortField = "name" | "totalSpent" | "lastOrderDate" | "createdAt";
+// Define sortable fields using the SupplierWithStats type
+type SortField = keyof Pick<
+  SupplierWithStats,
+  "name" | "totalSpent" | "lastOrderDate" | "createdAt"
+>;
 type SortDirection = "asc" | "desc";
+
+// Helper to format currency (using Decimal)
+const formatCurrency = (value: Decimal | number | null | undefined): string => {
+  const num = value instanceof Decimal ? value.toNumber() : value || 0;
+  return num.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD", // Adjust currency as needed
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
+// Helper to format dates
+const formatDate = (date: Date | string | null | undefined): string => {
+  if (!date) return "N/A";
+  try {
+    return new Date(date).toLocaleDateString("en-US", {
+      // Adjust locale as needed
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  } catch (e) {
+    console.log(e)
+    return "Invalid Date";
+  }
+};
+
+// Utility for generating initials
+const getInitials = (name: string = ""): string => {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .filter((_, i, arr) => i === 0 || i === arr.length - 1) // First and Last initial
+    .join("")
+    .toUpperCase();
+};
+
+interface SupplierTableProps {
+  initialSuppliers: SupplierWithStats[];
+  // Add props for handling updates/deletes if SupplierSheet doesn't manage its own actions
+  // onDeleteSupplier: (id: string) => Promise<void>;
+  // onUpdateSupplier: (id: string, data: UpdateSupplierInput) => Promise<void>;
+}
 
 export default function SupplierTable({
   initialSuppliers,
-}: {
-  initialSuppliers: Supplier[];
-}) {
+}: SupplierTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [suppliers, setSuppliers] = useState<any[]>(initialSuppliers);
+  // Use SupplierWithStats for the state
+  const [suppliers, setSuppliers] =
+    useState<SupplierWithStats[]>(initialSuppliers);
   const [sortConfig, setSortConfig] = useState<{
     field: SortField;
     direction: SortDirection;
   }>({ field: "name", direction: "asc" });
-  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(
-    null
+
+  // Memoize sorting and filtering for performance
+  const filteredAndSortedSuppliers = useMemo(() => {
+    let filtered = suppliers.filter(
+      (supplier) =>
+        supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        supplier.contactPerson
+          ?.toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+        supplier.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        supplier.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        supplier.address?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    filtered.sort((a, b) => {
+      const field = sortConfig.field;
+      const directionMultiplier = sortConfig.direction === "asc" ? 1 : -1;
+
+      let comparison = 0;
+
+      switch (field) {
+        case "name":
+          comparison = a.name.localeCompare(b.name);
+          break;
+        case "totalSpent":
+          // Compare Decimal values
+          comparison = a.totalSpent.comparedTo(b.totalSpent);
+          break;
+        case "lastOrderDate":
+          const dateA = a.lastOrderDate
+            ? new Date(a.lastOrderDate).getTime()
+            : 0;
+          const dateB = b.lastOrderDate
+            ? new Date(b.lastOrderDate).getTime()
+            : 0;
+          comparison = dateA - dateB;
+          break;
+        case "createdAt":
+          const createdA = new Date(a.createdAt).getTime();
+          const createdB = new Date(b.createdAt).getTime();
+          comparison = createdA - createdB;
+          break;
+        default:
+          // Optional: handle unexpected sort field
+          console.warn(`Unsupported sort field: ${field}`);
+          return 0;
+      }
+
+      return comparison * directionMultiplier;
+    });
+
+    return filtered;
+  }, [suppliers, searchTerm, sortConfig]);
+
+  // Handle sort request
+  const requestSort = useCallback((field: SortField) => {
+    setSortConfig((currentSortConfig) => ({
+      field,
+      direction:
+        currentSortConfig.field === field &&
+        currentSortConfig.direction === "asc"
+          ? "desc"
+          : "asc",
+    }));
+  }, []);
+
+  // Handle new supplier creation (called from CreateSupplier component's success handler)
+  // This optimistically updates the UI. For stats, a refetch might be needed.
+  const handleSupplierCreated = useCallback((newSupplier: Supplier) => {
+    // Add the new supplier with default/zero stats initially
+    const supplierWithDefaults: SupplierWithStats = {
+      ...newSupplier,
+      totalSpent: new Decimal(0),
+      lastOrderDate: null,
+    };
+    setSuppliers((currentSuppliers) => [
+      ...currentSuppliers,
+      supplierWithDefaults,
+    ]);
+    // Optionally: Trigger a refetch of the full list here to get accurate stats
+    // Example: router.refresh(); // If using Next.js App Router
+  }, []);
+
+  // --- Render Functions ---
+
+  // Render Sortable Table Header Cell
+  const renderSortableHeader = (
+    field: SortField,
+    label: string,
+    className?: string
+  ) => (
+    <TableHead
+      className={`py-3 px-4 md:px-6 font-semibold text-gray-600 whitespace-nowrap ${className}`}
+    >
+      <button
+        onClick={() => requestSort(field)}
+        className="flex items-center gap-1 group focus:outline-none focus:ring-2 focus:ring-blue-300 rounded"
+        aria-label={`Sort by ${label} ${sortConfig.field === field ? (sortConfig.direction === "asc" ? "(ascending)" : "(descending)") : ""}`}
+      >
+        {label}
+        {sortConfig.field === field ? (
+          sortConfig.direction === "asc" ? (
+            <ArrowUp className="h-3.5 w-3.5 text-blue-600" />
+          ) : (
+            <ArrowDown className="h-3.5 w-3.5 text-blue-600" />
+          )
+        ) : (
+          <ChevronUp className="h-3.5 w-3.5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+        )}
+      </button>
+    </TableHead>
   );
-
-  // Sort suppliers
-  const sortedSuppliers = [...suppliers].sort((a, b) => {
-    if (sortConfig.field === "name") {
-      return sortConfig.direction === "asc"
-        ? a.name.localeCompare(b.name)
-        : b.name.localeCompare(a.name);
-    } else if (sortConfig.field === "totalSpent") {
-      return sortConfig.direction === "asc"
-        ? (a.totalSpent || 0) - (b.totalSpent || 0)
-        : (b.totalSpent || 0) - (a.totalSpent || 0);
-    } else if (sortConfig.field === "lastOrderDate") {
-      const dateA = a.lastOrderDate ? new Date(a.lastOrderDate).getTime() : 0;
-      const dateB = b.lastOrderDate ? new Date(b.lastOrderDate).getTime() : 0;
-      return sortConfig.direction === "asc" ? dateA - dateB : dateB - dateA;
-    } else {
-      // createdAt
-      const dateA = new Date(a.createdAt).getTime();
-      const dateB = new Date(b.createdAt).getTime();
-      return sortConfig.direction === "asc" ? dateA - dateB : dateB - dateA;
-    }
-  });
-
-  // Filter suppliers based on search term
-  const filteredSuppliers = sortedSuppliers.filter(
-    (supplier) =>
-      supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      supplier.contactPerson
-        ?.toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      supplier.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      supplier.phone?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  // Handle sort
-  const requestSort = (field: SortField) => {
-    let direction: SortDirection = "asc";
-    if (sortConfig.field === field && sortConfig.direction === "asc") {
-      direction = "desc";
-    }
-    setSortConfig({ field, direction });
-  };
-
-  const handleSupplierCreated = (newSupplier: Supplier) => {
-    setSuppliers([...suppliers, newSupplier]);
-  };
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-2">
-        <div className="relative w-full max-w-md">
-          <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <Input
-            placeholder="Search suppliers..."
-            className="pl-9 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+    <TooltipProvider delayDuration={200}>
+      {" "}
+      {/* Wrap root for Tooltips */}
+      <div className="flex flex-col bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+        {/* Filter and Action Bar */}
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between p-4 md:p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="relative w-full md:max-w-xs lg:max-w-sm">
+            <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+            <Input
+              placeholder="Search suppliers..."
+              className="pl-9 border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 focus:border-blue-500 focus:ring-blue-500 rounded-md shadow-sm"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              aria-label="Search suppliers"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end">
+            {/* Filter/Sort Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 gap-1.5 border-gray-300 dark:border-gray-600 dark:text-gray-300"
+                >
+                  <Sliders className="h-4 w-4" />
+                  <span className="hidden sm:inline">Sort</span>
+                  <ChevronDown className="h-4 w-4 opacity-70" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-48 dark:bg-gray-800 dark:border-gray-700"
+              >
+                <DropdownMenuLabel className="dark:text-gray-400">
+                  Sort by
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator className="dark:bg-gray-700" />
+                <DropdownMenuItem
+                  onSelect={() => requestSort("name")}
+                  className="cursor-pointer dark:focus:bg-gray-700 dark:text-gray-300"
+                >
+                  Name{" "}
+                  {sortConfig.field === "name" &&
+                    (sortConfig.direction === "asc" ? (
+                      <ChevronUp className="ml-auto h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="ml-auto h-4 w-4" />
+                    ))}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => requestSort("totalSpent")}
+                  className="cursor-pointer dark:focus:bg-gray-700 dark:text-gray-300"
+                >
+                  Value Held{" "}
+                  {sortConfig.field === "totalSpent" &&
+                    (sortConfig.direction === "asc" ? (
+                      <ChevronUp className="ml-auto h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="ml-auto h-4 w-4" />
+                    ))}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => requestSort("lastOrderDate")}
+                  className="cursor-pointer dark:focus:bg-gray-700 dark:text-gray-300"
+                >
+                  Last Stock Date{" "}
+                  {sortConfig.field === "lastOrderDate" &&
+                    (sortConfig.direction === "asc" ? (
+                      <ChevronUp className="ml-auto h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="ml-auto h-4 w-4" />
+                    ))}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => requestSort("createdAt")}
+                  className="cursor-pointer dark:focus:bg-gray-700 dark:text-gray-300"
+                >
+                  Date Added{" "}
+                  {sortConfig.field === "createdAt" &&
+                    (sortConfig.direction === "asc" ? (
+                      <ChevronUp className="ml-auto h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="ml-auto h-4 w-4" />
+                    ))}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Add New Supplier Button */}
+            <CreateSupplier onSupplierCreated={handleSupplierCreated} />
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Badge
-            variant="outline"
-            className="px-3 py-1.5 text-sm bg-blue-50 text-blue-700 border-blue-200"
-          >
-            {filteredSuppliers.length}{" "}
-            {filteredSuppliers.length === 1 ? "Supplier" : "Suppliers"}
-          </Badge>
-          <CreateSupplier onSupplierCreated={handleSupplierCreated} />
-        </div>
-      </div>
-
-      <Card className="border-gray-200 shadow-sm">
-        <CardHeader className="px-7 py-5 bg-gray-50 border-b border-gray-200 rounded-t-lg">
-          <CardTitle className="text-xl font-semibold text-gray-800">
-            Current Suppliers
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader className="bg-gray-50">
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="py-3 px-6 font-medium text-gray-700">
-                  <button
-                    onClick={() => requestSort("name")}
-                    className="flex items-center gap-1 focus:outline-none"
-                  >
-                    Supplier
-                    {sortConfig.field === "name" &&
-                      (sortConfig.direction === "asc" ? (
-                        <ArrowUp className="h-4 w-4 text-blue-500" />
-                      ) : (
-                        <ArrowDown className="h-4 w-4 text-blue-500" />
-                      ))}
-                  </button>
-                </TableHead>
-                <TableHead className="py-3 px-6 font-medium text-gray-700">
-                  Contact
-                </TableHead>
-                <TableHead className="py-3 px-6 font-medium text-gray-700">
-                  Email
-                </TableHead>
-                <TableHead className="py-3 px-6 font-medium text-gray-700">
-                  <button
-                    onClick={() => requestSort("totalSpent")}
-                    className="flex items-center gap-1 focus:outline-none"
-                  >
-                    Total Spent
-                    {sortConfig.field === "totalSpent" &&
-                      (sortConfig.direction === "asc" ? (
-                        <ChevronUp className="h-4 w-4 text-blue-500" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4 text-blue-500" />
-                      ))}
-                  </button>
-                </TableHead>
-                <TableHead className="py-3 px-6 font-medium text-gray-700">
-                  <button
-                    onClick={() => requestSort("lastOrderDate")}
-                    className="flex items-center gap-1 focus:outline-none"
-                  >
-                    Last Order
-                    {sortConfig.field === "lastOrderDate" &&
-                      (sortConfig.direction === "asc" ? (
-                        <ChevronUp className="h-4 w-4 text-blue-500" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4 text-blue-500" />
-                      ))}
-                  </button>
-                </TableHead>
-                <TableHead className="py-3 px-6 font-medium text-gray-700 text-right">
-                  Actions
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredSuppliers.length > 0 ? (
-                filteredSuppliers.map((supplier) => (
-                  <TableRow
+        {/* Table Area */}
+        <div className="flex-grow overflow-x-auto">
+          {filteredAndSortedSuppliers.length === 0 ? (
+            <div className="py-16 px-6 bg-gray-50 dark:bg-gray-800/50 flex flex-col items-center justify-center text-center rounded-b-lg">
+              <div className="bg-white dark:bg-gray-700 p-3 rounded-full mb-4 shadow-sm border border-gray-100 dark:border-gray-600">
+                <Building className="h-8 w-8 text-gray-400 dark:text-gray-500" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-1">
+                {searchTerm ? "No suppliers match" : "No suppliers found"}
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm mb-5">
+                {searchTerm
+                  ? `We couldn't find any suppliers matching "${searchTerm}". Try adjusting your search.`
+                  : "Get started by adding your first supplier. They'll appear here once added."}
+              </p>
+              {searchTerm && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-gray-300 dark:border-gray-600 dark:text-gray-300"
+                  onClick={() => setSearchTerm("")}
+                >
+                  Clear Search
+                </Button>
+              )}
+              {!searchTerm && (
+                <CreateSupplier
+                  onSupplierCreated={handleSupplierCreated}
+                />
+              )}
+            </div>
+          ) : (
+            <Table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <TableHeader className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
+                {" "}
+                {/* Sticky header */}
+                <TableRow className="hover:bg-transparent dark:hover:bg-transparent">
+                  {renderSortableHeader("name", "Supplier", "w-2/5 lg:w-1/3")}
+                  <TableHead className="py-3 px-4 md:px-6 font-semibold text-gray-600 dark:text-gray-300 hidden lg:table-cell">
+                    Contact
+                  </TableHead>
+                  {renderSortableHeader(
+                    "totalSpent",
+                    "Value Held",
+                    "hidden md:table-cell text-right"
+                  )}
+                  {renderSortableHeader(
+                    "lastOrderDate",
+                    "Last Stock Date",
+                    "hidden sm:table-cell"
+                  )}
+                  <TableHead className="py-3 px-4 md:px-6 font-semibold text-gray-600 dark:text-gray-300 text-right">
+                    Actions
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-gray-100 dark:divide-gray-750">
+                {filteredAndSortedSuppliers.map((supplier) => (
+                  <motion.tr
                     key={supplier.id}
-                    className="hover:bg-blue-50/50 border-b border-gray-100"
+                    className="hover:bg-blue-50/40 dark:hover:bg-gray-800/60 transition-colors duration-150"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2 }}
                   >
-                    <TableCell className="py-4 px-6 font-medium">
+                    {/* Supplier Name & Avatar */}
+                    <TableCell className="py-3 px-4 md:px-6 font-medium align-top w-2/5 lg:w-1/3">
                       <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9 bg-blue-100 text-blue-600">
-                          <AvatarFallback>
-                            {supplier.name
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")}
+                        <Avatar className="h-9 w-9 flex-shrink-0 border border-gray-200 dark:border-gray-600">
+                          {/* <AvatarImage src={supplier.logoUrl} alt={supplier.name} /> */}
+                          <AvatarFallback className="text-xs font-semibold bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 text-gray-600 dark:text-gray-300">
+                            {getInitials(supplier.name)}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col">
-                          <span className="font-medium text-gray-900">
+                          <span className="font-medium text-gray-900 dark:text-gray-100 text-sm line-clamp-1">
                             {supplier.name}
                           </span>
                           {supplier.address && (
-                            <span className="text-xs text-gray-500">
-                              {supplier.address}
-                            </span>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1 cursor-default">
+                                  {supplier.address}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent className="dark:bg-gray-900 dark:border-gray-700 dark:text-gray-300">
+                                <p>{supplier.address}</p>
+                              </TooltipContent>
+                            </Tooltip>
                           )}
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="py-4 px-6">
-                      {supplier.contactPerson || (
-                        <span className="text-gray-400">Not specified</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="py-4 px-6">
-                      {supplier.email || (
-                        <span className="text-gray-400">Not specified</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="py-4 px-6 font-medium">
-                      $
-                      {(supplier.totalSpent || 0).toLocaleString("en-US", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </TableCell>
-                    <TableCell className="py-4 px-6">
-                      {supplier.lastOrderDate ? (
-                        new Date(supplier.lastOrderDate).toLocaleDateString()
+
+                    {/* Contact Info (Hidden on smaller screens) */}
+                    <TableCell className="py-3 px-4 md:px-6 align-top text-sm text-gray-600 dark:text-gray-400 hidden lg:table-cell">
+                      {supplier.contactPerson ? (
+                        <div className="flex flex-col">
+                          <span className="text-gray-800 dark:text-gray-200">
+                            {supplier.contactPerson}
+                          </span>
+                          {supplier.phone && (
+                            <span className="text-xs mt-0.5">
+                              {supplier.phone}
+                            </span>
+                          )}
+                          {supplier.email && (
+                            <a
+                              href={`mailto:${supplier.email}`}
+                              className="text-xs mt-0.5 text-blue-600 hover:underline"
+                            >
+                              {supplier.email}
+                            </a>
+                          )}
+                        </div>
                       ) : (
-                        <span className="text-gray-400">No orders</span>
+                        <span className="text-gray-400 dark:text-gray-500 italic">
+                          N/A
+                        </span>
                       )}
                     </TableCell>
-                    <TableCell className="py-4 px-6 text-right">
-                      <SupplierSheet
-                        supplier={supplier}
-                        onOpenChange={(open) => {
-                          if (open) {
-                            setSelectedSupplier(supplier);
-                          }
-                        }}
-                      />
+
+                    {/* Total Spent */}
+                    <TableCell className="py-3 px-4 md:px-6 align-top font-medium text-right hidden md:table-cell">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span
+                            className={`text-sm ${supplier.totalSpent.isZero() ? "text-gray-400 dark:text-gray-500" : "text-gray-800 dark:text-gray-200"}`}
+                          >
+                            {formatCurrency(supplier.totalSpent)}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="dark:bg-gray-900 dark:border-gray-700 dark:text-gray-300">
+                          <p>
+                            Approx. current value of stock held from this
+                            supplier.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
                     </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center py-8">
-                    {searchTerm ? (
-                      <div className="flex flex-col items-center justify-center space-y-2">
-                        <SearchIcon className="h-8 w-8 text-gray-400" />
-                        <p className="text-gray-500">
-                          No matching suppliers found
-                        </p>
-                        <Button
-                          variant="ghost"
-                          className="text-blue-600 hover:text-blue-700"
-                          onClick={() => setSearchTerm("")}
-                        >
-                          Clear search
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center space-y-2">
-                        <CreateSupplier
-                          onSupplierCreated={handleSupplierCreated}
-                          triggerText="Add your first supplier"
-                        />
-                      </div>
-                    )}
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-        {filteredSuppliers.length > 0 && (
-          <CardFooter className="px-7 py-4 bg-gray-50 border-t border-gray-200 rounded-b-lg">
-            <div className="flex items-center justify-between w-full">
-              <p className="text-sm text-gray-500">
-                Showing <span className="font-medium">1</span> to{" "}
-                <span className="font-medium">{filteredSuppliers.length}</span>{" "}
-                of{" "}
-                <span className="font-medium">{filteredSuppliers.length}</span>{" "}
-                suppliers
-              </p>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" disabled>
-                  Previous
-                </Button>
-                <Button variant="outline" size="sm" disabled>
-                  Next
-                </Button>
-              </div>
+
+                    {/* Last Order Date */}
+                    <TableCell className="py-3 px-4 md:px-6 align-top text-sm text-gray-600 dark:text-gray-400 hidden sm:table-cell">
+                      {formatDate(supplier.lastOrderDate)}
+                    </TableCell>
+
+                    {/* Actions */}
+                    <TableCell className="py-3 px-4 md:px-6 text-right align-top">
+                      <SupplierSheet supplier={supplier} />
+                      {/* Example: Add Edit/Delete directly or via Dropdown */}
+                      <DropdownMenu>
+                             <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500"> <MoreHorizontal className="h-4 w-4"/> </Button>
+                             </DropdownMenuTrigger>
+                             <DropdownMenuContent align="end">
+                                <DropdownMenuItem onSelect={() => {/* handle edit*/ }}>Edit</DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => {/* handle delete */}} className="text-red-600">Delete</DropdownMenuItem>
+                             </DropdownMenuContent>
+                         </DropdownMenu>
+                    </TableCell>
+                  </motion.tr>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+
+        {/* Footer / Pagination Area */}
+        {filteredAndSortedSuppliers.length > 0 && (
+          <div className="flex items-center justify-between px-4 md:px-6 py-3 text-xs md:text-sm text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700">
+            <div>
+              Showing{" "}
+              <span className="font-semibold text-gray-700 dark:text-gray-300">
+                {filteredAndSortedSuppliers.length}
+              </span>{" "}
+              of{" "}
+              <span className="font-semibold text-gray-700 dark:text-gray-300">
+                {suppliers.length}
+              </span>{" "}
+              suppliers
             </div>
-          </CardFooter>
+            {/* Basic Pagination Placeholder - Implement with server-side fetching for large datasets */}
+            <div className="flex items-center gap-1">
+                    <Button variant="outline" size="sm" disabled>Previous</Button>
+                    <Button variant="outline" size="sm" >Next</Button>
+                </div>
+          </div>
         )}
-      </Card>
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }

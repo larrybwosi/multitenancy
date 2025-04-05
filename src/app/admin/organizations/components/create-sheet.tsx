@@ -1,4 +1,3 @@
-// components/organizations/CreateOrganizationSheet.tsx
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -28,12 +27,13 @@ import {
   OrganizationCreationData,
 } from "@/lib/validations/organization";
 import { toast } from "sonner";
-import { organization } from '@/lib/auth/authClient'
+import { createOrganization } from "@/actions/organization";
+import { Organization } from "better-auth/plugins";
 
 interface CreateOrganizationSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreateSuccess?: (newOrg: any) => void; 
+  onCreateSuccess?: (organization: Organization) => void; 
 }
 
 // Get Enum keys for iteration
@@ -76,12 +76,11 @@ export function CreateOrganizationSheet({
       // }
 
       // const newOrg = await response.json();
-      const newOrg = await organization.create({
+      const newOrg = await createOrganization({
         name: data.name,
-        logo: data.logo,
-        slug: data.name.toLowerCase().replace(/\s+/g, "-"),
-
-      })
+        logo: null,
+        description: '',
+      });
 
       console.log("New Organization:", newOrg);
 

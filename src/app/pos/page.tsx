@@ -1,10 +1,10 @@
 import { Suspense } from "react";
 import { mockProducts, mockCategories, mockCustomers } from "./lib/mock-data";
 import POSPageContent from "./components/client-page";
-import { getProducts } from "@/actions/products";
+import { listProducts } from "@/actions/products";
 
 export default async function POSPage() {
-  const products = await getProducts()
+  const products = await listProducts({});
   console.log(products)
   return (
     <Suspense

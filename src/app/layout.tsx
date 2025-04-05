@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { Toaster } from "@/components/ui/sonner";
+import { CheckCircle, InfoIcon, LoaderPinwheel } from "lucide-react";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,7 +31,18 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <NuqsAdapter>{children}</NuqsAdapter>
-        <Toaster position="bottom-right" toastOptions={{ duration: 3000, }}  />
+        <Toaster
+          position="bottom-right"
+          toastOptions={{ duration: 3000 }}
+          icons={{
+            success: <CheckCircle className="text-green-500"/>,
+            info: <InfoIcon className="text-blue-500" />,
+            warning: <InfoIcon className="text-orange-500" />,
+            error: <InfoIcon className="text-red-500" />,
+            loading: <LoaderPinwheel className="animate-spin" />,
+          }}
+          richColors
+        />
       </body>
     </html>
   );

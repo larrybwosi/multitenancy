@@ -2,31 +2,52 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
   SheetContent,
-  SheetHeader,
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Supplier } from "@prisma/client";
-import { getSupplierStockHistory } from "@/actions/supplier";
-import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { MoreVertical } from "lucide-react";
+import { 
+  DollarSign, 
+  Mail, 
+  MapPin, 
+  MoreVertical, 
+  Phone, 
+  User, 
+  PackageOpen,
+  Calendar,
+  Building,
+  ArrowUpDown
+} from "lucide-react";
+import { getSupplierHistory } from "@/actions/supplier";
+import { Skeleton } from "@/components/ui/skeleton";
+import useSWR from "swr";
 
-type Transaction = {
-  id: string;
-  date: string;
-  productName: string;
-  quantity: number;
-  unitPrice: number;
-  total: number;
-  status: "completed" | "pending" | "cancelled";
+// SWR fetcher function
+const fetcher = async (args: string[]) => {
+  const [_, orgId, supplierId] = args;
+  const result = await getSupplierHistory(orgId, supplierId);
+  
+  if (!result) {
+    throw new Error("Failed to fetch transactions.");
+  }
+  
+  return result.items.map((item) => ({
+    id: item.stockId,
+    date: item.transactionDate?.toISOString() || new Date().toISOString(),
+    productName: item.productName,
+    quantity: item.quantityPurchased,
+    unitPrice: item.buyingPricePerUnit,
+    total: item.totalBuyingPrice,
+    status: "completed" as const,
+  }));
 };
 
 export default function SupplierSheet({
@@ -36,213 +57,311 @@ export default function SupplierSheet({
   supplier: Supplier;
   onOpenChange?: (open: boolean) => void;
 }) {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(false);
-  useEffect(() => {
-    if (supplier) {
-      setLoading(true);
-      const fetchTransactions = async () => {
-        try {
-          const result = await getSupplierStockHistory("org_123", supplier.id); // Replace with actual org ID from auth/session
-
-          if (!result.success) {
-            throw new Error(result.error);
-          }
-
-          // Transform the data to match the expected format
-          const transformed = result.data.items.map((item) => ({
-            id: item.stockId,
-            date: item.transactionDate?.toISOString() || new Date().toISOString(),
-            productName: item.productName,
-            quantity: item.quantityPurchased,
-            unitPrice: item.buyingPricePerUnit,
-            total: item.totalBuyingPrice,
-            status: "completed" as const,
-          }));
-
-          setTransactions(transformed);
-        } catch (error) {
-          console.error("Error fetching transactions:", error);
-          toast.error("Error loading transactions",{
-            description:
-              error instanceof Error
-                ? error.message
-                : "An unknown error occurred",
-          });
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      fetchTransactions();
+  const ORGANISATION_ID = "r9UlQeTQL9UN0EVV8YOLTY7eRcTYnEu5";
+  
+  // Using SWR instead of useEffect
+  const { data: transactions, error, isLoading } = useSWR(
+    supplier ? ['supplier-history', ORGANISATION_ID, supplier.id] : null,
+    fetcher,
+    {
+      onError: (err) => {
+        toast.error("Error loading transactions", {
+          description: err instanceof Error ? err.message : "An unknown error occurred",
+        });
+      },
+      revalidateOnFocus: false,
     }
-  }, [supplier]);
+  );
+
+  // Get supplier initials for avatar
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase();
+  };
+
+  // Format currency
+  const formatCurrency = (amount: number) => {
+    return amount.toLocaleString("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
+
+  // Format date
+  const formatDate = (dateString: string, format: "short" | "long" = "long") => {
+    const date = new Date(dateString);
+    if (format === "short") {
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+    }
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
 
   return (
     <Sheet onOpenChange={onOpenChange}>
       <SheetTrigger asChild>
         <Button
           variant="ghost"
-          className="h-8 w-8 p-0 text-gray-500 hover:text-blue-600"
+          size="icon"
+          className="h-8 w-8 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors"
         >
           <span className="sr-only">Open details</span>
           <MoreVertical className="h-4 w-4" />
         </Button>
       </SheetTrigger>
-      <SheetContent className="w-full sm:w-[600px]">
-        <ScrollArea className="h-full pr-4">
-          <div className="space-y-6">
-            <SheetHeader>
-              <div className="flex items-center gap-3">
-                <Avatar className="h-12 w-12 bg-blue-100 text-blue-600">
-                  <AvatarFallback>
-                    {supplier.name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <SheetTitle className="text-2xl font-bold text-gray-900">
-                    {supplier.name}
-                  </SheetTitle>
-                  <p className="text-sm text-gray-500">
-                    Supplier since{" "}
-                    {new Date(supplier.createdAt).toLocaleDateString()}
-                  </p>
+      <SheetContent className="w-full sm:max-w-xl p-0 shadow-xl border-l border-indigo-100">
+        <ScrollArea className="h-full pr-0">
+          <div className="flex-1">
+            {/* Supplier Header - Hero Section */}
+            <div className="relative overflow-hidden">
+              <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 h-36"></div>
+              <div className="px-6 pb-5 pt-4 relative">
+                <div className="flex items-start gap-5 -mt-14">
+                  <Avatar className="h-24 w-24 border-4 border-white shadow-lg bg-white">
+                    <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-2xl font-bold">
+                      {getInitials(supplier.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="space-y-1 pt-3">
+                    <SheetTitle className="text-2xl font-bold tracking-tight text-gray-800">
+                      {supplier.name}
+                    </SheetTitle>
+                    <div className="flex items-center text-sm text-gray-500">
+                      <Building className="mr-1.5 h-3.5 w-3.5 text-indigo-500" />
+                      Supplier since {formatDate(supplier.createdAt.toString())}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </SheetHeader>
+            </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Card className="bg-blue-50 border-blue-100">
-                <CardHeader className="pb-2">
-                  <p className="text-sm font-medium text-blue-600">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 gap-4 px-6 mb-8">
+              <Card className="border-0 shadow-md bg-gradient-to-br from-indigo-50 to-purple-50 overflow-hidden relative">
+                <div className="absolute top-0 right-0 w-16 h-16 -mt-5 -mr-5 rounded-full bg-indigo-200 opacity-30"></div>
+                <CardHeader className="pb-2 pt-4">
+                  <p className="text-sm font-medium text-indigo-700 flex items-center">
+                    <DollarSign className="h-4 w-4 mr-1.5 text-indigo-600" />
                     Total Spent
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-2xl font-bold text-blue-800">
-                    $
-                    {(supplier.totalSpent || 0).toLocaleString("en-US", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
+                  <p className="text-2xl font-bold text-gray-800">
+                    {formatCurrency(supplier?.totalSpent || 0)}
                   </p>
                 </CardContent>
               </Card>
 
-              <Card className="bg-green-50 border-green-100">
-                <CardHeader className="pb-2">
-                  <p className="text-sm font-medium text-green-600">
+              <Card className="border-0 shadow-md bg-gradient-to-br from-pink-50 to-rose-50 overflow-hidden relative">
+                <div className="absolute top-0 right-0 w-16 h-16 -mt-5 -mr-5 rounded-full bg-pink-200 opacity-30"></div>
+                <CardHeader className="pb-2 pt-4">
+                  <p className="text-sm font-medium text-pink-700 flex items-center">
+                    <Calendar className="h-4 w-4 mr-1.5 text-pink-600" />
                     Last Order
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-2xl font-bold text-green-800">
+                  <p className="text-2xl font-bold text-gray-800">
                     {supplier.lastOrderDate
-                      ? new Date(supplier.lastOrderDate).toLocaleDateString()
+                      ? formatDate(supplier.lastOrderDate.toString(), "short")
                       : "No orders"}
                   </p>
                 </CardContent>
               </Card>
             </div>
 
-            <div className="space-y-2">
-              <h3 className="font-medium text-gray-900">Contact Information</h3>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <div>
-                  <p className="text-sm text-gray-500">Contact Person</p>
-                  <p className="font-medium">
-                    {supplier.contactPerson || (
-                      <span className="text-gray-400">Not specified</span>
-                    )}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Email</p>
-                  <p className="font-medium">
-                    {supplier.email || (
-                      <span className="text-gray-400">Not specified</span>
-                    )}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Phone</p>
-                  <p className="font-medium">
-                    {supplier.phone || (
-                      <span className="text-gray-400">Not specified</span>
-                    )}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Address</p>
-                  <p className="font-medium">
-                    {supplier.address || (
-                      <span className="text-gray-400">Not specified</span>
-                    )}
-                  </p>
-                </div>
-              </div>
+            {/* Contact Information */}
+            <div className="space-y-4 px-6 mb-8">
+              <h3 className="text-lg font-semibold flex items-center text-gray-800">
+                <User className="h-5 w-5 mr-2 text-indigo-500" />
+                Contact Information
+              </h3>
+              <Card className="border border-indigo-50 shadow-sm overflow-hidden">
+                <CardContent className="p-5">
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-indigo-600 flex items-center">
+                        <User className="h-3.5 w-3.5 mr-1.5" />
+                        Contact Person
+                      </p>
+                      <p className="font-medium text-gray-800">
+                        {supplier.contactPerson ? (
+                          supplier.contactPerson
+                        ) : (
+                          <span className="text-gray-400 text-sm italic">
+                            Not specified
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-indigo-600 flex items-center">
+                        <Mail className="h-3.5 w-3.5 mr-1.5" />
+                        Email
+                      </p>
+                      <p className="font-medium">
+                        {supplier.email ? (
+                          <a
+                            href={`mailto:${supplier.email}`}
+                            className="text-indigo-600 hover:underline hover:text-indigo-700 transition-colors"
+                          >
+                            {supplier.email}
+                          </a>
+                        ) : (
+                          <span className="text-gray-400 text-sm italic">
+                            Not specified
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-indigo-600 flex items-center">
+                        <Phone className="h-3.5 w-3.5 mr-1.5" />
+                        Phone
+                      </p>
+                      <p className="font-medium">
+                        {supplier.phone ? (
+                          <a
+                            href={`tel:${supplier.phone}`}
+                            className="text-gray-800 hover:text-indigo-700 hover:underline transition-colors"
+                          >
+                            {supplier.phone}
+                          </a>
+                        ) : (
+                          <span className="text-gray-400 text-sm italic">
+                            Not specified
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-indigo-600 flex items-center">
+                        <MapPin className="h-3.5 w-3.5 mr-1.5" />
+                        Address
+                      </p>
+                      <p className="font-medium text-gray-800">
+                        {supplier.address ? (
+                          supplier.address
+                        ) : (
+                          <span className="text-gray-400 text-sm italic">
+                            Not specified
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
-            <Separator className="bg-gray-200" />
+            <Separator className="my-6 bg-indigo-100" />
 
-            <div className="space-y-3">
-              <h3 className="font-medium text-gray-900">Recent Transactions</h3>
-              {loading ? (
-                <div className="py-6 text-center">
-                  <p className="text-gray-500">Loading transactions...</p>
-                </div>
-              ) : transactions.length > 0 ? (
-                <div className="space-y-2">
-                  {transactions.map((transaction) => (
-                    <Card
-                      key={transaction.id}
-                      className="border-gray-200 shadow-sm"
-                    >
-                      <CardContent className="p-4">
+            {/* Recent Transactions */}
+            <div className="space-y-4 px-6 pb-10">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold flex items-center text-gray-800">
+                  <PackageOpen className="h-5 w-5 mr-2 text-indigo-500" />
+                  Transaction History
+                </h3>
+                {transactions && transactions.length > 0 && (
+                  <Badge
+                    variant="secondary"
+                    className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-3 py-1.5 font-medium"
+                  >
+                    {transactions.length} transactions
+                  </Badge>
+                )}
+              </div>
+
+              {isLoading ? (
+                <div className="space-y-3">
+                  {[...Array(3)].map((_, i) => (
+                    <Card key={i} className="border-0 shadow-sm">
+                      <CardContent className="p-5">
                         <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium">
-                              {transaction.productName}
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              {new Date(transaction.date).toLocaleDateString()}{" "}
-                              •
-                              <span className="ml-1">
-                                {transaction.quantity} × $
-                                {transaction.unitPrice.toFixed(2)}
-                              </span>
-                            </p>
+                          <div className="space-y-2">
+                            <Skeleton className="h-4 w-40" />
+                            <Skeleton className="h-3 w-32" />
                           </div>
-                          <div className="text-right">
-                            <p className="font-bold">
-                              ${transaction.total.toFixed(2)}
-                            </p>
-                            <Badge
-                              variant="outline"
-                              className={
-                                transaction.status === "completed"
-                                  ? "bg-green-50 text-green-700 border-green-200"
-                                  : transaction.status === "pending"
-                                    ? "bg-yellow-50 text-yellow-700 border-yellow-200"
-                                    : "bg-red-50 text-red-700 border-red-200"
-                              }
-                            >
-                              {transaction.status.charAt(0).toUpperCase() +
-                                transaction.status.slice(1)}
-                            </Badge>
-                          </div>
+                          <Skeleton className="h-8 w-20 rounded-md" />
                         </div>
                       </CardContent>
                     </Card>
                   ))}
                 </div>
+              ) : error ? (
+                <Card className="border border-rose-100 bg-rose-50/50">
+                  <CardContent className="p-8 flex flex-col items-center justify-center text-center">
+                    <p className="text-rose-600 font-medium">
+                      Error loading transactions
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : transactions && transactions.length === 0 ? (
+                <Card className="border border-dashed border-indigo-200 bg-indigo-50/30">
+                  <CardContent className="p-10 flex flex-col items-center justify-center text-center">
+                    <PackageOpen className="h-14 w-14 text-indigo-300 mb-4" />
+                    <CardTitle className="text-lg font-medium text-indigo-800 mb-2">
+                      No Transactions Yet
+                    </CardTitle>
+                    <p className="text-sm text-indigo-600/70 max-w-md">
+                      This supplier doesn&apos;t have any purchase history. When
+                      you make transactions with this supplier, they will appear
+                      here.
+                    </p>
+                  </CardContent>
+                </Card>
               ) : (
-                <div className="py-6 text-center">
-                  <p className="text-gray-500">No recent transactions</p>
-                </div>
+                transactions && (
+                  <div className="space-y-3">
+                    {transactions.map((transaction) => (
+                      <Card
+                        key={transaction.id}
+                        className="border border-indigo-50 hover:border-indigo-200 hover:shadow-md transition-all duration-200"
+                      >
+                        <CardContent className="p-5">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="space-y-1.5">
+                              <p className="font-medium text-gray-800 flex items-center">
+                                <PackageOpen className="h-3.5 w-3.5 mr-1.5 text-indigo-500" />
+                                {transaction.productName}
+                              </p>
+                              <div className="flex items-center text-sm text-gray-500 gap-2">
+                                <span className="flex items-center">
+                                  <Calendar className="h-3 w-3 mr-1 text-indigo-400" />
+                                  {formatDate(transaction.date, "short")}
+                                </span>
+                                <span className="text-gray-300">•</span>
+                                <span className="flex items-center">
+                                  <ArrowUpDown className="h-3 w-3 mr-1 text-indigo-400" />
+                                  {transaction.quantity} units at{" "}
+                                  {formatCurrency(transaction.unitPrice)} each
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center">
+                              <Badge className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200 font-medium px-3 py-1.5">
+                                {formatCurrency(transaction.total)}
+                              </Badge>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )
               )}
             </div>
           </div>

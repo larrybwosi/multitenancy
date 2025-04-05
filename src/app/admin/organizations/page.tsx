@@ -1,8 +1,7 @@
 
-// components/organizations/OrganizationDashboard.tsx
 "use client"
 import { useState } from "react";
-import { Organization } from "@prisma/client"; // Adjust import
+import { Organization } from "@prisma/client";
 import { PlusCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -10,8 +9,6 @@ import { Separator } from "@/components/ui/separator";
 import { OrganizationList } from "./components/list";
 import { CreateOrganizationSheet } from "./components/create-sheet";
 import useSWR from "swr";
-import { useSession } from "@/lib/auth/authClient";
-
 
 
 // --- SWR Fetcher Function ---
@@ -34,14 +31,13 @@ const fetcher = async (url: string) => {
 
 export default function OrganizationDashboard() {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const { data: session }= useSession()
-  console.log("Session data:", session)
+
   // --- Use SWR Hook ---
   const {
     data: organizations,
     error,
     isLoading,
-  } = useSWR<Organization[]>("/api/organizations", fetcher, {
+  } = useSWR<Organization[]>("organizations", fetcher, {
     revalidateOnFocus: false, 
     errorRetryCount: 3 // Optional: configure retries
   });

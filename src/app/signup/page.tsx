@@ -39,24 +39,27 @@ export default function SignUpPage() {
         email: formData.email,
         password: formData.password,
         name:formData.name,
-      }).then(async () => {
+      }).then(async (r) => {
+        console.log("Account created:", r)
         const user =await signIn.email({
           email: formData.email,
           password: formData.password,
           rememberMe: true
         })
-        console.log("User:", user)
+         toast.success(`${user.data?.user?.name} has been created`, {
+           description:
+             "Your account has been created successfully. Please log in.",
+         });
+         router.push("/");
       }).catch((error) => {
         console.error("Error creating account:", error)
         toast.error("Error",{
           description: "Failed to create account. Please try again.",
         })
       })
-      toast.success("Account created",{
-        description: "Your account has been created successfully. Please log in.",
-      })
+      
+     
 
-      router.push("/")
     } catch (error) {
       console.error("Error creating account:", error)
       toast.error("Error",{

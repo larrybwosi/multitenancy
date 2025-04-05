@@ -1,4 +1,6 @@
-// Enums
+import type { Organization } from '@prisma/client';
+import { Decimal } from "@prisma/client/runtime/library"; 
+
 export enum MemberRole {
   OWNER = "OWNER",
   ADMIN = "ADMIN",
@@ -461,3 +463,49 @@ export type ProductInventoryReport = {
     balance: number;
   }[];
 };
+
+// Input type for creating an organization
+export type CreateOrganizationInput = Pick<
+  Organization,
+  'name' | 'description' | 'logo' // Add other fields user can provide directly
+>;
+
+// Input type for updating an organization
+export type UpdateOrganizationInput = Partial<
+  Pick<Organization, 'name' | 'description' | 'logo'> // Add other updatable fields
+>;
+
+// Interface for stock entries needed for calculation
+export interface StockEntryForStats extends Pick<Stock, 'buyingPricePerUnit' | 'quantityAvailable' | 'purchaseDate'> {
+    // Ensure correct types are expected
+    buyingPricePerUnit: number;
+    quantityAvailable: number;
+    purchaseDate: Date | null;
+}
+
+
+// Combine Supplier with calculated stats
+export interface SupplierWithStats extends Supplier {
+  totalSpent: Decimal; // Using Decimal for precision
+  lastOrderDate: Date | null;
+  // We add the raw stockEntries data if needed elsewhere, or just use it for calculation
+  // stockEntries?: StockEntryForStats[];
+}
+
+// Input type for creating a supplier (if needed for actions)
+export type CreateSupplierInput = Omit<Supplier, 'id' | 'organizationId' | 'createdAt' | 'updatedAt' | 'stockEntries'>;
+
+// Input type for updating a supplier (if needed for actions)
+export type UpdateSupplierInput = Partial<CreateSupplierInput>;
+
+// Example Session structure (adjust based on your actual auth setup)
+export interface AppSession {
+  user?: {
+    id: string;
+    email?: string | null;
+    name?: string | null;
+    activeOrganizationId?: string | null; // Crucial for context
+    // Add other user properties you need from the session
+  };
+  expires: string; // Or Date
+}

@@ -1,28 +1,23 @@
 import { z } from "zod";
+import { ProductType } from "@prisma/client"; // Import enum from prisma client
 
-// Define the schema for ProductInput
-export const ProductInputSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  sku: z.string().optional(),
-  barcode: z.string().optional(),
-  price: z.number().min(0, "Price must be a positive number"),
-  stock: z.number().min(0, "Stock must be a positive number"),
-  categoryId: z.string().min(1, "Category is required"),
-  image_url: z.string().optional(),
+export const productSchema = z.object({
+  // No ID needed for create, added conditionally for update
+  name: z
+    .string()
+    .min(3, { message: "Product name must be at least 3 characters." }),
+  description: z.string().optional(),
+  sku: z.string().optional(), // Add validation if SKU is mandatory or has format
+  type: z.nativeEnum(ProductType).default(ProductType.PHYSICAL),
+  unit: z
+    .string()
+    .min(1, { message: "Unit is required (e.g., pcs, kg, hour)." }),
+  currentSellingPrice: z.coerce // Coerce input to number before validation
+    .number({ invalid_type_error: "Selling price must be a number." })
+    .positive({ message: "Selling price must be positive." })
+    .multipleOf(0.01, { message: "Price must have at most 2 decimal places." }), // Allow decimals
+  categoryId: z.string().optional(),
+  isActive: z.boolean().default(true),
 });
 
-// Define the schema for updating a product (all fields optional)
-export const UpdateProductInputSchema = ProductInputSchema.partial();
-
-// Define the schema for updating stock
-export const UpdateStockInputSchema = z.object({
-  quantity: z.number().min(1, "Quantity must be at least 1"),
-  type: z.enum(["add", "subtract"]),
-});
-
-// Infer types from the schemas
-type ProductInput = z.infer<typeof ProductInputSchema>;
-type UpdateProductInput = z.infer<typeof UpdateProductInputSchema>;
-type UpdateStockInput = z.infer<typeof UpdateStockInputSchema>;
-
-export type { ProductInput, UpdateProductInput, UpdateStockInput };
+export type ProductFormData = z.infer<typeof productSchema>;

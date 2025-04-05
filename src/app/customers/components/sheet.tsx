@@ -18,14 +18,14 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-} from "@/components/ui/card"; // Import Card
+} from "@/components/ui/card";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/components/ui/accordion"; // Import Accordion
-import { ScrollArea } from "@/components/ui/scroll-area"; // Import ScrollArea for orders
+} from "@/components/ui/accordion";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Gift,
   ShoppingCart,
@@ -33,12 +33,40 @@ import {
   Building,
   CalendarDays,
   ImageOff,
-} from "lucide-react"; // Import icons
+  Phone,
+  MapPin,
+} from "lucide-react";
 import Image from "next/image";
-import { Customer } from "./mock";
+import { Customer } from "@prisma/client";
 
-// Ensure Card, Accordion, ScrollArea, Separator are added via Shadcn CLI
-// npx shadcn-ui@latest add card accordion scroll-area separator
+// Extended customer interfaces to handle our custom properties
+interface ExtendedCustomer extends Customer {
+  avatarUrl?: string;
+  company?: string;
+  status?: string;
+  loyaltyPoints: number;
+}
+
+// Order-related interfaces that might come from API
+interface OrderItem {
+  productId: string;
+  productName: string;
+  quantity: number;
+  price: number;
+  imageUrl?: string;
+}
+
+interface Order {
+  id: string;
+  name: string;
+  orderDate: Date;
+  items: OrderItem[];
+  totalAmount: number;
+}
+
+interface CustomerWithOrders extends ExtendedCustomer {
+  orders?: Order[];
+}
 
 interface CustomerDetailSheetProps {
   customer: Customer | null;
@@ -54,7 +82,7 @@ const formatCurrency = (amount: number): string => {
   }).format(amount);
 };
 
-// Function to get initials for Avatar fallback (can be moved to utils)
+// Function to get initials for Avatar fallback
 const getInitials = (name: string): string => {
   const names = name.split(" ");
   if (names.length === 0) return "?";
@@ -72,8 +100,10 @@ export function CustomerDetailSheet({
 }: CustomerDetailSheetProps) {
   if (!customer) return null;
 
-  const getStatusBadgeClass = (status: Customer["status"]): string => {
-    // (Same as in CustomerTable - ideally move to a shared util)
+  // Cast to our extended customer type
+  const extCustomer = customer as CustomerWithOrders;
+
+  const getStatusBadgeClass = (status: string = "inactive"): string => {
     switch (status) {
       case "active":
         return "bg-green-100 text-green-800 border-green-200";
@@ -86,18 +116,17 @@ export function CustomerDetailSheet({
     }
   };
 
-  // Get the last 5 orders
-  const recentOrders = customer.orders?.slice(0, 5) ?? [];
+  // Get recent orders if they exist
+  const recentOrders = extCustomer.orders?.slice(0, 5) ?? [];
 
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      {/* Increased width, different background */}
       <SheetContent className="w-full sm:max-w-2xl bg-slate-50 p-0 flex flex-col">
         {/* Header Section */}
         <SheetHeader className="p-6 bg-gradient-to-br from-blue-50 to-indigo-100 border-b border-gray-200">
           <div className="flex items-center space-x-4">
             <Avatar className="h-16 w-16 border-2 border-white shadow-sm">
-              <AvatarImage src={customer.avatarUrl} alt={customer.name} />
+              <AvatarImage src={extCustomer.avatarUrl} alt={customer.name} />
               <AvatarFallback className="text-xl bg-blue-200 text-blue-800">
                 {getInitials(customer.name)}
               </AvatarFallback>
@@ -107,7 +136,7 @@ export function CustomerDetailSheet({
                 {customer.name}
               </SheetTitle>
               <SheetDescription className="text-indigo-700">
-                Customer ID: {customer.id}
+                Customer ID: {customer.customerId || customer.id.substring(0, 8)}
               </SheetDescription>
             </div>
           </div>
@@ -124,20 +153,29 @@ export function CustomerDetailSheet({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 text-sm">
-                <InfoItem icon={Mail} label="Email" value={customer.email} />
+                <InfoItem icon={Mail} label="Email" value={customer.email || "Not provided"} />
+                <InfoItem icon={Phone} label="Phone" value={customer.phone || "Not provided"} />
                 <InfoItem
                   icon={Building}
                   label="Company"
-                  value={customer.company}
+                  value={extCustomer.company || "Not provided"}
+                />
+                <InfoItem
+                  icon={MapPin}
+                  label="Address"
+                  value={customer.addressLine1 ? 
+                    `${customer.addressLine1}${customer.addressLine2 ? ', ' + customer.addressLine2 : ''}, ${customer.city || ''} ${customer.postalCode || ''}`.trim() : 
+                    "No address provided"
+                  }
                 />
                 <InfoItem
                   icon={CalendarDays}
                   label="Registered On"
-                  value={customer.registeredDate.toLocaleDateString("en-US", {
+                  value={customer.createdAt ? new Date(customer.createdAt).toLocaleDateString("en-US", {
                     year: "numeric",
                     month: "long",
                     day: "numeric",
-                  })}
+                  }) : "Unknown"}
                 />
                 <div className="flex items-center justify-between pt-2">
                   <div className="flex items-center text-gray-600">
@@ -145,9 +183,9 @@ export function CustomerDetailSheet({
                   </div>
                   <Badge
                     variant="outline"
-                    className={`capitalize text-xs font-medium px-2 py-0.5 rounded-full ${getStatusBadgeClass(customer.status)}`}
+                    className={`capitalize text-xs font-medium px-2 py-0.5 rounded-full ${getStatusBadgeClass(extCustomer.status)}`}
                   >
-                    {customer.status}
+                    {extCustomer.status || "inactive"}
                   </Badge>
                 </div>
               </CardContent>
@@ -163,7 +201,7 @@ export function CustomerDetailSheet({
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-indigo-600">
-                  {customer.loyaltyPoints.toLocaleString()}
+                  {(extCustomer.loyaltyPoints || customer.loyaltyPoints || 0).toLocaleString()}
                 </div>
                 <p className="text-xs text-gray-500 pt-1">
                   Current points balance
@@ -171,17 +209,17 @@ export function CustomerDetailSheet({
               </CardContent>
             </Card>
 
-            {/* Recent Orders Section */}
-            <Card className="bg-white shadow-sm border-gray-100">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold text-gray-800 flex items-center">
-                  <ShoppingCart className="h-5 w-5 mr-2 text-blue-600" /> Recent
-                  Orders ({recentOrders.length})
-                </CardTitle>
-                <CardDescription>Displaying the last 5 orders.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {recentOrders.length > 0 ? (
+            {/* Recent Orders Section - Only shown if there are orders */}
+            {recentOrders.length > 0 && (
+              <Card className="bg-white shadow-sm border-gray-100">
+                <CardHeader>
+                  <CardTitle className="text-lg font-semibold text-gray-800 flex items-center">
+                    <ShoppingCart className="h-5 w-5 mr-2 text-blue-600" /> Recent
+                    Orders ({recentOrders.length})
+                  </CardTitle>
+                  <CardDescription>Displaying the last 5 orders.</CardDescription>
+                </CardHeader>
+                <CardContent>
                   <Accordion type="single" collapsible className="w-full">
                     {recentOrders.map((order, index) => (
                       <AccordionItem
@@ -241,30 +279,34 @@ export function CustomerDetailSheet({
                       </AccordionItem>
                     ))}
                   </Accordion>
-                ) : (
-                  <p className="text-sm text-center text-gray-500 py-4">
-                    No recent orders found for this customer.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </ScrollArea>
 
-        {/* Footer Section */}
-        <SheetFooter className="p-4 bg-white border-t border-gray-200 mt-auto">
-          <SheetClose asChild>
-            <Button variant="outline">Close</Button>
-          </SheetClose>
-          {/* Add other actions like 'Edit Customer' if desired */}
-          {/* <Button className="bg-indigo-600 hover:bg-indigo-700 text-white">Edit Customer</Button> */}
+        {/* Footer - No change */}
+        <SheetFooter className="p-6 border-t border-gray-200 flex justify-between">
+          <Button variant="outline" size="sm" asChild>
+            <SheetClose>Cancel</SheetClose>
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => {
+              // This would normally handle an action like edit
+              console.log("Edit customer:", customer.id);
+              alert("Edit functionality not implemented yet");
+            }}
+          >
+            Edit Customer
+          </Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>
   );
 }
 
-// Helper component for consistent info display with icons
+// Helper component for displaying customer info items
 interface InfoItemProps {
   icon: React.ElementType;
   label: string;
@@ -278,17 +320,13 @@ const InfoItem: React.FC<InfoItemProps> = ({
   value,
   children,
 }) => (
-  <div className="flex items-center justify-between border-b border-gray-100 pb-2 last:border-b-0">
+  <div className="flex items-center justify-between">
     <div className="flex items-center text-gray-600">
-      <Icon className="h-4 w-4 mr-2 text-indigo-500" />
+      <Icon className="h-4 w-4 mr-2" />
       <span className="font-medium">{label}</span>
     </div>
-    {children ? (
-      <div className="text-gray-900 font-medium text-right">{children}</div>
-    ) : (
-      <p className="text-gray-900 font-medium break-words text-right">
-        {value}
-      </p>
-    )}
+    <div className="text-gray-900">
+      {children || value || "Not available"}
+    </div>
   </div>
 );

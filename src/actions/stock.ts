@@ -224,12 +224,11 @@ export async function getInventoryOverview(
     // Get all products with their inventory information
     const products = await prisma.product.findMany({
       where: {
-        orgId: organizationId,
+        organizationId,
         isActive: true,
       },
       include: {
         category: true,
-        locationInventory: locationId ? { where: { locationId } } : true,
       },
     });
 
@@ -242,7 +241,7 @@ export async function getInventoryOverview(
 
     // Group by category for the category breakdown
     const categoryMap = new Map<number, {
-      categoryId: number;
+      categoryId: string;
       categoryName: string;
       itemCount: number;
       totalValue: number;
@@ -253,14 +252,7 @@ export async function getInventoryOverview(
       // Otherwise use the product's global stock value
       let stockQuantity = 0;
       
-      if (locationId) {
-        stockQuantity = product.locationInventory.reduce(
-          (sum, inv) => sum + inv.stock,
-          0
-        );
-      } else {
         stockQuantity = product.stock;
-      }
 
       // Calculate product value
       const productValue = stockQuantity * (product.purchase_price || 0);
@@ -275,15 +267,15 @@ export async function getInventoryOverview(
       potentialProfit += productProfit;
 
       // Check stock status
-      if (stockQuantity === 0) {
-        outOfStockCount++;
-      } else if (product.min_stock_level && stockQuantity < product.min_stock_level) {
-        lowStockCount++;
-      }
+      // if (stockQuantity === 0) {
+      //   outOfStockCount++;
+      // } else if (product.min_stock_level && stockQuantity < product.min_stock_level) {
+      //   lowStockCount++;
+      // }
 
       // Add to category breakdown
-      const categoryId = product.category_id;
-      const categoryName = product.category.name;
+      const categoryId = product.categoryId;
+      const categoryName = product.category?.name;
 
       if (!categoryMap.has(categoryId)) {
         categoryMap.set(categoryId, {
@@ -302,14 +294,13 @@ export async function getInventoryOverview(
     // Get recent transactions
     const recentTransactions = await prisma.stockTransaction.findMany({
       where: {
-        orgId: organizationId,
+        organizationId,
       },
       include: {
         product: true,
-        supplier: true,
       },
       orderBy: {
-        transaction_date: 'desc',
+        createdAt: 'desc',
       },
       take: 10,
     });

@@ -6,8 +6,8 @@ import { db } from "./db";
 import { Redis } from "@upstash/redis";
 
 const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+  url: process.env.NEXT_PUBLIC_UPSTASH_REDIS_REST_URL,
+  token: process.env.NEXT_PUBLIC_UPSTASH_REDIS_REST_TOKEN,
 });
 
 
@@ -42,21 +42,23 @@ export const auth = betterAuth({
       maxAge: 5 * 60, // Cache duration in seconds
     },
   },
-  // databaseHooks: {
-  //   session: {
-  //     create: {
-  //       before: async (session) => {
-  //         const organization = await (session.userId);
-  //         return {
-  //           data: {
-  //             ...session,
-  //             activeOrganizationId: organization.id,
-  //           },
-  //         };
-  //       },
-  //     },
-  //   },
-  // },
+  databaseHooks: {
+    session: {
+      create: {
+        before: async (session) => {
+          const org = await db.user.findUnique({where:{id: session.userId}})
+          console.log(org)
+          const activeOrganizationId = org?.activeOrganizationId;
+          return {
+            data: {
+              ...session,
+              activeOrganizationId,
+            },
+          };
+        },
+      },
+    },
+  },
   plugins: [
     admin({
       adminRoles: ["admin", "superadmin", "owner", "developer"],

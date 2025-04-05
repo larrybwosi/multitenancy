@@ -1,8 +1,6 @@
-// components/organizations/OrganizationList.tsx
-import React from "react";
-import { Organization } from "@prisma/client"; // Adjust import
+import { Organization } from "@prisma/client";
 import { OrganizationCard } from "./card";
-import { Skeleton } from "@/components/ui/skeleton"; // For loading state
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface OrganizationListProps {
   organizations: Organization[];
