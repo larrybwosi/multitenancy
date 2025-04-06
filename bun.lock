@@ -46,6 +46,7 @@
         "react": "^19.0.0",
         "react-big-calendar": "^1.18.0",
         "react-colorful": "^5.6.1",
+        "react-data-grid": "^7.0.0-beta.51",
         "react-day-picker": "8.10.1",
         "react-dom": "^19.0.0",
         "react-hook-form": "^7.55.0",
@@ -2177,6 +2178,8 @@
     "react-colorful": ["react-colorful@5.6.1", "", { "peerDependencies": { "react": ">=16.8.0", "react-dom": ">=16.8.0" } }, "sha512-1exovf0uGTGyq5mXQT0zgQ80uvj2PCwvF8zY1RN9/vbJVSjSo3fsB/4L3ObbF7u70NduSiK4xu4Y6q1MHoUGEw=="],
 
     "react-compiler-runtime": ["react-compiler-runtime@19.0.0-beta-e993439-20250328", "", { "peerDependencies": { "react": "^17.0.0 || ^18.0.0 || ^19.0.0 || ^0.0.0-experimental" } }, "sha512-bdLTxDSnjHb8iwkAal+vNb1NK1l7MlsG02/Kc47AkQL0lmszOHRSV5wkeprCVnT2pYAI8721TOeO6e1/Wfgvuw=="],
+
+    "react-data-grid": ["react-data-grid@7.0.0-beta.51", "", { "dependencies": { "clsx": "^2.0.0" }, "peerDependencies": { "react": "^19.0", "react-dom": "^19.0" } }, "sha512-SRzMbVqC6er9z/XYSgrjnM6s7mythMZXxIsVsTt+4spD2PhChotFnF/9rQKK8xynKSBb4GK1VNDsjkq1Hr0B6g=="],
 
     "react-day-picker": ["react-day-picker@8.10.1", "", { "peerDependencies": { "date-fns": "^2.28.0 || ^3.0.0", "react": "^16.8.0 || ^17.0.0 || ^18.0.0" } }, "sha512-TMx7fNbhLk15eqcMt+7Z7S2KF7mfTId/XJDjKE8f+IUcFn0l08/kI4FiYTL/0yuOLmEcbR4Fwe3GJf/NiiMnPA=="],
 

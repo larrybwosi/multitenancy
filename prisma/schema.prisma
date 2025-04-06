@@ -1,519 +1,465 @@
-datasource db {
-  provider = "postgresql"
-  // Or your preferred database: mysql, sqlite, sqlserver, mongodb
-  url      = env("DATABASE_URL")
-}
+// This is your Prisma schema file
 
-// Define the Prisma Client generator
 generator client {
   provider = "prisma-client-js"
 }
 
-// --- Enums for controlled vocabularies ---
-
-enum MemberRole {
-  OWNER
-  ADMIN
-  STAFF
-  VIEWER // Example roles, adjust as needed
-}
-
-enum ProductType {
-  PHYSICAL // Tangible goods with stock
-  SERVICE // Services offered, no stock tracking needed
-}
-
-enum StockTransactionType {
-  PURCHASE // Initial stock addition or restocking
-  SALE // Stock reduction due to sale
-  ADJUSTMENT // Manual correction (e.g., stock count discrepancy)
-  RETURN // Stock increase due to customer return
-  SPOILAGE // Stock reduction due to damage/expiry
-  TRANSFER_IN // Stock movement between locations (if needed later)
-  TRANSFER_OUT // Stock movement between locations (if needed later)
-  DAMAGED
-}
-
-enum OrderStatus {
-  PENDING // Order created, awaiting payment/processing
-  PROCESSING // Order is being prepared
-  AWAITING_PAYMENT
-  PAID
-  SHIPPED // For delivered orders
-  DELIVERED // For delivered orders
-  COMPLETED // Order fulfilled (either delivered or picked up in-store)
-  CANCELLED // Order cancelled
-  REFUNDED // Order refunded
-}
-
-enum DeliveryType {
-  DELIVERY // Requires shipping address
-  IN_STORE // Customer picks up
-}
-
-enum PaymentMethod {
-  CASH
-  CARD_ONLINE
-  CARD_TERMINAL
-  BANK_TRANSFER
-  MOBILE_MONEY
-  VOUCHER
-  OTHER
-}
-
-enum ReportType {
-  DAILY
-  WEEKLY
-  MONTHLY
-  ANNUAL
-  CUSTOM // For custom date ranges maybe
-}
-
-enum ReportStatus {
-  PENDING
-  GENERATING
-  COMPLETED
-  FAILED
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // --- Core Models ---
 
-// Represents individual users of the system
 model User {
-  id                   String             @id @default(cuid())
-  email                String             @unique
-  name                 String?
-  password             String?
-  emailVerified        Boolean            @default(false)
-  image                String?
-  role                 String?
-  banned               Boolean?            @default(false)
-  banReason            String?
-  banExpires           DateTime?
-  username             String?            @unique
-  displayUsername      String?
-  activeOrganizationId String?
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
-  
-  // Relations
-  stockTransactions    StockTransaction[]
-  uploadedAttachments  Attachment[]
-  accounts             Account[]
-  members              Member[]
-  invitations          Invitation[]
-  customersCreated     Customer[]         @relation("CustomerCreatedBy")
-  customersUpdated     Customer[]         @relation("CustomerUpdatedBy")
-
-  @@map("user")
-}
-
-// Represents a business entity
-model Organization {
   id                String             @id @default(cuid())
-  name              String
-  slug              String             @unique
-  description       String?
-  logo              String?
+  name              String?
+  email             String             @unique
+  password          String // Remember to hash passwords!
+  role              UserRole           @default(EMPLOYEE)
+  isActive          Boolean            @default(true)
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
-  
-  // Relations
-  members           Member[]
-  categories        Category[]
-  products          Product[]
-  stock             Stock[]
-  stockTransactions StockTransaction[]
-  customers         Customer[]
-  orders            Order[]
-  suppliers         Supplier[]
-  reports           Report[]
-  invitations       Invitation[]
-
-  @@map("organization")
-}
-
-model Member {
-  id             String     @id @default(cuid())
-  userId         String
-  organizationId String
-  role           String     @default("staff")
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
 
   // Relations
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdOrders  Order[]
-  reports        Report[]
-
-  @@unique([userId, organizationId])
-  @@index([userId])
-  @@index([organizationId])
-  @@map("member")
+  sales             Sale[]
+  purchases         Purchase[]
+  purchasePayments  PurchasePayment[] // User who recorded the payment
+  stockAdjustments  StockAdjustment[] // User who made the adjustment
+  loyaltyTransactions LoyaltyTransaction[] // User who processed the loyalty transaction
+  cashDrawers       CashDrawer[]
 }
 
-// Categories for grouping products/services
+enum UserRole {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
 model Category {
-  id             String   @id @default(cuid())
-  name           String
-  description    String?
-  organizationId String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id            String     @id @default(cuid())
+  name          String
+  description   String?
+  parentId      String?
+  parent        Category?  @relation("CategoryToSubcategory", fields: [parentId], references: [id], onDelete: Restrict)
+  subcategories Category[] @relation("CategoryToSubcategory")
+  products      Product[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
-  // Relations
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  products       Product[]
-
-  @@unique([organizationId, name])
-  @@index([organizationId])
-  @@map("category")
-}
-
-// Products or Services offered by the Organization
-model Product {
-  id                  String      @id @default(cuid())
-  name                String
-  description         String?
-  sku                 String?     // Stock Keeping Unit - can be null for services or if not used
-  type                ProductType @default(PHYSICAL) // Differentiates between goods and services
-  unit                String      // e.g., 'pcs', 'kg', 'litre', 'hour', 'session'
-  currentSellingPrice Decimal     @db.Decimal(12, 2) // Current price per unit
-  categoryId          String?     // Optional category link
-  organizationId      String
-  isActive            Boolean     @default(true) // To enable/disable products without deleting
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime    @updatedAt
-
-  // Relations
-  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  category          Category?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  stockEntries      Stock[]
-  orderItems        OrderItem[]
-  stockTransactions StockTransaction[]
-
-  @@unique([organizationId, sku])
-  @@index([organizationId])
-  @@index([categoryId])
   @@index([name])
-  @@map("product")
 }
 
-// Represents batches of products bought in bulk
-model Stock {
-  id                 String    @id @default(cuid())
-  productId          String
-  organizationId     String
-  quantityAvailable  Decimal   @db.Decimal(12, 4) // Current available quantity in this batch/lot
-  unit               String    // Should match Product.unit for consistency check
-  buyingPricePerUnit Decimal   @db.Decimal(12, 4) // Price paid per unit for this specific batch
-  batchNumber        String?   // Optional identifier for the specific purchase batch/lot
-  purchaseDate       DateTime? // Date this batch was purchased/received
-  expiryDate         DateTime? // Optional expiry date for perishable goods
-  notes              String?
-  supplierId         String?   // ID of the supplier for this batch
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+model Product {
+  id              String           @id @default(cuid())
+  name            String
+  description     String?
+  sku             String           @unique // Stock Keeping Unit
+  barcode         String?          @unique
+  categoryId      String
+  category        Category         @relation(fields: [categoryId], references: [id])
+  basePrice       Decimal          @db.Decimal(10, 2)
+  reorderPoint    Int              @default(5)
+  isActive        Boolean          @default(true)
+  imageUrls       String[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   // Relations
-  product           Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
-  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  supplier          Supplier?          @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  stockTransactions StockTransaction[]
+  variants        ProductVariant[]
+  suppliers       ProductSupplier[]
+  saleItems       SaleItem[]
+  purchaseItems   PurchaseItem[]
+  stockBatches    StockBatch[]
+  stockAdjustments StockAdjustment[] // Adjustments made to this product (base)
 
-  @@index([productId])
-  @@index([organizationId])
-  @@index([supplierId])
-  @@index([expiryDate])
-  @@map("stock")
+  @@index([name])
+  @@index([sku])
 }
 
-// Records changes in stock levels
-model StockTransaction {
-  id              String               @id @default(cuid())
-  productId       String               // Link to the general product
-  stockId         String?              // Optional: Link to a specific Stock batch if tracking per batch
-  organizationId  String
-  type            StockTransactionType // Type of transaction
-  quantityChange  Decimal              @db.Decimal(12, 4) // Positive for increase, Negative for decrease
-  reason          String?              // Explanation for adjustments, returns, spoilage etc.
-  relatedOrderId  String?              // Link to the Order if transaction type is SALE or RETURN
-  createdById     String?              // Optional: Link to the User who performed the action
-  transactionDate DateTime             @default(now()) // When the transaction occurred
-  createdAt       DateTime             @default(now()) // When the record was created
-  attachmentUrl   String?
+model ProductVariant {
+  id            String    @id @default(cuid())
+  productId     String
+  product       Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name          String    // e.g., "Red, Large"
+  sku           String    @unique // Variant specific SKU
+  barcode       String?   @unique
+  priceModifier Decimal   @default(0) @db.Decimal(10, 2)
+  attributes    Json      // { "color": "Red", "size": "Large" }
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   // Relations
-  product      Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
-  stock        Stock?       @relation(fields: [stockId], references: [id], onDelete: SetNull)
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  relatedOrder Order?       @relation(fields: [relatedOrderId], references: [id], onDelete: SetNull)
-  createdBy    User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  saleItems      SaleItem[]
+  purchaseItems  PurchaseItem[]
+  stockBatches   StockBatch[]
+  stockAdjustments StockAdjustment[] // <<< ADDED: Opposite relation for StockAdjustment
 
-  @@index([productId])
-  @@index([organizationId])
-  @@index([stockId])
-  @@index([type])
-  @@index([relatedOrderId])
-  @@index([transactionDate])
-  @@map("stock_transaction")
+  @@unique([productId, sku])
+  @@index([sku])
 }
 
 model Supplier {
-  id             String   @id @default(cuid())
-  name           String
-  contactPerson  String?
-  email          String?
-  phone          String?
-  address        String?
-  organizationId String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id            String     @id @default(cuid())
+  name          String     @unique
+  contactName   String?
+  email         String?
+  phone         String?
+  address       String?
+  paymentTerms  String?
+  leadTime      Int?
+  isActive      Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
   // Relations
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  stockEntries Stock[]
+  products      ProductSupplier[]
+  purchases     Purchase[]
 
-  @@unique([organizationId, name])
-  @@index([organizationId])
-  @@map("supplier")
+  @@index([name])
 }
 
-// Represents customers of the Organization
+model ProductSupplier {
+  id          String   @id @default(cuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  supplierId  String
+  supplier    Supplier @relation(fields: [supplierId], references: [id])
+  supplierSku String?
+  costPrice   Decimal  @db.Decimal(10, 2)
+  isPreferred Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([productId, supplierId])
+  @@index([supplierId])
+}
+
 model Customer {
-  id                 String   @id @default(cuid())
-  customerId         String   // Business-defined unique customer ID
-  name               String
-  phone              String?
-  email              String?
-  addressLine1       String?
-  addressLine2       String?
-  city               String?
-  postalCode         String?
-  country            String?
-  loyaltyPoints Int      @default(0)
-  organizationId     String
-  createdById        String
-  updatedById        String
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                String             @id @default(cuid())
+  name              String
+  email             String?            @unique
+  phone             String?
+  address           String?
+  notes             String?
+  loyaltyPoints     Int                @default(0)
+  isActive          Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
   // Relations
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdBy    User        @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy    User        @relation("CustomerUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  orders       Order[]
+  sales             Sale[]
+  loyaltyTransactions LoyaltyTransaction[]
 
-  @@unique([organizationId, customerId])
-  @@unique([organizationId, email])
-  @@unique([organizationId, phone])
-  @@index([organizationId])
   @@index([name])
   @@index([email])
-  @@index([phone])
-  @@map("customer")
 }
 
-// Represents sales orders
-model Order {
-  id                  String      @id @default(cuid())
-  orderNumber         String      // Human-readable unique order identifier
-  customerId          String
-  organizationId      String
-  createdById         String      // ID of the Member who created the order
-  status              OrderStatus @default(PENDING)
-  totalAmount         Decimal     @db.Decimal(12, 2) // Calculated sum of order items
-  discountAmount      Decimal?    @db.Decimal(12, 2) // Any discount applied to the order total
-  finalAmount         Decimal     @db.Decimal(12, 2) // totalAmount - discountAmount + deliveryCost
-  loyaltyPointsEarned Int         @default(0)        // Points earned from this specific order
-  notes               String?                        // Internal notes about the order
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime    @updatedAt
+// --- Transactional Models ---
+
+model Sale {
+  id               String              @id @default(cuid())
+  saleNumber       String              @unique
+  customerId       String?
+  customer         Customer?           @relation(fields: [customerId], references: [id])
+  userId           String
+  user             User                @relation(fields: [userId], references: [id])
+  saleDate         DateTime            @default(now())
+  totalAmount      Decimal             @db.Decimal(10, 2)
+  discountAmount   Decimal             @db.Decimal(10, 2) @default(0)
+  taxAmount        Decimal             @db.Decimal(10, 2) @default(0)
+  finalAmount      Decimal             @db.Decimal(10, 2)
+  paymentMethod    PaymentMethod
+  paymentStatus    PaymentStatus       @default(PENDING)
+  notes            String?
+  cashDrawerId     String?
+  cashDrawer       CashDrawer?         @relation(fields: [cashDrawerId], references: [id])
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
 
   // Relations
-  customer          Customer           @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdBy         Member             @relation(fields: [createdById], references: [id], onDelete: Restrict)
-  items             OrderItem[]
-  delivery          Delivery?
-  attachments       Attachment[]
-  stockTransactions StockTransaction[]
-  mpesaPayments     MpesaTransaction[]
+  items            SaleItem[]
+  attachments      Attachment[]
+  loyaltyTransaction LoyaltyTransaction? // Link if points were earned/spent ON THIS SALE (1-to-1 with LoyaltyTransaction via relatedSaleId)
 
-  @@unique([organizationId, orderNumber])
+  @@index([saleDate])
+  @@index([userId])
   @@index([customerId])
-  @@index([organizationId])
-  @@index([createdById])
-  @@index([status])
-  @@index([createdAt])
-  @@map("order")
 }
 
-// Represents individual items within an Order
-model OrderItem {
-  id                   String   @id @default(cuid())
-  orderId              String
-  productId            String
-  quantity             Decimal  @db.Decimal(10, 4) // Quantity ordered (allows fractional)
-  unitPriceAtSale      Decimal  @db.Decimal(12, 2) // Price per unit at the time of sale
-  totalPrice           Decimal  @db.Decimal(12, 2) // quantity * unitPriceAtSale
-  loyaltyPointsAwarded Int      @default(0)        // Points awarded for this specific item
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+model SaleItem {
+  id             String          @id @default(cuid())
+  saleId         String
+  sale           Sale            @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId      String
+  product        Product         @relation(fields: [productId], references: [id])
+  variantId      String?
+  variant        ProductVariant? @relation(fields: [variantId], references: [id])
+  stockBatchId   String
+  stockBatch     StockBatch      @relation(fields: [stockBatchId], references: [id])
+  quantity       Int
+  unitPrice      Decimal         @db.Decimal(10, 2)
+  unitCost       Decimal         @db.Decimal(10, 2)
+  discountAmount Decimal         @db.Decimal(10, 2) @default(0)
+  taxRate        Decimal         @db.Decimal(5, 4) @default(0)
+  taxAmount      Decimal         @db.Decimal(10, 2)
+  totalAmount    Decimal         @db.Decimal(10, 2)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 
-  // Relations
-  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
-
-  @@index([orderId])
+  @@index([saleId])
   @@index([productId])
-  @@map("order_item")
+  @@index([variantId])
+  @@index([stockBatchId])
 }
 
-// Optional details for order delivery/fulfillment
-model Delivery {
-  id                    String         @id @default(cuid())
-  orderId               String         @unique // Each order can have at most one delivery record
-  type                  DeliveryType   @default(IN_STORE)
-  addressLine1          String?
-  addressLine2          String?
-  city                  String?
-  postalCode            String?
-  country               String?
-  status                String?        // More specific delivery status
-  trackingNumber        String?        // Carrier tracking number
-  estimatedDeliveryDate DateTime?
-  actualDeliveryDate    DateTime?
-  deliveryCost          Decimal?       @db.Decimal(10, 2)
-  notes                 String?        // Delivery instructions or notes
-  paymentMethod         PaymentMethod?
-  paymentReference      String?        // e.g., Transaction ID, Check number
-  paymentDate           DateTime?
-  createdAt             DateTime       @default(now())
-  updatedAt             DateTime       @updatedAt
+model Purchase {
+  id              String            @id @default(cuid())
+  purchaseNumber  String            @unique
+  supplierId      String
+  supplier        Supplier          @relation(fields: [supplierId], references: [id])
+  userId          String
+  user            User              @relation(fields: [userId], references: [id])
+  orderDate       DateTime          @default(now())
+  expectedDate    DateTime?
+  receivedDate    DateTime?
+  totalAmount     Decimal           @db.Decimal(10, 2) // Should be calculated from items
+  paidAmount      Decimal           @default(0) @db.Decimal(10, 2)
+  status          PurchaseStatus    @default(ORDERED)
+  notes           String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 
-  // Relation
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  // Relations
+  items           PurchaseItem[]
+  payments        PurchasePayment[]
+  attachments     Attachment[]
 
-  @@index([orderId])
+  @@index([orderDate])
+  @@index([supplierId])
   @@index([status])
-  @@index([trackingNumber])
-  @@map("delivery")
 }
 
-// Optional attachments related to orders
+model PurchaseItem {
+  id                String          @id @default(cuid())
+  purchaseId        String
+  purchase          Purchase        @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  productId         String
+  product           Product         @relation(fields: [productId], references: [id])
+  variantId         String?
+  variant           ProductVariant? @relation(fields: [variantId], references: [id])
+  orderedQuantity   Int
+  receivedQuantity  Int             @default(0)
+  unitCost          Decimal         @db.Decimal(10, 2)
+  totalCost         Decimal         @db.Decimal(10, 2) // unitCost * orderedQuantity
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  // Relations
+  stockBatches      StockBatch[]    // Batches created from receiving this item
+
+  @@index([purchaseId])
+  @@index([productId])
+  @@index([variantId])
+}
+
+model PurchasePayment {
+  id            String        @id @default(cuid())
+  purchaseId    String
+  purchase      Purchase      @relation(fields: [purchaseId], references: [id])
+  userId        String
+  user          User          @relation(fields: [userId], references: [id])
+  paymentDate   DateTime      @default(now())
+  amount        Decimal       @db.Decimal(10, 2)
+  paymentMethod PaymentMethod
+  reference     String?
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([purchaseId])
+  @@index([paymentDate])
+}
+
+// --- Inventory & Stock Models ---
+
+model StockBatch {
+  id              String            @id @default(cuid())
+  productId       String
+  product         Product           @relation(fields: [productId], references: [id])
+  variantId       String?
+  variant         ProductVariant?   @relation(fields: [variantId], references: [id])
+  batchNumber     String?
+  purchaseItemId  String?
+  purchaseItem    PurchaseItem?     @relation(fields: [purchaseItemId], references: [id])
+  initialQuantity Int
+  currentQuantity Int
+  purchasePrice   Decimal           @db.Decimal(10, 2)
+  expiryDate      DateTime?
+  receivedDate    DateTime          @default(now())
+  location        String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  // Relations
+  saleItems       SaleItem[]        // Track which sales depleted this batch
+  adjustments     StockAdjustment[] // Adjustments specifically affecting this batch
+
+  @@index([productId, variantId])
+  @@index([expiryDate])
+  @@index([receivedDate])
+  @@index([currentQuantity])
+}
+
+model StockAdjustment {
+  id             String               @id @default(cuid())
+  productId      String               // Link to the main product for reporting
+  product        Product              @relation(fields: [productId], references: [id])
+  variantId      String?              // Link to variant if adjustment is variant-specific
+  variant        ProductVariant?      @relation(fields: [variantId], references: [id]) // Relation to Variant
+  stockBatchId   String?              // Optional: Which batch is being adjusted?
+  stockBatch     StockBatch?          @relation(fields: [stockBatchId], references: [id]) // Relation to Batch
+  userId         String
+  user           User                 @relation(fields: [userId], references: [id])
+  quantity       Int                  // Positive for increase, negative for decrease
+  reason         StockAdjustmentReason
+  notes          String?
+  adjustmentDate DateTime             @default(now())
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@index([productId, variantId])
+  @@index([stockBatchId])
+  @@index([adjustmentDate])
+}
+
+enum StockAdjustmentReason {
+  INITIAL_STOCK
+  RECEIVED_PURCHASE // Usually handled via PurchaseItem -> StockBatch creation
+  DAMAGED
+  EXPIRED
+  LOST
+  STOLEN
+  FOUND
+  RETURN_TO_SUPPLIER
+  CUSTOMER_RETURN   // May create a 'return' batch or adjust existing
+  INVENTORY_COUNT
+  OTHER
+}
+
+// --- Customer Loyalty ---
+
+model LoyaltyTransaction {
+  id              String        @id @default(cuid())
+  customerId      String
+  customer        Customer      @relation(fields: [customerId], references: [id])
+  userId          String
+  user            User          @relation(fields: [userId], references: [id])
+  pointsChange    Int
+  reason          LoyaltyReason
+  relatedSaleId   String?       @unique // <<< ADDED @unique: Ensures one Sale maps to one primary LoyaltyTransaction
+  relatedSale     Sale?         @relation(fields: [relatedSaleId], references: [id], onDelete: SetNull)
+  notes           String?
+  transactionDate DateTime      @default(now())
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([customerId])
+  @@index([transactionDate])
+}
+
+enum LoyaltyReason {
+  SALE_EARNED
+  REDEMPTION
+  MANUAL_ADJUSTMENT
+  PROMOTION
+  SIGN_UP_BONUS
+  RETURN_ADJUSTMENT
+  OTHER
+}
+
+// --- Utility & Other Models ---
+
 model Attachment {
-  id           String   @id @default(cuid())
-  orderId      String?  // Link to Order
-  fileName     String   // Original file name
-  storagePath  String   // Path/key in your storage service
-  url          String?  // Publicly accessible URL if applicable
-  mimeType     String   // e.g., 'application/pdf', 'image/jpeg'
-  sizeBytes    Int?     // File size
-  uploadedById String   // User who uploaded the file
-  description  String?  // Optional description of the attachment
-  createdAt    DateTime @default(now())
+  id          String    @id @default(cuid())
+  fileName    String
+  fileUrl     String
+  fileType    String?
+  fileSize    Int?
+  description String?
+  uploadedAt  DateTime  @default(now())
 
-  // Relations
-  order      Order? @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  uploadedBy User   @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  saleId      String?
+  sale        Sale?     @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  purchaseId  String?
+  purchase    Purchase? @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
 
-  @@index([orderId])
-  @@index([uploadedById])
-  @@map("attachment")
+  @@index([saleId])
+  @@index([purchaseId])
 }
 
-model Report {
+model CashDrawer {
   id             String       @id @default(cuid())
-  organizationId String
-  type           ReportType
-  status         ReportStatus @default(PENDING)
-  startDate      DateTime     // Start date of the report period
-  endDate        DateTime     // End date of the report period
-  generatedAt    DateTime?    // When the report finished generating
-  reportUrl      String?      // URL to the generated PDF in the bucket
-  errorMessage   String?      // If status is FAILED
-  requestedById  String       // Member who requested the report
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  openingAmount  Decimal      @db.Decimal(10, 2)
+  closingAmount  Decimal?     @db.Decimal(10, 2)
+  expectedAmount Decimal?     @db.Decimal(10, 2)
+  discrepancy    Decimal?     @db.Decimal(10, 2)
+  notes          String?
+  openedAt       DateTime     @default(now())
+  closedAt       DateTime?
+  status         DrawerStatus @default(OPEN)
   createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
-  // Relations
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  requestedBy  Member       @relation(fields: [requestedById], references: [id], onDelete: Restrict)
+  sales          Sale[]
 
-  @@index([organizationId])
-  @@index([type])
-  @@index([status])
-  @@index([startDate, endDate])
-  @@map("report")
+  @@index([openedAt])
+  @@index([closedAt])
+  @@index([userId])
 }
 
-model Account {
-  id                    String    @id @default(cuid())
-  accountId             String
-  providerId            String
-  userId                String
-  accessToken           String?
-  refreshToken          String?
-  idToken               String?
-  accessTokenExpiresAt  DateTime?
-  refreshTokenExpiresAt DateTime?
-  scope                 String?
-  password              String?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-
-  // Relation
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("account")
+enum DrawerStatus {
+  OPEN
+  CLOSED
+  BALANCED
+  DISCREPANCY
 }
 
-model Verification {
-  id         String    @id @default(cuid())
-  identifier String
-  value      String
-  expiresAt  DateTime
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+// --- Shared Enums ---
 
-  @@map("verification")
+enum PaymentMethod {
+  CASH
+  CREDIT_CARD
+  DEBIT_CARD
+  MOBILE_PAYMENT
+  BANK_TRANSFER
+  CHEQUE
+  STORE_CREDIT
+  GIFT_CARD
+  LOYALTY_POINTS
+  OTHER
 }
 
-model Invitation {
-  id             String       @id @default(cuid())
-  organizationId String
-  email          String
-  role           String?
-  status         String
-  expiresAt      DateTime
-  inviterId      String
-  
-  // Relations
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
-
-  @@map("invitation")
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  REFUNDED
+  PARTIALLY_REFUNDED
+  FAILED
+  CANCELLED
 }
 
-model MpesaTransaction {
-  id                   Int      @id @default(autoincrement())
-  order_id             String?
-  phone_number         String
-  amount               Float
-  transaction_type     String   // stk_push, paybill, buy_goods
-  mpesa_receipt_number String?
-  checkout_request_id  String?
-  merchant_request_id  String?
-  result_code          Int?
-  result_desc          String?
-  status               String   @default("pending") // pending, completed, failed
-  created_at           DateTime @default(now())
-  updated_at           DateTime @updatedAt
-
-  // Relation
-  order                Order?   @relation(fields: [order_id], references: [id])
-
-  @@index([order_id])
-  @@map("mpesa_transactions")
+enum PurchaseStatus {
+  DRAFT
+  ORDERED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  BILLED
+  PARTIALLY_PAID
+  PAID
+  COMPLETED // Received and Paid
+  CANCELLED
 }

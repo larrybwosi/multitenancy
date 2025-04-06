@@ -6,7 +6,6 @@ import {
   StockTransaction,
   StockTransactionType,
 } from "@prisma/client";
-import { Decimal } from "@prisma/client/runtime/library"; // Import Decimal type
 import { db as prisma } from "@/lib/db";
 
 
@@ -21,40 +20,40 @@ interface ActionResponse<T> {
 
 interface StockOverviewData {
   organizationId: string;
-  totalStockQuantity: Decimal;
-  totalStockValue: Decimal;
+  totalStockQuantity: Prisma.Decimal;
+  totalStockValue: Prisma.Decimal;
   numberOfProducts: number;
   numberOfProductsWithStock: number; // Number of distinct products that currently have stock > 0
-  potentialProfitOnCurrentStock: Decimal;
+  potentialProfitOnCurrentStock: Prisma.Decimal;
   mostSoldProduct?: {
     productId: string;
     name: string | null;
-    totalSold: Decimal;
+    totalSold: Prisma.Decimal;
   };
   highestRevenueProduct?: {
     productId: string;
     name: string | null;
-    totalRevenue: Decimal;
+    totalRevenue: Prisma.Decimal;
   };
   productWithHighestPotentialProfit?: {
     productId: string;
     name: string | null;
-    potentialProfit: Decimal;
+    potentialProfit: Prisma.Decimal;
   };
   lowStockProducts: {
     productId: string;
     name: string | null;
-    quantity: Decimal;
+    quantity: Prisma.Decimal;
   }[];
   expiringSoonStock: {
     stockId: string;
     productId: string;
     productName: string | null;
     batchNumber: string | null;
-    quantity: Decimal;
+    quantity: Prisma.Decimal;
     expiryDate: Date;
   }[];
-  totalSpoiledValueEstimate: Decimal; // Estimate based on available stock costs
+  totalSpoiledValueEstimate: Prisma.Decimal; // Estimate based on available stock costs
 }
 
 // --- Authorization Placeholder ---
@@ -118,10 +117,10 @@ export async function getStockOverview(
     });
 
     const totalStockQuantity =
-      stockAggregations._sum.quantityAvailable ?? new Decimal(0);
+      stockAggregations._sum.quantityAvailable ?? new Prisma.Decimal(0);
     const totalStockValue = allStockEntries.reduce((sum, stock) => {
       return sum.add(stock.quantityAvailable.mul(stock.buyingPricePerUnit));
-    }, new Decimal(0));
+    }, new Prisma.Decimal(0));
 
     const potentialProfitOnCurrentStock = allStockEntries.reduce(
       (sum, stock) => {
@@ -134,7 +133,7 @@ export async function getStockOverview(
         }
         return sum;
       },
-      new Decimal(0)
+      new Prisma.Decimal(0)
     );
 
     const productCount = await prisma.product.count({
@@ -232,15 +231,15 @@ export async function getStockOverview(
           const potentialProfit = stock.quantityAvailable.mul(profitPerUnit);
           const current = acc.get(stock.productId) ?? {
             name: stock.product.name,
-            profit: new Decimal(0),
+            profit: new Prisma.Decimal(0),
           };
           current.profit = current.profit.add(potentialProfit);
           acc.set(stock.productId, current);
         }
         return acc;
-      }, new Map<string, { name: string | null; profit: Decimal }>());
+      }, new Map<string, { name: string | null; profit: Prisma.Decimal }>());
 
-      let maxProfit = new Decimal(-Infinity);
+      let maxProfit = new Prisma.Decimal(-Infinity);
       let maxProductId = "";
       let maxProductName: string | null = null;
 
@@ -274,7 +273,7 @@ export async function getStockOverview(
 
     const lowStockProductIds = productStockLevels
       .filter((p) =>
-        (p._sum.quantityAvailable ?? new Decimal(0)).lte(lowStockThreshold)
+        (p._sum.quantityAvailable ?? new Prisma.Decimal(0)).lte(lowStockThreshold)
       )
       .map((p) => p.productId);
 
@@ -293,7 +292,7 @@ export async function getStockOverview(
       return {
         productId: p.id,
         name: p.name,
-        quantity: stockLevel?._sum.quantityAvailable ?? new Decimal(0),
+        quantity: stockLevel?._sum.quantityAvailable ?? new Prisma.Decimal(0),
       };
     });
 
@@ -356,7 +355,7 @@ export async function getStockOverview(
         `Could not calculate spoiled value for StockTransaction ${tx.id} due to missing linked Stock data.`
       );
       return sum;
-    }, new Decimal(0));
+    }, new Prisma.Decimal(0));
 
     // --- Assemble Overview Data ---
     const overviewData: StockOverviewData = {
@@ -387,8 +386,8 @@ export async function getStockOverview(
 interface AddStockBatchInput {
   organizationId: string;
   productId: string;
-  quantity: string | number | Decimal; // Allow string/number for flexibility, convert to Decimal
-  buyingPricePerUnit: string | number | Decimal;
+  quantity: string | number | Prisma.Decimal; // Allow string/number for flexibility, convert to Prisma.Decimal
+  buyingPricePerUnit: string | number | Prisma.Decimal;
   unit: string; // Should ideally validate against Product.unit
   supplierId?: string;
   batchNumber?: string;
@@ -411,8 +410,8 @@ export async function addStockBatch(
   // }
 
   try {
-    const quantityDecimal = new Decimal(input.quantity);
-    const buyingPriceDecimal = new Decimal(input.buyingPricePerUnit);
+    const quantityDecimal = new Prisma.Decimal(input.quantity);
+    const buyingPriceDecimal = new Prisma.Decimal(input.buyingPricePerUnit);
 
     if (quantityDecimal.lte(0)) {
       return { success: false, error: "Quantity must be positive." };
@@ -503,7 +502,7 @@ interface UpdateStockBatchInput {
   organizationId: string;
   userId: string; // User performing action
   // Fields allowed to update directly (Quantity is updated via transactions)
-  buyingPricePerUnit?: string | number | Decimal;
+  buyingPricePerUnit?: string | number | Prisma.Decimal;
   batchNumber?: string | null;
   purchaseDate?: Date | string | null;
   expiryDate?: Date | string | null;
@@ -538,11 +537,11 @@ export async function updateStockBatchDetails(
     // Prepare update data, converting types as needed
     const updateData: Prisma.StockUpdateInput = {};
     if (input.buyingPricePerUnit !== undefined) {
-      const priceDecimal = new Decimal(input.buyingPricePerUnit);
-      if (priceDecimal.lt(0)) {
+      const price = new Prisma.Decimal(input.buyingPricePerUnit);
+      if (price.lt(0)) {
         return { success: false, error: "Buying price cannot be negative." };
       }
-      updateData.buyingPricePerUnit = priceDecimal;
+      updateData.buyingPricePerUnit = price;
     }
     if (input.batchNumber !== undefined)
       updateData.batchNumber = input.batchNumber;
@@ -685,7 +684,7 @@ interface RecordAdjustmentInput {
   organizationId: string;
   userId: string;
   stockId: string; // Mandatory: Must adjust a specific batch
-  quantityChange: string | number | Decimal; // Positive for increase, Negative for decrease
+  quantityChange: string | number | Prisma.Decimal; // Positive for increase, Negative for decrease
   reason: string;
   transactionDate?: Date | string;
 }
@@ -703,9 +702,9 @@ export async function recordStockAdjustment(
   // }
 
   try {
-    const quantityChangeDecimal = new Decimal(input.quantityChange);
+    const quantityChange = new Prisma.Decimal(input.quantityChange);
 
-    if (quantityChangeDecimal.isZero()) {
+    if (quantityChange.isZero()) {
       return {
         success: false,
         error: "Quantity change cannot be zero for an adjustment.",
@@ -726,7 +725,7 @@ export async function recordStockAdjustment(
       }
 
       // 2. Calculate the new quantity
-      const newQuantity = stock.quantityAvailable.add(quantityChangeDecimal);
+      const newQuantity = stock.quantityAvailable.add(quantityChange);
 
       // 3. Check for negative stock (optional, based on business rules)
       if (newQuantity.isNegative()) {
@@ -748,7 +747,7 @@ export async function recordStockAdjustment(
           productId: stock.productId, // Get productId from the fetched stock
           stockId: input.stockId,
           type: StockTransactionType.ADJUSTMENT,
-          quantityChange: quantityChangeDecimal,
+          quantityChange: quantityChange,
           reason: input.reason,
           createdById: input.userId,
           transactionDate: input.transactionDate
@@ -774,7 +773,7 @@ interface RecordSpoilageInput {
   organizationId: string;
   userId: string;
   stockId: string; // Mandatory: Must spoil a specific batch to know cost/details
-  quantitySpoiled: string | number | Decimal; // Positive number representing amount spoiled
+  quantitySpoiled: string | number | Prisma.Decimal; // Positive number representing amount spoiled
   reason: string;
   transactionDate?: Date | string;
 }
@@ -791,7 +790,7 @@ export async function recordSpoilage(
   //   return { success: false, error: "Unauthorized" };
   // }
   try {
-    const quantitySpoiledDecimal = new Decimal(input.quantitySpoiled);
+    const quantitySpoiledDecimal = new Prisma.Decimal(input.quantitySpoiled);
     if (quantitySpoiledDecimal.lte(0)) {
       return {
         success: false,
@@ -800,14 +799,14 @@ export async function recordSpoilage(
     }
 
     // Quantity change for the transaction is negative
-    const quantityChangeDecimal = quantitySpoiledDecimal.negated();
+    const quantityChange = quantitySpoiledDecimal.negated();
 
     // Delegate to the adjustment function with the correct type
     const adjustmentResult = await recordStockAdjustment({
       organizationId: input.organizationId,
       userId: input.userId,
       stockId: input.stockId,
-      quantityChange: quantityChangeDecimal, // Pass the negative value
+      quantityChange: quantityChange, // Pass the negative value
       reason: `Spoilage: ${input.reason}`, // Prepend context
       transactionDate: input.transactionDate,
     });
@@ -848,7 +847,7 @@ interface RecordReturnInput {
   organizationId: string;
   userId: string;
   productId: string; // Which product is being returned
-  quantityReturned: string | number | Decimal; // Positive value
+  quantityReturned: string | number | Prisma.Decimal; // Positive value
   reason: string;
   relatedOrderId?: string; // Optional link to original sale
   transactionDate?: Date | string;
@@ -856,7 +855,7 @@ interface RecordReturnInput {
   targetStockId?: string;
   // Option 2: Create a new batch for the return (requires cost info)
   createAsNewBatch?: boolean;
-  buyingPriceForNewBatch?: string | number | Decimal; // Required if createAsNewBatch=true
+  buyingPriceForNewBatch?: string | number | Prisma.Decimal; // Required if createAsNewBatch=true
   unitForNewBatch?: string; // Required if createAsNewBatch=true
 }
 
@@ -875,7 +874,7 @@ export async function recordStockReturn(
   // }
 
   try {
-    const quantityReturnedDecimal = new Decimal(input.quantityReturned);
+    const quantityReturnedDecimal = new Prisma.Decimal(input.quantityReturned);
     if (quantityReturnedDecimal.lte(0)) {
       return { success: false, error: "Quantity returned must be positive." };
     }
@@ -941,7 +940,7 @@ export async function recordStockReturn(
             "`buyingPriceForNewBatch` and `unitForNewBatch` are required when `createAsNewBatch` is true."
           );
         }
-        const buyingPriceDecimal = new Decimal(input.buyingPriceForNewBatch);
+        const buyingPriceDecimal = new Prisma.Decimal(input.buyingPriceForNewBatch);
         if (buyingPriceDecimal.lt(0)) {
           throw new Error("Buying price for new batch cannot be negative.");
         }
@@ -1073,7 +1072,7 @@ interface ProcessSaleStockUpdateInput {
   organizationId: string;
   userId: string; // User processing the sale
   orderId: string; // The order being fulfilled
-  items: { productId: string; quantity: string | number | Decimal }[];
+  items: { productId: string; quantity: string | number | Prisma.Decimal }[];
   // Strategy for picking stock: 'FIFO' (purchaseDate), 'LIFO' (purchaseDate), 'FEFO' (expiryDate)
   deductionStrategy?: "FIFO" | "LIFO" | "FEFO";
 }
@@ -1120,7 +1119,7 @@ export async function processSaleStockUpdate(
     await prisma.$transaction(async (tx) => {
       for (const item of items) {
         const productId = item.productId;
-        let quantityToDeduct = new Decimal(item.quantity);
+        let quantityToDeduct = new Prisma.Decimal(item.quantity);
 
         if (quantityToDeduct.lte(0)) continue; // Skip zero/negative quantity items
 
@@ -1149,13 +1148,13 @@ export async function processSaleStockUpdate(
           orderBy: orderBy,
         });
 
-        let deductedAmount = new Decimal(0);
+        let deductedAmount = new Prisma.Decimal(0);
 
         // Iterate through batches and deduct quantity
         for (const batch of availableBatches) {
           if (quantityToDeduct.lte(0)) break; // Fully deducted for this item
 
-          const quantityFromThisBatch = Decimal.min(
+          const quantityFromThisBatch = Prisma.Decimal.min(
             quantityToDeduct,
             batch.quantityAvailable
           );
@@ -1216,7 +1215,7 @@ interface ReconcileStockCountInput {
   organizationId: string;
   userId: string; // User performing the count/reconciliation
   // Array of actual physical counts per stock batch
-  counts: { stockId: string; actualQuantity: string | number | Decimal }[];
+  counts: { stockId: string; actualQuantity: string | number | Prisma.Decimal }[];
   reconciliationReason: string; // e.g., "Annual Stocktake", "Cycle Count Area A"
   transactionDate?: Date | string;
 }
@@ -1254,7 +1253,7 @@ export async function reconcileStockCount(
     await prisma.$transaction(async (tx) => {
       for (const count of counts) {
         const stockId = count.stockId;
-        const actualQuantity = new Decimal(count.actualQuantity);
+        const actualQuantity = new Prisma.Decimal(count.actualQuantity);
 
         if (actualQuantity.lt(0)) {
           throw new Error(
@@ -1322,7 +1321,7 @@ interface TransferStockInput {
   organizationId: string;
   userId: string;
   sourceStockId: string;
-  quantity: string | number | Decimal;
+  quantity: string | number | Prisma.Decimal;
   reason: string;
   transactionDate?: Date | string;
   // Option 1: Transfer to another existing batch of the SAME product
@@ -1363,7 +1362,7 @@ export async function transferStock(
   } = input;
 
   try {
-    const quantityToTransfer = new Decimal(quantity);
+    const quantityToTransfer = new Prisma.Decimal(quantity);
     if (quantityToTransfer.lte(0)) {
       return {
         success: false,
