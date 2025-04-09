@@ -80,9 +80,8 @@ export default function EditProductDialog({
   const [isPending, startTransition] = useTransition();
   const [serverError, setServerError] = useState<string | null>(null);
 
-  const form = useForm<EditProductFormData>({
+  const form = useForm({
     resolver: zodResolver(EditProductFormSchema),
-    // Default values will be set by reset in useEffect/onOpenChange
   });
 
   // Effect to reset form when dialog opens or product changes
@@ -102,9 +101,9 @@ export default function EditProductDialog({
             : product.basePrice,
         reorderPoint: product.reorderPoint,
         isActive: product.isActive,
-        // imageUrls: product.imageUrls ?? [],
+        imageUrls: product.imageUrls ?? [],
       });
-      setServerError(null); // Clear errors when resetting
+      setServerError(null);
     }
   }, [isOpen, product, form]); // form added to dependencies
 
@@ -172,7 +171,7 @@ export default function EditProductDialog({
         <DialogHeader>
           <DialogTitle>Edit Product: {product?.name}</DialogTitle>
           <DialogDescription>
-            Update the product details. Click save when you're done.
+            Update the product details. Click save when you&apos;re done.
           </DialogDescription>
         </DialogHeader>
         {product ? ( // Render form only when product data is available
@@ -325,7 +324,7 @@ export default function EditProductDialog({
                     <div className="space-y-1 leading-none">
                       <FormLabel>Product Active</FormLabel>
                       <FormDescription>
-                        Inactive products won't appear in sales or default
+                        Inactive products won&apos;t appear in sales or default
                         lists.
                       </FormDescription>
                     </div>

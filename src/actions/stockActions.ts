@@ -115,7 +115,8 @@ export async function getCategories() {
 
 export async function addProduct(formData: FormData) {
   const rawData = Object.fromEntries(formData.entries());
-  const validatedFields = ProductSchema.safeParse(rawData);
+  
+  const validatedFields = ProductSchema.safeParse({...rawData, isActive: true});
 
   if (!validatedFields.success) {
     console.error(
@@ -147,7 +148,10 @@ export async function addProduct(formData: FormData) {
 
 export async function updateProduct(formData: FormData) {
   const rawData = Object.fromEntries(formData.entries());
-  const validatedFields = EditProductSchema.safeParse(rawData);
+  const validatedFields = EditProductSchema.safeParse({
+    ...rawData,
+    isActive: true,
+  });
 
   if (!validatedFields.success) {
     console.error(

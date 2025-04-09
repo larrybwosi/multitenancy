@@ -131,7 +131,6 @@ export async function addCustomer(
     // Check if customer with this email already exists
     const existingCustomer = await prisma.customer.findFirst({
       where: {
-        organizationId,
         email: data.email,
       }
     });
@@ -215,7 +214,6 @@ export async function deleteCustomer(
     const customer = await prisma.customer.findFirst({
       where: {
         id: customerId,
-        organizationId,
       }
     });
 
@@ -231,9 +229,6 @@ export async function deleteCustomer(
       where: { id: customerId },
       data: { 
         updatedAt: new Date(),
-        updatedBy: {
-          connect: { id: userId }
-        }
       }
     });
 
@@ -284,17 +279,9 @@ export async function getCustomer(
     const customer = await prisma.customer.findFirst({
       where: {
         id: customerId,
-        organizationId,
       },
       include: {
-        orders: {
-          include: {
-            items: true
-          },
-          orderBy: {
-            createdAt: 'desc'
-          }
-        }
+        sales:true
       }
     });
 

@@ -1,12 +1,12 @@
 // app/stocks/components/add-product-dialog.tsx
 "use client";
 
-import React, { useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Category } from "@prisma/client";
-import { addProduct } from "@/actions/stockActions"; // Import server action
+import { addProduct } from "@/actions/stockActions"; 
 
 import { Button } from "@/components/ui/button";
 import {
@@ -37,7 +37,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 
-// Zod schema matching the server action's validation (client-side)
+
 const ProductFormSchema = z.object({
   name: z.string().min(1, "Product name is required"),
   description: z.string().optional(),
@@ -51,7 +51,7 @@ const ProductFormSchema = z.object({
     .min(0, "Reorder point must be non-negative")
     .default(5),
   isActive: z.boolean().default(true),
-  // imageUrls: z.array(z.string().url()).optional(), // Add later if needed
+  imageUrls: z.array(z.string().url()).optional(),
 });
 
 type ProductFormData = z.infer<typeof ProductFormSchema>;
@@ -74,7 +74,7 @@ export default function AddProductDialog({
   const [isPending, startTransition] = useTransition();
   const [serverError, setServerError] = useState<string | null>(null);
 
-  const form = useForm<ProductFormData>({
+  const form = useForm({
     resolver: zodResolver(ProductFormSchema),
     defaultValues: {
       name: "",
@@ -152,7 +152,7 @@ export default function AddProductDialog({
         <DialogHeader>
           <DialogTitle>Add New Product</DialogTitle>
           <DialogDescription>
-            Fill in the details for the new product. Click save when you're
+            Fill in the details for the new product. Click save when you&apos;re
             done.
           </DialogDescription>
         </DialogHeader>
@@ -330,7 +330,8 @@ export default function AddProductDialog({
                   <div className="space-y-1 leading-none">
                     <FormLabel>Product Active</FormLabel>
                     <FormDescription>
-                      Inactive products won't appear in sales or default lists.
+                      Inactive products won&apos;t appear in sales or default
+                      lists.
                     </FormDescription>
                   </div>
                 </FormItem>

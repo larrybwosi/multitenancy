@@ -1,7 +1,6 @@
+import { Decimal } from "@prisma/client/runtime/library";
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
-import fs from "fs";
-import https from "https";
 
 /**
  * Merge Tailwind CSS classes with clsx
@@ -18,7 +17,7 @@ export function cn(...inputs: ClassValue[]) {
  * @returns Formatted currency string
  */
 export function formatCurrency(
-  amount: number,
+  amount: number | Decimal | string,
   currency: string = "KSH",
   locale: string = "en-US"
 ): string {

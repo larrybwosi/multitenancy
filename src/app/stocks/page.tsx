@@ -1,9 +1,8 @@
-// app/stocks/page.tsx
-import React, { Suspense } from "react"; // Import Suspense
+import { Suspense } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import OverviewTab from "./components/overview-tab";
 import ProductsTab from "./components/products-tab";
-import PastBatchesTab from "./components/past-batches-tab"; // Assuming this uses react-data-grid now
+import PastBatchesTab from "./components/past-batches-tab";
 import {
   getProducts,
   getCategories,
@@ -17,41 +16,16 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton"; // Import Skeleton
+import {
+  BarChart3,
+  Package2,
+  Clock,
+  RefreshCw,
+  AlertCircle,
+} from "lucide-react";
 
-export const dynamic = "force-dynamic"; // Ensure data is fetched fresh
+export const dynamic = "force-dynamic";
 
-// --- Skeleton Loader Component ---
-function StocksPageSkeleton() {
-  return (
-    <div className="container mx-auto p-4 md:p-6 lg:p-8 animate-pulse">
-      <Skeleton className="h-9 w-1/2 mb-6" /> {/* Title */}
-      <Skeleton className="h-10 w-full grid grid-cols-3 mb-6" />{" "}
-      {/* Tabs List */}
-      {/* Skeleton for a tab content card */}
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-6 w-1/3 mb-2" /> {/* Card Title */}
-          <Skeleton className="h-4 w-2/3" /> {/* Card Description */}
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Skeleton for filters/buttons */}
-          <div className="flex items-center py-4">
-            <Skeleton className="h-10 w-1/3" />
-            <Skeleton className="h-10 w-24 ml-auto" />
-          </div>
-          {/* Skeleton for table */}
-          <Skeleton className="h-64 w-full rounded-md border" />
-          {/* Skeleton for pagination */}
-          <div className="flex items-center justify-end space-x-2 py-4">
-            <Skeleton className="h-9 w-20" />
-            <Skeleton className="h-9 w-20" />
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
 
 // --- Main Data Fetching Component ---
 async function StockPageData() {
@@ -61,10 +35,10 @@ async function StockPageData() {
       getProducts({ includeCategory: true }),
       getCategories(),
       getStockBatches({ activeOnly: true, includeProduct: true }),
-      getPastStockBatches({ includeProduct: true }), // Fetch data needed for react-data-grid
+      getPastStockBatches({ includeProduct: true }),
     ]);
 
-  // Basic error handling
+  // Enhanced error handling with better UI
   if (
     productData.error ||
     categoryData.error ||
@@ -78,30 +52,79 @@ async function StockPageData() {
       activeBatchesData,
       pastBatchesData,
     });
+
     return (
-      <div className="container mx-auto p-4 text-red-600">
-        Error loading stock data. Please check server logs and try again later.
+      <div className="container mx-auto p-4 md:p-6 lg:p-8">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6 flex items-center space-x-4">
+          <AlertCircle className="h-8 w-8 text-red-500 dark:text-red-400" />
+          <div>
+            <h3 className="text-lg font-medium text-red-800 dark:text-red-300">
+              Error Loading Data
+            </h3>
+            <p className="text-red-600 dark:text-red-400">
+              We couldn&rsquo;t load your stock data. Please check your
+              connection and try again.
+            </p>
+            <button
+              className="mt-4 px-4 py-2 bg-red-100 hover:bg-red-200 dark:bg-red-800 dark:hover:bg-red-700 
+                text-red-600 dark:text-red-200 rounded-lg transition-colors flex items-center space-x-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              <span>Retry</span>
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
 
+  // Enhanced Tabs component with icons and better styling
   return (
     <Tabs defaultValue="overview" className="w-full">
-      <TabsList className="grid w-full grid-cols-3 mb-6">
-        <TabsTrigger value="overview">Overview</TabsTrigger>
-        <TabsTrigger value="products">Products & Batches</TabsTrigger>
-        <TabsTrigger value="past-batches">Past Batches (Sheet)</TabsTrigger>
+      <TabsList className="grid w-full grid-cols-3 mb-8 bg-gray-50 dark:bg-gray-800/30 p-1.5 rounded-xl">
+        <TabsTrigger
+          value="overview"
+          className="flex items-center justify-center space-x-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:shadow-md transition-all duration-200"
+        >
+          <BarChart3 className="h-4 w-4" />
+          <span>Overview</span>
+        </TabsTrigger>
+        <TabsTrigger
+          value="products"
+          className="flex items-center justify-center space-x-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:shadow-md transition-all duration-200"
+        >
+          <Package2 className="h-4 w-4" />
+          <span>Products & Batches</span>
+        </TabsTrigger>
+        <TabsTrigger
+          value="past-batches"
+          className="flex items-center justify-center space-x-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-gray-800 data-[state=active]:shadow-md transition-all duration-200"
+        >
+          <Clock className="h-4 w-4" />
+          <span>Past Batches</span>
+        </TabsTrigger>
       </TabsList>
 
-      <TabsContent value="overview">
-        <Card>
-          <CardHeader>
-            <CardTitle>Inventory Overview</CardTitle>
-            <CardDescription>
-              A summary of your current stock status.
-            </CardDescription>
+      {/* Enhanced Tab Contents with better card styling */}
+      <TabsContent
+        value="overview"
+        className="focus-visible:outline-none focus-visible:ring-0"
+      >
+        <Card className="border-none shadow-lg rounded-xl overflow-hidden bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900">
+          <CardHeader className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <BarChart3 className="h-5 w-5 text-blue-500 dark:text-blue-400" />
+              </div>
+              <div>
+                <CardTitle className="text-xl">Inventory Overview</CardTitle>
+                <CardDescription className="text-gray-500 dark:text-gray-400">
+                  A comprehensive summary of your current stock status.
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-6">
             <OverviewTab
               initialProducts={productData.products ?? []}
               initialBatches={activeBatchesData.batches ?? []}
@@ -110,15 +133,27 @@ async function StockPageData() {
         </Card>
       </TabsContent>
 
-      <TabsContent value="products">
-        <Card>
-          <CardHeader>
-            <CardTitle>Products & Current Stock</CardTitle>
-            <CardDescription>
-              Manage your products and their active stock batches.
-            </CardDescription>
+      <TabsContent
+        value="products"
+        className="focus-visible:outline-none focus-visible:ring-0"
+      >
+        <Card className="border-none shadow-lg rounded-xl overflow-hidden bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900">
+          <CardHeader className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                <Package2 className="h-5 w-5 text-green-500 dark:text-green-400" />
+              </div>
+              <div>
+                <CardTitle className="text-xl">
+                  Products & Current Stock
+                </CardTitle>
+                <CardDescription className="text-gray-500 dark:text-gray-400">
+                  Manage your products and their active stock batches.
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-6">
             <ProductsTab
               initialProducts={productData.products ?? []}
               initialCategories={categoryData.categories ?? []}
@@ -128,17 +163,26 @@ async function StockPageData() {
         </Card>
       </TabsContent>
 
-      <TabsContent value="past-batches">
-        <Card>
-          <CardHeader>
-            <CardTitle>Past Stock Batches (Sheet View)</CardTitle>
-            <CardDescription>
-              History of depleted or expired stock batches using
-              react-data-grid.
-            </CardDescription>
+      <TabsContent
+        value="past-batches"
+        className="focus-visible:outline-none focus-visible:ring-0"
+      >
+        <Card className="border-none shadow-lg rounded-xl overflow-hidden bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900">
+          <CardHeader className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                <Clock className="h-5 w-5 text-amber-500 dark:text-amber-400" />
+              </div>
+              <div>
+                <CardTitle className="text-xl">Past Stock Batches</CardTitle>
+                <CardDescription className="text-gray-500 dark:text-gray-400">
+                  History of depleted or expired stock batches in a searchable
+                  grid.
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
-            {/* PastBatchesTab now uses react-data-grid */}
+          <CardContent className="p-6">
             <PastBatchesTab
               initialPastBatches={pastBatchesData.batches ?? []}
             />
@@ -149,12 +193,25 @@ async function StockPageData() {
   );
 }
 
-// --- Page Component ---
+// --- Enhanced Page Component ---
 export default async function StocksPage() {
   return (
-    <div className="container mx-auto p-4 md:p-6 lg:p-8">
-      <h1 className="text-3xl font-bold mb-6">Stock Management</h1>
-      <Suspense fallback={<StocksPageSkeleton />}>
+    <div className="container mx-auto px-4 py-8 md:py-12 lg:py-16">
+      <div className="flex items-center mb-8 space-x-4">
+        <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
+          <Package2 className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+        </div>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+            Stock Management
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400">
+            Track and manage your inventory with ease
+          </p>
+        </div>
+      </div>
+
+      <Suspense>
         <StockPageData />
       </Suspense>
     </div>

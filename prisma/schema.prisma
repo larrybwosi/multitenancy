@@ -22,7 +22,7 @@ model User {
   updatedAt         DateTime           @updatedAt
 
   // Relations
-  sales             Sale[]
+  // sales             Sale[]
   purchases         Purchase[]
   purchasePayments  PurchasePayment[] // User who recorded the payment
   stockAdjustments  StockAdjustment[] // User who made the adjustment
@@ -147,6 +147,7 @@ model Customer {
   isActive          Boolean            @default(true)
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
+  createdBy         String
 
   // Relations
   sales             Sale[]
@@ -163,8 +164,8 @@ model Sale {
   saleNumber       String              @unique
   customerId       String?
   customer         Customer?           @relation(fields: [customerId], references: [id])
-  userId           String
-  user             User                @relation(fields: [userId], references: [id])
+  // userId           String
+  // user             User                @relation(fields: [userId], references: [id])
   saleDate         DateTime            @default(now())
   totalAmount      Decimal             @db.Decimal(10, 2)
   discountAmount   Decimal             @db.Decimal(10, 2) @default(0)
@@ -179,12 +180,13 @@ model Sale {
   updatedAt        DateTime            @updatedAt
 
   // Relations
+  receiptUrl     String? 
   items            SaleItem[]
   attachments      Attachment[]
-  loyaltyTransaction LoyaltyTransaction? // Link if points were earned/spent ON THIS SALE (1-to-1 with LoyaltyTransaction via relatedSaleId)
+  loyaltyTransaction LoyaltyTransaction?
 
   @@index([saleDate])
-  @@index([userId])
+  // @@index([userId])
   @@index([customerId])
 }
 
