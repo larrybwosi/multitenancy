@@ -1,4 +1,3 @@
-// This is your Prisma schema file
 
 generator client {
   provider = "prisma-client-js"
@@ -12,22 +11,35 @@ datasource db {
 // --- Core Models ---
 
 model User {
-  id                String             @id @default(cuid())
-  name              String?
-  email             String             @unique
-  password          String // Remember to hash passwords!
-  role              UserRole           @default(EMPLOYEE)
-  isActive          Boolean            @default(true)
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  id        String   @id @default(cuid())
+  name      String?
+  email     String   @unique
+  password  String // Remember to hash passwords!
+  role      UserRole @default(EMPLOYEE)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
   // sales             Sale[]
-  purchases         Purchase[]
-  purchasePayments  PurchasePayment[] // User who recorded the payment
-  stockAdjustments  StockAdjustment[] // User who made the adjustment
+  purchases           Purchase[]
+  purchasePayments    PurchasePayment[] // User who recorded the payment
+  stockAdjustments    StockAdjustment[] // User who made the adjustment
   loyaltyTransactions LoyaltyTransaction[] // User who processed the loyalty transaction
-  cashDrawers       CashDrawer[]
+  cashDrawers         CashDrawer[]
+  emailVerified       Boolean
+  image               String?
+  banned              Boolean?
+  banReason           String?
+  banExpires          DateTime?
+  username            String?
+  displayUsername     String?
+  accounts            Account[]
+  members             Member[]
+  invitations         Invitation[]
+
+  @@unique([username])
+  @@map("user")
 }
 
 enum UserRole {
@@ -51,26 +63,26 @@ model Category {
 }
 
 model Product {
-  id              String           @id @default(cuid())
-  name            String
-  description     String?
-  sku             String           @unique // Stock Keeping Unit
-  barcode         String?          @unique
-  categoryId      String
-  category        Category         @relation(fields: [categoryId], references: [id])
-  basePrice       Decimal          @db.Decimal(10, 2)
-  reorderPoint    Int              @default(5)
-  isActive        Boolean          @default(true)
-  imageUrls       String[]
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  sku          String   @unique // Stock Keeping Unit
+  barcode      String?  @unique
+  categoryId   String
+  category     Category @relation(fields: [categoryId], references: [id])
+  basePrice    Decimal  @db.Decimal(10, 2)
+  reorderPoint Int      @default(5)
+  isActive     Boolean  @default(true)
+  imageUrls    String[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // Relations
-  variants        ProductVariant[]
-  suppliers       ProductSupplier[]
-  saleItems       SaleItem[]
-  purchaseItems   PurchaseItem[]
-  stockBatches    StockBatch[]
+  variants         ProductVariant[]
+  suppliers        ProductSupplier[]
+  saleItems        SaleItem[]
+  purchaseItems    PurchaseItem[]
+  stockBatches     StockBatch[]
   stockAdjustments StockAdjustment[] // Adjustments made to this product (base)
 
   @@index([name])
@@ -78,22 +90,22 @@ model Product {
 }
 
 model ProductVariant {
-  id            String    @id @default(cuid())
+  id            String   @id @default(cuid())
   productId     String
-  product       Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
-  name          String    // e.g., "Red, Large"
-  sku           String    @unique // Variant specific SKU
-  barcode       String?   @unique
-  priceModifier Decimal   @default(0) @db.Decimal(10, 2)
-  attributes    Json      // { "color": "Red", "size": "Large" }
-  isActive      Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name          String // e.g., "Red, Large"
+  sku           String   @unique // Variant specific SKU
+  barcode       String?  @unique
+  priceModifier Decimal  @default(0) @db.Decimal(10, 2)
+  attributes    Json // { "color": "Red", "size": "Large" }
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   // Relations
-  saleItems      SaleItem[]
-  purchaseItems  PurchaseItem[]
-  stockBatches   StockBatch[]
+  saleItems        SaleItem[]
+  purchaseItems    PurchaseItem[]
+  stockBatches     StockBatch[]
   stockAdjustments StockAdjustment[] // <<< ADDED: Opposite relation for StockAdjustment
 
   @@unique([productId, sku])
@@ -101,21 +113,21 @@ model ProductVariant {
 }
 
 model Supplier {
-  id            String     @id @default(cuid())
-  name          String     @unique
-  contactName   String?
-  email         String?
-  phone         String?
-  address       String?
-  paymentTerms  String?
-  leadTime      Int?
-  isActive      Boolean    @default(true)
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id           String   @id @default(cuid())
+  name         String   @unique
+  contactName  String?
+  email        String?
+  phone        String?
+  address      String?
+  paymentTerms String?
+  leadTime     Int?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // Relations
-  products      ProductSupplier[]
-  purchases     Purchase[]
+  products  ProductSupplier[]
+  purchases Purchase[]
 
   @@index([name])
 }
@@ -137,20 +149,20 @@ model ProductSupplier {
 }
 
 model Customer {
-  id                String             @id @default(cuid())
-  name              String
-  email             String?            @unique
-  phone             String?
-  address           String?
-  notes             String?
-  loyaltyPoints     Int                @default(0)
-  isActive          Boolean            @default(true)
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  createdBy         String
+  id            String   @id @default(cuid())
+  name          String
+  email         String?  @unique
+  phone         String?
+  address       String?
+  notes         String?
+  loyaltyPoints Int      @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdBy     String
 
   // Relations
-  sales             Sale[]
+  sales               Sale[]
   loyaltyTransactions LoyaltyTransaction[]
 
   @@index([name])
@@ -160,33 +172,33 @@ model Customer {
 // --- Transactional Models ---
 
 model Sale {
-  id               String              @id @default(cuid())
-  saleNumber       String              @unique
-  customerId       String?
-  customer         Customer?           @relation(fields: [customerId], references: [id])
+  id             String        @id @default(cuid())
+  saleNumber     String        @unique
+  customerId     String?
+  customer       Customer?     @relation(fields: [customerId], references: [id])
   // userId           String
   // user             User                @relation(fields: [userId], references: [id])
-  saleDate         DateTime            @default(now())
-  totalAmount      Decimal             @db.Decimal(10, 2)
-  discountAmount   Decimal             @db.Decimal(10, 2) @default(0)
-  taxAmount        Decimal             @db.Decimal(10, 2) @default(0)
-  finalAmount      Decimal             @db.Decimal(10, 2)
-  paymentMethod    PaymentMethod
-  paymentStatus    PaymentStatus       @default(PENDING)
-  notes            String?
-  cashDrawerId     String?
-  cashDrawer       CashDrawer?         @relation(fields: [cashDrawerId], references: [id])
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
+  saleDate       DateTime      @default(now())
+  totalAmount    Decimal       @db.Decimal(10, 2)
+  discountAmount Decimal       @db.Decimal(10, 2) @default(0)
+  taxAmount      Decimal       @db.Decimal(10, 2) @default(0)
+  finalAmount    Decimal       @db.Decimal(10, 2)
+  paymentMethod  PaymentMethod
+  paymentStatus  PaymentStatus @default(PENDING)
+  notes          String?
+  cashDrawerId   String?
+  cashDrawer     CashDrawer?   @relation(fields: [cashDrawerId], references: [id])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   // Relations
-  receiptUrl     String? 
-  items            SaleItem[]
-  attachments      Attachment[]
+  receiptUrl         String?
+  items              SaleItem[]
+  attachments        Attachment[]
   loyaltyTransaction LoyaltyTransaction?
 
-  @@index([saleDate])
   // @@index([userId])
+  @@index([saleDate])
   @@index([customerId])
 }
 
@@ -217,26 +229,26 @@ model SaleItem {
 }
 
 model Purchase {
-  id              String            @id @default(cuid())
-  purchaseNumber  String            @unique
-  supplierId      String
-  supplier        Supplier          @relation(fields: [supplierId], references: [id])
-  userId          String
-  user            User              @relation(fields: [userId], references: [id])
-  orderDate       DateTime          @default(now())
-  expectedDate    DateTime?
-  receivedDate    DateTime?
-  totalAmount     Decimal           @db.Decimal(10, 2) // Should be calculated from items
-  paidAmount      Decimal           @default(0) @db.Decimal(10, 2)
-  status          PurchaseStatus    @default(ORDERED)
-  notes           String?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  id             String         @id @default(cuid())
+  purchaseNumber String         @unique
+  supplierId     String
+  supplier       Supplier       @relation(fields: [supplierId], references: [id])
+  userId         String
+  user           User           @relation(fields: [userId], references: [id])
+  orderDate      DateTime       @default(now())
+  expectedDate   DateTime?
+  receivedDate   DateTime?
+  totalAmount    Decimal        @db.Decimal(10, 2) // Should be calculated from items
+  paidAmount     Decimal        @default(0) @db.Decimal(10, 2)
+  status         PurchaseStatus @default(ORDERED)
+  notes          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   // Relations
-  items           PurchaseItem[]
-  payments        PurchasePayment[]
-  attachments     Attachment[]
+  items       PurchaseItem[]
+  payments    PurchasePayment[]
+  attachments Attachment[]
 
   @@index([orderDate])
   @@index([supplierId])
@@ -244,22 +256,22 @@ model Purchase {
 }
 
 model PurchaseItem {
-  id                String          @id @default(cuid())
-  purchaseId        String
-  purchase          Purchase        @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
-  productId         String
-  product           Product         @relation(fields: [productId], references: [id])
-  variantId         String?
-  variant           ProductVariant? @relation(fields: [variantId], references: [id])
-  orderedQuantity   Int
-  receivedQuantity  Int             @default(0)
-  unitCost          Decimal         @db.Decimal(10, 2)
-  totalCost         Decimal         @db.Decimal(10, 2) // unitCost * orderedQuantity
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  id               String          @id @default(cuid())
+  purchaseId       String
+  purchase         Purchase        @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  productId        String
+  product          Product         @relation(fields: [productId], references: [id])
+  variantId        String?
+  variant          ProductVariant? @relation(fields: [variantId], references: [id])
+  orderedQuantity  Int
+  receivedQuantity Int             @default(0)
+  unitCost         Decimal         @db.Decimal(10, 2)
+  totalCost        Decimal         @db.Decimal(10, 2) // unitCost * orderedQuantity
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
   // Relations
-  stockBatches      StockBatch[]    // Batches created from receiving this item
+  stockBatches StockBatch[] // Batches created from receiving this item
 
   @@index([purchaseId])
   @@index([productId])
@@ -287,26 +299,26 @@ model PurchasePayment {
 // --- Inventory & Stock Models ---
 
 model StockBatch {
-  id              String            @id @default(cuid())
+  id              String          @id @default(cuid())
   productId       String
-  product         Product           @relation(fields: [productId], references: [id])
+  product         Product         @relation(fields: [productId], references: [id])
   variantId       String?
-  variant         ProductVariant?   @relation(fields: [variantId], references: [id])
+  variant         ProductVariant? @relation(fields: [variantId], references: [id])
   batchNumber     String?
   purchaseItemId  String?
-  purchaseItem    PurchaseItem?     @relation(fields: [purchaseItemId], references: [id])
+  purchaseItem    PurchaseItem?   @relation(fields: [purchaseItemId], references: [id])
   initialQuantity Int
   currentQuantity Int
-  purchasePrice   Decimal           @db.Decimal(10, 2)
+  purchasePrice   Decimal         @db.Decimal(10, 2)
   expiryDate      DateTime?
-  receivedDate    DateTime          @default(now())
+  receivedDate    DateTime        @default(now())
   location        String?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
   // Relations
-  saleItems       SaleItem[]        // Track which sales depleted this batch
-  adjustments     StockAdjustment[] // Adjustments specifically affecting this batch
+  saleItems   SaleItem[] // Track which sales depleted this batch
+  adjustments StockAdjustment[] // Adjustments specifically affecting this batch
 
   @@index([productId, variantId])
   @@index([expiryDate])
@@ -315,21 +327,21 @@ model StockBatch {
 }
 
 model StockAdjustment {
-  id             String               @id @default(cuid())
-  productId      String               // Link to the main product for reporting
-  product        Product              @relation(fields: [productId], references: [id])
-  variantId      String?              // Link to variant if adjustment is variant-specific
-  variant        ProductVariant?      @relation(fields: [variantId], references: [id]) // Relation to Variant
-  stockBatchId   String?              // Optional: Which batch is being adjusted?
-  stockBatch     StockBatch?          @relation(fields: [stockBatchId], references: [id]) // Relation to Batch
+  id             String                @id @default(cuid())
+  productId      String // Link to the main product for reporting
+  product        Product               @relation(fields: [productId], references: [id])
+  variantId      String? // Link to variant if adjustment is variant-specific
+  variant        ProductVariant?       @relation(fields: [variantId], references: [id]) // Relation to Variant
+  stockBatchId   String? // Optional: Which batch is being adjusted?
+  stockBatch     StockBatch?           @relation(fields: [stockBatchId], references: [id]) // Relation to Batch
   userId         String
-  user           User                 @relation(fields: [userId], references: [id])
-  quantity       Int                  // Positive for increase, negative for decrease
+  user           User                  @relation(fields: [userId], references: [id])
+  quantity       Int // Positive for increase, negative for decrease
   reason         StockAdjustmentReason
   notes          String?
-  adjustmentDate DateTime             @default(now())
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
+  adjustmentDate DateTime              @default(now())
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
 
   @@index([productId, variantId])
   @@index([stockBatchId])
@@ -345,7 +357,7 @@ enum StockAdjustmentReason {
   STOLEN
   FOUND
   RETURN_TO_SUPPLIER
-  CUSTOMER_RETURN   // May create a 'return' batch or adjust existing
+  CUSTOMER_RETURN // May create a 'return' batch or adjust existing
   INVENTORY_COUNT
   OTHER
 }
@@ -384,18 +396,18 @@ enum LoyaltyReason {
 // --- Utility & Other Models ---
 
 model Attachment {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   fileName    String
   fileUrl     String
   fileType    String?
   fileSize    Int?
   description String?
-  uploadedAt  DateTime  @default(now())
+  uploadedAt  DateTime @default(now())
 
-  saleId      String?
-  sale        Sale?     @relation(fields: [saleId], references: [id], onDelete: SetNull)
-  purchaseId  String?
-  purchase    Purchase? @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
+  saleId     String?
+  sale       Sale?     @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  purchaseId String?
+  purchase   Purchase? @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
 
   @@index([saleId])
   @@index([purchaseId])
@@ -416,7 +428,7 @@ model CashDrawer {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  sales          Sale[]
+  sales Sale[]
 
   @@index([openedAt])
   @@index([closedAt])
@@ -429,6 +441,45 @@ enum DrawerStatus {
   BALANCED
   DISCREPANCY
 }
+
+enum AuditLogAction {
+  CREATE
+  READ
+  UPDATE
+  DELETE
+}
+
+enum AuditType {
+  USER
+  PRODUCT
+  SALE 
+  PURCHASE
+  BATCH 
+  STOCK_ADJUSTMENT
+  CASH_DRAWER
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  tenantId      String?
+  userId        String?
+  user          Member?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action        AuditLogAction
+  type          AuditType
+  entityId      String?
+  description   String
+  metadata      Json?    // Additional info about the action
+  ipAddress     String?
+  userAgent     String?
+  performedAt   DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([type, entityId])
+  @@index([performedAt])
+  @@map("audit_log")
+}
+
 
 // --- Shared Enums ---
 
@@ -464,4 +515,75 @@ enum PurchaseStatus {
   PAID
   COMPLETED // Received and Paid
   CANCELLED
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime
+  updatedAt             DateTime
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+
+  @@map("verification")
+}
+
+model Organization {
+  id          String       @id
+  name        String
+  slug        String?
+  logo        String?
+  createdAt   DateTime
+  metadata    String?
+  members     Member[]
+  invitations Invitation[]
+
+  @@unique([slug])
+  @@map("organization")
+}
+
+model Member {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String
+  createdAt      DateTime
+  auditLogs      AuditLog[]
+
+  @@map("member")
+}
+
+model Invitation {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           String?
+  status         String
+  expiresAt      DateTime
+  inviterId      String
+  user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@map("invitation")
 }

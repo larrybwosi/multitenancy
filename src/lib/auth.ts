@@ -46,13 +46,13 @@ export const auth = betterAuth({
     session: {
       create: {
         before: async (session) => {
-          const org = await db.user.findUnique({where:{id: session.userId}})
-          console.log(org)
-          const activeOrganizationId = org?.activeOrganizationId;
+          // const org = await db.user.findUnique({where:{id: session.userId}})
+          // console.log(org)
+          // const activeOrganizationId = org?.activeOrganizationId;
           return {
             data: {
               ...session,
-              activeOrganizationId,
+              // activeOrganizationId,
             },
           };
         },
