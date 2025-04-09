@@ -14,7 +14,7 @@ model User {
   id        String   @id @default(cuid())
   name      String?
   email     String   @unique
-  password  String // Remember to hash passwords!
+  password  String?
   role      UserRole @default(EMPLOYEE)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -46,6 +46,7 @@ enum UserRole {
   ADMIN
   MANAGER
   EMPLOYEE
+  CASHIER
 }
 
 model Category {

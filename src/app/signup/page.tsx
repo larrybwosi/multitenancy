@@ -41,12 +41,19 @@ export default function SignUpPage() {
         name:formData.name,
       }).then(async (r) => {
         console.log("Account created:", r)
-        const user =await signIn.email({
+        const { data, error} =await signIn.email({
           email: formData.email,
           password: formData.password,
           rememberMe: true
         })
-         toast.success(`${user.data?.user?.name} has been created`, {
+        if(error) {
+          toast.error("Error",{
+            description: "Failed to log in. Please check your credentials and try again.",
+          })
+          throw error
+        }
+        
+         toast.success(`${data?.user?.name} has been created`, {
            description:
              "Your account has been created successfully. Please log in.",
          });

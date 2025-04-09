@@ -4,6 +4,7 @@ import { admin, multiSession, openAPI, organization, username } from "better-aut
 import { db } from "./db";
 // import { member, myCustomRole, owner, ac } from "./organisation/permisions";
 import { Redis } from "@upstash/redis";
+import { UserRole } from "@prisma/client";
 
 const redis = new Redis({
   url: process.env.NEXT_PUBLIC_UPSTASH_REDIS_REST_URL,
@@ -62,7 +63,7 @@ export const auth = betterAuth({
   plugins: [
     admin({
       adminRoles: ["admin", "superadmin", "owner", "developer"],
-      defaultRole: "cashier",
+      defaultRole: UserRole.EMPLOYEE,
       defaultBanReason: "Miss behaving",
     }),
     username(),
