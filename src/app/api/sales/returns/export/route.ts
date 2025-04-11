@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { ReturnStatus, ReturnReason } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -57,7 +57,7 @@ export async function GET(request: Request) {
         reason ? { reason } : {},
         Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {},
       ],
-    };
+    } as Prisma.ReturnWhereInput;
 
     // Get all returns matching the filters
     const returns = await prisma.return.findMany({

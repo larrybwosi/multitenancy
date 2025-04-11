@@ -15,14 +15,6 @@ export interface ExportAction {
   onClick: () => void;
 }
 
-interface DropdownFilterProps {
-  label: string;
-  options: FilterOption[];
-  onSelect: (value: string) => void;
-  defaultValue?: string;
-  className?: string;
-}
-
 interface FilterControlsProps {
   // Core elements configuration
   searchPlaceholder?: string;
@@ -50,6 +42,15 @@ interface FilterControlsProps {
   filterAreaClassName?: string;
   searchAreaClassName?: string;
   variant?: "default" | "minimal" | "bordered";
+}
+
+
+interface DropdownFilterProps {
+  label: string;
+  options: FilterOption[];
+  onSelect: (value: string) => void;
+  defaultValue?: string;
+  className?: string;
 }
 
 const DropdownFilter = ({

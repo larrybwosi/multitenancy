@@ -183,7 +183,7 @@ export default function VoidedPage() {
       <SectionHeader
         title="Voided Sales"
         subtitle="View and manage voided sales transactions"
-        icon={<Trash2 className="h-5 w-5" />}
+        icon={<Trash2 className="h-8 w-8 text-rose-500" />}
       />
 
       <FilterControls

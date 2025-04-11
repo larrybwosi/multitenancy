@@ -32,8 +32,8 @@ import {
 } from "@/components/ui/card";
 
 import { useState, useTransition } from "react";
-import { addManualLoyaltyTransaction } from "@/actions/customerActions";
 import { toast } from "sonner";
+import { addManualLoyaltyTransaction } from "@/actions/customers.actions";
 
 // Zod Schema (can be imported)
 const LoyaltyAdjustmentSchema = z.object({
@@ -107,18 +107,18 @@ export function LoyaltyAdjustmentForm({
 
     startTransition(async () => {
       
-      const result = await addManualLoyaltyTransaction(formData, null);
+      const result = await addManualLoyaltyTransaction(formData);
 
       if (result?.errors) {
         setError("Validation failed on server.");
         toast.error("Failed to adjust points. Check fields.");
-      } else if (result?.message.startsWith("Error:")) {
+      } else if (result?.message?.startsWith("Error:")) {
         setError(result.message);
         toast.error(result.message);
       } else {
         toast.success(result?.message || "Points adjusted successfully!");
-        if (result.newPoints !== undefined) {
-          onAdjustmentSuccess(result.newPoints); // Update parent component state
+        if (result.data && result.data.newPoints !== undefined) {
+          onAdjustmentSuccess(result.data.newPoints);
         }
         form.reset(); // Reset form
       }

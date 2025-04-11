@@ -1,755 +1,811 @@
-// // src/actions/productActions.ts
-// "use server";
-
-// import { auth } from "@/lib/auth";
-// import {
-//   Prisma,
-//   Product,
-//   ProductType,
-//   StockTransactionType,
-// } from "@prisma/client";
-// import { Decimal } from "@prisma/client/runtime/library";
-// import { headers } from "next/headers";
-// import { db as prisma } from "@/lib/db";
-
-// // --- Shared Helpers (Assume these are defined elsewhere or define here) ---
-// interface ActionResponse<T> {
-//   success: boolean;
-//   data?: T;
-//   error?: string;
-//   validationErrors?: Record<string, string>;
-// }
-
-// // Replace with your actual authorization logic
-// async function checkUserAuthorization(
-//   role: string,
-//   organizationId: string
-// ): Promise<boolean> {
-//   console.log(role, organizationId)
-//   // Example: Check if user is a member of the organization
-//   // const member = await prisma.member.findUnique({ where: { userId_organizationId: { userId, organizationId } } });
-//   // return !!member; // Add role checks if needed
-//   return true; // Placeholder - REMOVE IN PRODUCTION
-// }
-
-// // --- Input Types ---
-
-// interface CreateProductInput {
-//   name: string;
-//   description?: string;
-//   sku?: string;
-//   type?: ProductType; // Default defined in schema
-//   unit: string;
-//   currentSellingPrice: string | number | Decimal;
-//   categoryId?: string;
-//   isActive?: boolean; // Default defined in schema
-// }
-
-// interface UpdateProductInput {
-//   organizationId: string;
-//   productId: string;
-//   userId: string; // For authorization
-//   name?: string;
-//   description?: string | null;
-//   sku?: string | null;
-//   type?: ProductType;
-//   unit?: string;
-//   currentSellingPrice?: string | number | Decimal;
-//   categoryId?: string | null;
-//   isActive?: boolean;
-// }
-
-// interface ListProductsInput {
-//   categoryId?: string;
-//   isActive?: boolean;
-//   searchTerm?: string; // Search by name, SKU, description
-//   sortBy?: "name" | "createdAt" | "updatedAt" | "currentSellingPrice";
-//   sortOrder?: "asc" | "desc";
-//   page?: number;
-//   pageSize?: number;
-//   includeCategory?: boolean;
-// }
-
-// // --- Output Types ---
-
-// // Interface for the detailed product view
-// export interface ProductDetails extends Product {
-//   categoryName?: string | null; // Name from the related category
-//   currentStockQuantity: Decimal;
-//   currentStockValue: Decimal; // Estimated value based on buying price
-//   potentialProfitOnCurrentStock: Decimal; // Based on current selling price
-//   totalUnitsSold: Decimal;
-//   totalRevenueGenerated: Decimal;
-//   estimatedTotalProfitGenerated: Decimal; // Revenue - Estimated COGS
-//   averageBuyingPrice: Decimal; // Weighted average based on current stock
-//   lastOrderDate: Date | null;
-//   numberOfStockBatches: number; // Number of distinct batches with quantity > 0
-//   // Add more fields as needed
-// }
-
-// // --- Basic CRUD Actions ---
-
-// /**
-//  * Creates a new product within an organization.
-//  */
-// export async function createProduct(
-//   input: CreateProductInput
-// ): Promise<ActionResponse<Product>> {
-
-  
-//   const session = await auth.api.getSession({ headers: await headers() });
-//   const organizationId = session?.session.activeOrganizationId;
-//   const userId = session?.session.userId
-//   if (!userId || !organizationId) throw new Error("Unauthorized");
-
-//   if (!(await checkUserAuthorization(userId, organizationId))) {
-//     return { success: false, error: "Unauthorized" };
-//   }
-
-//   try {
-//     const sellingPriceDecimal = new Decimal(input.currentSellingPrice);
-//     if (sellingPriceDecimal.lt(0)) {
-//       return { success: false, error: "Selling price cannot be negative." };
-//     }
-
-//     // Validate category if provided
-//     if (input.categoryId) {
-//       const category = await prisma.category.findUnique({
-//         where: { id: input.categoryId, organizationId },
-//       });
-//       if (!category) {
-//         return {
-//           success: false,
-//           error: `Category with ID ${input.categoryId} not found in this organization.`,
-//         };
-//       }
-//     }
-
-//     // Validate SKU uniqueness within the organization if provided
-//     if (input.sku) {
-//       const existingSku = await prisma.product.findUnique({
-//         where: {
-//           organizationId_sku: {
-//             organizationId,
-//             sku: input.sku,
-//           },
-//         },
-//       });
-//       if (existingSku) {
-//         return {
-//           success: false,
-//           error: `SKU '${input.sku}' already exists in this organization.`,
-//         };
-//       }
-//     }
-
-//     const newProduct = await prisma.product.create({
-//       data: {
-//         organizationId,
-//         name: input.name,
-//         description: input.description,
-//         sku: input.sku,
-//         type: input.type, // Uses schema default if undefined
-//         unit: input.unit,
-//         currentSellingPrice: sellingPriceDecimal,
-//         categoryId: input.categoryId,
-//         isActive: input.isActive, // Uses schema default if undefined
-//       },
-//     });
-
-//     return { success: true, data: newProduct };
-//   } catch (error) {
-//     console.error("Error creating product:", error);
-//     if (
-//       error instanceof Prisma.PrismaClientKnownRequestError &&
-//       error.code === "P2002"
-//     ) {
-//       // Handle potential race condition on unique constraints if validation above missed it
-//       return {
-//         success: false,
-//         error: `A product with conflicting unique field (e.g., SKU) already exists.`,
-//       };
-//     }
-//     return { success: false, error: "Failed to create product." };
-//   }
-// }
-
-// /**
-//  * Retrieves a single product by its ID.
-//  */
-// export async function getProduct(
-//   organizationId: string,
-//   productId: string,
-//   userId: string
-// ): Promise<ActionResponse<Product>> {
-//   if (!(await checkUserAuthorization(userId, organizationId))) {
-//     return { success: false, error: "Unauthorized" };
-//   }
-//   try {
-//     const product = await prisma.product.findUnique({
-//       where: { id: productId, organizationId },
-//       include: { category: { select: { name: true } } }, // Include category name
-//     });
-
-//     if (!product) {
-//       return { success: false, error: "Product not found." };
-//     }
-//     return { success: true, data: product };
-//   } catch (error) {
-//     console.error("Error getting product:", error);
-//     return { success: false, error: "Failed to retrieve product." };
-//   }
-// }
-
-// /**
-//  * Updates an existing product.
-//  */
-// export async function updateProduct(
-//   input: UpdateProductInput
-// ): Promise<ActionResponse<Product>> {
-//   if (!(await checkUserAuthorization(input.userId, input.organizationId))) {
-//     return { success: false, error: "Unauthorized" };
-//   }
-
-//   try {
-//     // Ensure product exists in the org
-//     const existingProduct = await prisma.product.findUnique({
-//       where: { id: input.productId, organizationId: input.organizationId },
-//     });
-//     if (!existingProduct) {
-//       return { success: false, error: "Product not found." };
-//     }
-
-//     // Prepare update data
-//     const updateData: Prisma.ProductUpdateInput = {};
-//     if (input.name !== undefined) updateData.name = input.name;
-//     if (input.description !== undefined)
-//       updateData.description = input.description;
-//     if (input.sku !== undefined) {
-//       // Validate SKU uniqueness if changing SKU
-//       if (input.sku && input.sku !== existingProduct.sku) {
-//         const existingSku = await prisma.product.findUnique({
-//           where: {
-//             organizationId_sku: {
-//               organizationId: input.organizationId,
-//               sku: input.sku,
-//             },
-//           },
-//         });
-//         if (existingSku) {
-//           return {
-//             success: false,
-//             error: `SKU '${input.sku}' already exists in this organization.`,
-//           };
-//         }
-//       }
-//       updateData.sku = input.sku;
-//     }
-//     if (input.type !== undefined) updateData.type = input.type;
-//     if (input.unit !== undefined) updateData.unit = input.unit;
-//     if (input.currentSellingPrice !== undefined) {
-//       const sellingPriceDecimal = new Decimal(input.currentSellingPrice);
-//       if (sellingPriceDecimal.lt(0)) {
-//         return { success: false, error: "Selling price cannot be negative." };
-//       }
-//       updateData.currentSellingPrice = sellingPriceDecimal;
-//     }
-//     if (input.categoryId !== undefined) {
-//       // If setting a category, validate it exists; null clears it
-//       if (input.categoryId) {
-//         const category = await prisma.category.findUnique({
-//           where: { id: input.categoryId, organizationId: input.organizationId },
-//         });
-//         if (!category) {
-//           return {
-//             success: false,
-//             error: `Category with ID ${input.categoryId} not found.`,
-//           };
-//         }
-//         updateData.category = { connect: { id: input.categoryId } };
-//       } else {
-//         updateData.category = { disconnect: true };
-//       }
-//     }
-//     if (input.isActive !== undefined) updateData.isActive = input.isActive;
-
-//     if (Object.keys(updateData).length === 0) {
-//       return { success: false, error: "No fields provided for update." };
-//     }
-
-//     const updatedProduct = await prisma.product.update({
-//       where: { id: input.productId },
-//       data: updateData,
-//     });
-
-//     return { success: true, data: updatedProduct };
-//   } catch (error) {
-//     console.error("Error updating product:", error);
-//     if (
-//       error instanceof Prisma.PrismaClientKnownRequestError &&
-//       error.code === "P2002"
-//     ) {
-//       return {
-//         success: false,
-//         error: `A product with conflicting unique field (e.g., SKU) already exists.`,
-//       };
-//     }
-//     return { success: false, error: "Failed to update product." };
-//   }
-// }
-
-// /**
-//  * Toggles the active status of a product (safer than deleting).
-//  */
-// export async function toggleProductActiveStatus(
-//   productId: string,
-//   isActive: boolean
-// ): Promise<ActionResponse<Product>> {
-
-//   const session = await auth.api.getSession({ headers: await headers() });
-//   const organizationId = session?.session.activeOrganizationId;
-//   const userId = session?.session.userId;
-//   if (!userId || !organizationId) throw new Error("Unauthorized");
-
-//     if (!(await checkUserAuthorization(userId, organizationId))) {
-//     return { success: false, error: "Unauthorized" };
-//   }
-  
-//   try {
-//     const updatedProduct = await prisma.product.update({
-//       where: { id: productId, organizationId },
-//       data: { isActive: isActive },
-//     });
-//     if (!updatedProduct) {
-//       return { success: false, error: "Product not found." };
-//     }
-//     return { success: true, data: updatedProduct };
-//   } catch (error) {
-//     console.error("Error toggling product status:", error);
-//     return { success: false, error: "Failed to toggle product status." };
-//   }
-// }
-
-// /**
-//  * Deletes a product. WARNING: This can fail or cause data loss if the product
-//  * has associated Stock, OrderItems, or StockTransactions due to restrictive relations.
-//  * Consider using toggleProductActiveStatus instead.
-//  */
-// export async function deleteProduct(
-//   organizationId: string,
-//   productId: string,
-// ): Promise<ActionResponse<{ id: string }>> {
-
-//   const session = await auth.api.getSession({ headers: await headers() });
-//   if (!session?.user.id) throw new Error("Unauthorized");
-//   console.log(session?.session.activeOrganizationId);
-//   if (!(await checkUserAuthorization(session?.user.id, organizationId))) {
-//     return { success: false, error: "Unauthorized" };
-//   }
-
-//   try {
-//     // --- Check for Dependencies ---
-//     // It's often better to prevent deletion if dependencies exist.
-//     const dependencies = await prisma.$transaction([
-//       prisma.stock.count({ where: { productId: productId } }),
-//       prisma.orderItem.count({ where: { productId: productId } }),
-//       prisma.stockTransaction.count({ where: { productId: productId } }),
-//     ]);
-
-//     const [stockCount, orderItemCount, transactionCount] = dependencies;
-
-//     if (stockCount > 0 || orderItemCount > 0 || transactionCount > 0) {
-//       const errors: string[] = [];
-//       if (stockCount > 0) errors.push(`${stockCount} stock batch(es)`);
-//       if (orderItemCount > 0) errors.push(`${orderItemCount} order item(s)`);
-//       if (transactionCount > 0)
-//         errors.push(`${transactionCount} stock transaction(s)`);
-//       return {
-//         success: false,
-//         error: `Cannot delete product: Found associated ${errors.join(", ")}. Consider deactivating the product instead.`,
-//       };
-//     }
-//     // --- End Dependency Check ---
-
-//     // If no dependencies, proceed with deletion
-//     const deletedProduct = await prisma.product.delete({
-//       where: { id: productId, organizationId: organizationId }, // Ensure it belongs to the org
-//     });
-
-//     return { success: true, data: { id: deletedProduct.id } };
-//   } catch (error) {
-//     console.error("Error deleting product:", error);
-//     if (error instanceof Prisma.PrismaClientKnownRequestError) {
-//       if (error.code === "P2025") {
-//         // Record to delete not found
-//         return { success: false, error: "Product not found." };
-//       }
-//       if (error.code === "P2003" || error.code === "P2014") {
-//         // Foreign key constraint violation (should be caught by check above, but as fallback)
-//         return {
-//           success: false,
-//           error:
-//             "Cannot delete product due to existing related records (e.g., orders, stock). Consider deactivating instead.",
-//         };
-//       }
-//     }
-//     return { success: false, error: "Failed to delete product." };
-//   }
-// }
-
-// /**
-//  * Lists products with filtering, sorting, and pagination.
-//  */
-// export async function listProducts(
-//   input: ListProductsInput
-// ): Promise<
-//   ActionResponse<{
-//     products: (Product & {
-//       category?: { name: string | null };
-//       _sum?: { stockQuantity: Decimal | null };
-//     })[];
-//     totalCount: number;
-//   }>
-// > {
-//   const organizationId =''
-//   try {
-//     const {
-//       page = 1,
-//       pageSize = 20,
-//       sortBy = "name",
-//       sortOrder = "asc",
-//       searchTerm,
-//       includeCategory = false,
-//       ...filters
-//     } = input;
-//     const skip = (page - 1) * pageSize;
-
-//     const where: Prisma.ProductWhereInput = {
-//       organizationId: organizationId,
-//     };
-//     if (filters.categoryId !== undefined) where.categoryId = filters.categoryId;
-//     if (filters.isActive !== undefined) where.isActive = filters.isActive;
-//     if (searchTerm) {
-//       where.OR = [
-//         { name: { contains: searchTerm, mode: "insensitive" } },
-//         { description: { contains: searchTerm, mode: "insensitive" } },
-//         { sku: { contains: searchTerm, mode: "insensitive" } },
-//       ];
-//     }
-
-//     const orderBy: Prisma.ProductOrderByWithRelationInput = {
-//       [sortBy]: sortOrder,
-//     };
-
-//     // Prepare includes selectively
-//     const include: Prisma.ProductInclude = {};
-//     if (includeCategory) {
-//       include.category = { select: { name: true } };
-//     }
-//     let productsData: any[] = [];
-//     let totalCount = 0;
-
-//       // Fetch without stock sums
-//       [productsData, totalCount] = await prisma.$transaction([
-//         prisma.product.findMany({
-//           where,
-//           include,
-//           orderBy,
-//           skip,
-//           take: pageSize,
-//         }),
-//         prisma.product.count({ where }),
-//       ]);
-
-//     return { success: true, data: { products: productsData, totalCount } };
-//   } catch (error) {
-//     console.error("Error listing products:", error);
-//     return { success: false, error: "Failed to list products." };
-//   }
-// }
-
-// // --- Complex Read Actions ---
-
-// /**
-//  * Retrieves detailed information and calculated metrics for a single product.
-//  * Note: This function performs multiple database queries and calculations,
-//  * which might impact performance. Use judiciously.
-//  */
-// export async function getProductDetails(
-//   organizationId: string,
-//   productId: string,
-// ): Promise<ActionResponse<ProductDetails>> {
-//   try {
-//     // 1. Fetch base product data
-//     const product = await prisma.product.findUnique({
-//       where: { id: productId, organizationId: organizationId },
-//       include: { category: { select: { name: true } } },
-//     });
-
-//     if (!product) {
-//       return { success: false, error: "Product not found." };
-//     }
-
-//     // 2. Fetch current stock batches for calculations
-//     const currentStockBatches = await prisma.stock.findMany({
-//       where: {
-//         productId: productId,
-//         organizationId: organizationId,
-//         quantityAvailable: { gt: 0 }, // Only batches with stock
-//       },
-//     });
-
-//     // 3. Calculate stock metrics
-//     let currentStockQuantity = new Decimal(0);
-//     let currentStockValue = new Decimal(0);
-//     let numberOfStockBatches = 0;
-
-//     currentStockBatches.forEach((batch) => {
-//       currentStockQuantity = currentStockQuantity.add(batch.quantityAvailable);
-//       currentStockValue = currentStockValue.add(
-//         batch.quantityAvailable.mul(batch.buyingPricePerUnit)
-//       );
-//       numberOfStockBatches++;
-//     });
-
-//     const averageBuyingPrice = currentStockQuantity.gt(0)
-//       ? currentStockValue.div(currentStockQuantity)
-//       : new Decimal(0);
-
-//     const potentialProfitOnCurrentStock = currentStockBatches.reduce(
-//       (sum, batch) => {
-//         const profitPerUnit = product.currentSellingPrice.sub(
-//           batch.buyingPricePerUnit
-//         );
-//         // Only add if selling price is higher than buying price
-//         if (profitPerUnit.gt(0)) {
-//           return sum.add(batch.quantityAvailable.mul(profitPerUnit));
-//         }
-//         return sum;
-//       },
-//       new Decimal(0)
-//     );
-
-//     // 4. Calculate sales metrics
-//     const salesAggregations = await prisma.stockTransaction.aggregate({
-//       _sum: { quantityChange: true },
-//       where: {
-//         productId: productId,
-//         organizationId: organizationId,
-//         type: StockTransactionType.SALE,
-//       },
-//     });
-//     const totalUnitsSold =
-//       salesAggregations._sum.quantityChange?.abs() ?? new Decimal(0);
-
-//     const revenueAggregations = await prisma.orderItem.aggregate({
-//       _sum: { totalPrice: true },
-//       where: {
-//         productId: productId,
-//         order: { organizationId: organizationId }, // Ensure order belongs to the org
-//       },
-//     });
-//     const totalRevenueGenerated =
-//       revenueAggregations._sum.totalPrice ?? new Decimal(0);
-
-//     // Estimate COGS using the *average buying price* of *current* stock.
-//     // This is an ESTIMATE. True COGS requires tracking cost per sale.
-//     const estimatedCOGS = totalUnitsSold.mul(averageBuyingPrice);
-//     const estimatedTotalProfitGenerated =
-//       totalRevenueGenerated.sub(estimatedCOGS);
-
-//     // 5. Find last order date
-//     const lastOrderItem = await prisma.orderItem.findFirst({
-//       where: {
-//         productId: productId,
-//         order: { organizationId: organizationId },
-//       },
-//       orderBy: { order: { createdAt: "desc" } },
-//       select: { order: { select: { createdAt: true } } },
-//     });
-//     const lastOrderDate = lastOrderItem?.order?.createdAt ?? null;
-
-//     // 6. Assemble the detailed product data
-//     const productDetails: ProductDetails = {
-//       ...product, // Spread the base product data
-//       categoryName: product.category?.name,
-//       currentStockQuantity,
-//       currentStockValue,
-//       potentialProfitOnCurrentStock,
-//       totalUnitsSold,
-//       totalRevenueGenerated,
-//       estimatedTotalProfitGenerated,
-//       averageBuyingPrice,
-//       lastOrderDate,
-//       numberOfStockBatches,
-//     };
-
-//     return { success: true, data: productDetails };
-//   } catch (error) {
-//     console.error("Error getting product details:", error);
-//     return { success: false, error: "Failed to retrieve product details." };
-//   }
-// }
-
-// // --- Other Utility Product Actions ---
-
-// interface FindProductsInput {
-//   organizationId: string;
-//   userId: string;
-// }
-
-// interface FindProductsNearingExpiryInput extends FindProductsInput {
-//   daysThreshold: number; // e.g., 30 days from now
-// }
-// interface ExpiringProductInfo {
-//   productId: string;
-//   productName: string | null;
-//   sku: string | null;
-//   expiringBatches: {
-//     stockId: string;
-//     batchNumber: string | null;
-//     quantityAvailable: Decimal;
-//     expiryDate: Date;
-//   }[];
-// }
-// /**
-//  * Finds products that have stock batches expiring within a specified threshold.
-//  */
-// export async function findProductsNearingExpiry(
-//   input: FindProductsNearingExpiryInput
-// ): Promise<ActionResponse<ExpiringProductInfo[]>> {
-//   if (!(await checkUserAuthorization(input.userId, input.organizationId))) {
-//     return { success: false, error: "Unauthorized" };
-//   }
-//   try {
-//     const { organizationId, daysThreshold } = input;
-//     const soonExpiryDate = new Date();
-//     soonExpiryDate.setDate(soonExpiryDate.getDate() + daysThreshold);
-
-//     // Find stock batches expiring soon
-//     const expiringStock = await prisma.stock.findMany({
-//       where: {
-//         organizationId: organizationId,
-//         expiryDate: {
-//           lte: soonExpiryDate,
-//           gte: new Date(), // Not already expired
-//         },
-//         quantityAvailable: { gt: 0 },
-//       },
-//       include: {
-//         product: { select: { id: true, name: true, sku: true } },
-//       },
-//       orderBy: {
-//         productId: "asc", // Group results by product
-//         expiryDate: "asc",
-//       },
-//     });
-
-//     // Group batches by product
-//     const productsMap = new Map<string, ExpiringProductInfo>();
-//     expiringStock.forEach((stock) => {
-//       if (!stock.expiryDate) return; // Should not happen based on query, but safety check
-
-//       let productInfo = productsMap.get(stock.productId);
-//       if (!productInfo) {
-//         productInfo = {
-//           productId: stock.productId,
-//           productName: stock.product.name,
-//           sku: stock.product.sku,
-//           expiringBatches: [],
-//         };
-//         productsMap.set(stock.productId, productInfo);
-//       }
-//       productInfo.expiringBatches.push({
-//         stockId: stock.id,
-//         batchNumber: stock.batchNumber,
-//         quantityAvailable: stock.quantityAvailable,
-//         expiryDate: stock.expiryDate,
-//       });
-//     });
-
-//     return { success: true, data: Array.from(productsMap.values()) };
-//   } catch (error) {
-//     console.error("Error finding products nearing expiry:", error);
-//     return { success: false, error: "Failed to find products nearing expiry." };
-//   }
-// }
-
-// interface FindProductsLowOnStockInput extends FindProductsInput {
-//   quantityThreshold: number;
-// }
-// interface LowStockProductInfo {
-//   productId: string;
-//   productName: string | null;
-//   sku: string | null;
-//   totalQuantityAvailable: Decimal;
-//   unit: string;
-// }
-// /**
-//  * Finds products where the total available stock across all batches is below a threshold.
-//  */
-// export async function findProductsLowOnStock(
-//   input: FindProductsLowOnStockInput
-// ): Promise<ActionResponse<LowStockProductInfo[]>> {
-//   if (!(await checkUserAuthorization(input.userId, input.organizationId))) {
-//     return { success: false, error: "Unauthorized" };
-//   }
-//   try {
-//     const { organizationId, quantityThreshold } = input;
-//     const lowStockThresholdDecimal = new Decimal(quantityThreshold);
-
-//     // Aggregate stock quantities per product
-//     const productStockLevels = await prisma.stock.groupBy({
-//       by: ["productId"],
-//       _sum: { quantityAvailable: true },
-//       where: {
-//         organizationId: organizationId,
-//         quantityAvailable: { gt: 0 }, // Only consider batches with stock
-//       },
-//       having: {
-//         // Filter groups based on the sum
-//         quantityAvailable: {
-//           _sum: {
-//             lte: lowStockThresholdDecimal,
-//           },
-//         },
-//       },
-//     });
-
-//     const lowStockProductIds = productStockLevels.map((p) => p.productId);
-
-//     // Fetch details for these products
-//     if (lowStockProductIds.length === 0) {
-//       return { success: true, data: [] }; // No products low on stock
-//     }
-
-//     const lowStockProductsDetails = await prisma.product.findMany({
-//       where: {
-//         id: { in: lowStockProductIds },
-//         organizationId: organizationId, // Ensure correct org
-//         isActive: true, // Typically only care about active products
-//       },
-//       select: { id: true, name: true, sku: true, unit: true },
-//     });
-
-//     // Combine product details with aggregated quantities
-//     const result = lowStockProductsDetails.map((p) => {
-//       const stockLevel = productStockLevels.find(
-//         (psl) => psl.productId === p.id
-//       );
-//       return {
-//         productId: p.id,
-//         productName: p.name,
-//         sku: p.sku,
-//         totalQuantityAvailable:
-//           stockLevel?._sum?.quantityAvailable ?? new Decimal(0),
-//         unit: p.unit,
-//       };
-//     });
-
-//     return { success: true, data: result };
-//   } catch (error) {
-//     console.error("Error finding products low on stock:", error);
-//     return { success: false, error: "Failed to find products low on stock." };
-//   }
-// }
+"use server";
+
+import { z } from "zod";
+import prisma from "@/lib/db";
+import { revalidatePath } from "next/cache";
+import { Prisma } from "@prisma/client";
+
+// --- Zod Schemas for Validation ---
+
+const VariantAttributeSchema = z.object({
+  name: z.string().min(1, "Attribute name required"),
+  value: z.string().min(1, "Attribute value required"),
+});
+
+const getRandomSku = () => {
+  return (
+    Math.floor(Math.random() * 1000000).toString() +
+    Math.floor(Math.random() * 1000000).toString()
+  );
+}
+const VariantSchema = z.object({
+  id: z.string().cuid().optional(), // Optional for new variants
+  name: z.string(),
+  sku: z.string().optional().default(getRandomSku()),
+  skuSuffix: z.string().optional().nullable(),
+  barcode: z.string().optional().nullable(),
+  isActive: z.boolean().default(true),
+  priceModifier: z.coerce
+    .number()
+    .default(0)
+    .describe("Amount to add/subtract from base price"),
+  attributes: z
+    .array(VariantAttributeSchema)
+    .min(1, "At least one attribute is required"),
+});
+
+const ProductSchema = z.object({
+  name: z.string().min(1, "Product name is required"),
+  description: z.string().optional(),
+  sku: z.string().min(1, "SKU is required"),
+  barcode: z
+    .string()
+    .optional()
+    .nullable()
+    .describe("Base product barcode if no variants"),
+  categoryId: z.string().min(1, "Category is required"),
+  basePrice: z.coerce.number().min(0, "Base price must be non-negative"),
+  reorderPoint: z.coerce
+    .number()
+    .int()
+    .min(0, "Reorder point must be non-negative")
+    .default(5),
+  isActive: z.boolean().default(true),
+  imageUrls: z.array(z.string().url()).optional().default([]),
+  variants: z.array(VariantSchema).optional().default([]),
+});
+
+const EditProductSchema = ProductSchema.extend({
+  id: z.string().cuid(),
+  variants: z
+    .array(
+      VariantSchema.extend({
+        id: z.string().cuid().optional(),
+      })
+    )
+    .optional()
+    .default([]),
+});
+
+const RestockSchema = z.object({
+  productId: z.string().cuid(),
+  variantId: z.string().cuid().optional().nullable(),
+  batchNumber: z.string().optional().nullable(),
+  initialQuantity: z.coerce
+    .number()
+    .int()
+    .positive("Quantity must be positive"),
+  purchasePrice: z.coerce
+    .number()
+    .min(0, "Purchase price must be non-negative"),
+  expiryDate: z.coerce.date().optional().nullable(),
+  location: z.string().optional().nullable(),
+  purchaseItemId: z.string().cuid().optional().nullable(),
+});
+
+const StockAdjustmentSchema = z.object({
+  productId: z.string().cuid(),
+  variantId: z.string().cuid().optional().nullable(),
+  stockBatchId: z.string().cuid().optional().nullable(),
+  quantity: z
+    .number()
+    .int()
+    .refine((val) => val !== 0, "Quantity must not be zero"),
+  reason: z.enum([
+    "INITIAL_STOCK",
+    "DAMAGED",
+    "EXPIRED",
+    "LOST",
+    "STOLEN",
+    "FOUND",
+    "RETURN_TO_SUPPLIER",
+    "CUSTOMER_RETURN",
+    "INVENTORY_COUNT",
+    "OTHER",
+  ]),
+  notes: z.string().optional(),
+});
+
+// --- Helper Function for Error Handling ---
+const handlePrismaError = (error: unknown): { error: string } => {
+  console.error("Prisma Error:", error);
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === "P2002") {
+      const target = error.meta?.target as string[] | undefined;
+      return {
+        error: `A record with this ${target?.join(", ")} already exists.`,
+      };
+    }
+    return { error: `Database error: ${error.code}` };
+  } else if (error instanceof Prisma.PrismaClientValidationError) {
+    return { error: "Invalid data provided." };
+  }
+  return { error: "An unexpected error occurred." };
+};
+
+// --- Product Actions ---
+
+export async function getProducts(
+  options: {
+    includeVariants?: boolean;
+    includeCategory?: boolean;
+    page?: number;
+    limit?: number;
+    search?: string;
+    categoryId?: string;
+    sortBy?: "name" | "createdAt" | "basePrice" | "totalStock";
+    sortOrder?: "asc" | "desc";
+  } = {}
+) {
+  const {
+    includeVariants = true,
+    includeCategory = true,
+    page = 1,
+    limit = 10,
+    search,
+    categoryId,
+    sortBy = "name",
+    sortOrder = "asc",
+  } = options;
+
+  const skip = (page - 1) * limit;
+  const where: Prisma.ProductWhereInput = {
+    isActive: true,
+    ...(search && {
+      OR: [
+        { name: { contains: search, mode: "insensitive" } },
+        { sku: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+      ],
+    }),
+    ...(categoryId && { categoryId }),
+  };
+
+  try {
+    const [products, totalProducts] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        include: {
+          category: includeCategory,
+          variants: includeVariants
+            ? {
+                include: {
+                  stockBatches: {
+                    select: { currentQuantity: true },
+                  },
+                },
+              }
+            : false,
+          stockBatches: {
+            select: { currentQuantity: true },
+          },
+        },
+        orderBy: { [sortBy]: sortOrder },
+        skip,
+        take: limit,
+      }),
+      prisma.product.count({ where }),
+    ]);
+
+    const productsWithStock = products.map((p) => {
+      const baseStock = p.stockBatches.reduce(
+        (sum, batch) => sum + batch.currentQuantity,
+        0
+      );
+      const variantStock = p.variants.reduce(
+        (variantSum, variant) =>
+          variantSum +
+          variant.variantStock.reduce(
+            (batchSum, batch) => batchSum + batch.currentQuantity,
+            0
+          ),
+        0
+      );
+
+      return {
+        ...p,
+        basePrice: p.basePrice.toString(),
+        totalStock: baseStock + variantStock,
+        variants: p.variants.map((v) => ({
+          ...v,
+          totalStock: v.stockBatches.reduce(
+            (batchSum, batch) => batchSum + batch.currentQuantity,
+            0
+          ),
+        })),
+      };
+    });
+
+    return {
+      products: productsWithStock,
+      totalProducts,
+      totalPages: Math.ceil(totalProducts / limit),
+      currentPage: page,
+      pageSize: limit,
+    };
+  } catch (error) {
+    console.error("Error fetching products:", error);
+    return {
+      error: "Failed to fetch products.",
+      products: [],
+      totalProducts: 0,
+      totalPages: 0,
+      currentPage: 1,
+      pageSize: limit,
+    };
+  }
+}
+
+export async function getCategories() {
+  try {
+    const categories = await prisma.category.findMany({
+      orderBy: { name: "asc" },
+    });
+    return { categories };
+  } catch (error) {
+    console.error("Error fetching categories:", error);
+    return { error: "Failed to fetch categories." };
+  }
+}
+
+export async function addProduct(formData: FormData) {
+  const rawData = Object.fromEntries(formData.entries());
+  const variantsString = formData.get("variants") as string | null;
+  let parsedVariants = [];
+
+  try {
+    parsedVariants = variantsString ? JSON.parse(variantsString) : [];
+  } catch (e) {
+    console.error("Error parsing variants:", e);
+    return { error: "Invalid variant data format." };
+  }
+
+  const validatedFields = ProductSchema.safeParse({
+    ...rawData,
+    basePrice: parseFloat((rawData.basePrice as string) || "0"),
+    reorderPoint: parseInt((rawData.reorderPoint as string) || "5", 10),
+    isActive:
+      rawData.isActive === "on" ||
+      rawData.isActive === "true" ||
+      rawData.isActive === true,
+    imageUrls: formData
+      .getAll("imageUrls")
+      .filter((url) => typeof url === "string" && url),
+    variants: parsedVariants,
+  });
+
+  if (!validatedFields.success) {
+    console.error(
+      "Validation Errors:",
+      validatedFields.error.flatten().fieldErrors
+    );
+    return {
+      error: "Validation failed.",
+      fieldErrors: validatedFields.error.flatten().fieldErrors,
+    };
+  }
+
+  const data = validatedFields.data;
+
+  try {
+    const newProduct = await prisma.product.create({
+      data: {
+        ...data,
+        basePrice: new Prisma.Decimal(data.basePrice),
+        variants: {
+          create:
+            data.variants?.map((v) => ({
+              name: v.name,
+              sku: v.sku,
+              skuSuffix: v.skuSuffix,
+              barcode: v.barcode,
+              priceModifier: new Prisma.Decimal(v.priceModifier),
+              attributes: v.attributes as unknown as Prisma.InputJsonValue,
+            })) || [],
+        },
+      },
+    });
+    revalidatePath("/products");
+    return { success: true, product: newProduct };
+  } catch (error) {
+    return handlePrismaError(error);
+  }
+}
+
+export async function updateProduct(formData: FormData) {
+  const rawData = Object.fromEntries(formData.entries());
+  const productId = rawData.id as string;
+
+  if (!productId) return { error: "Product ID is missing." };
+
+  const variantsString = formData.get("variants") as string | null;
+  let parsedVariants = [];
+  try {
+    parsedVariants = variantsString ? JSON.parse(variantsString) : [];
+  } catch (e) {
+    console.error("Error parsing variants:", e);
+    return { error: "Invalid variant data format." };
+  }
+
+  const validatedFields = EditProductSchema.safeParse({
+    ...rawData,
+    basePrice: parseFloat((rawData.basePrice as string) || "0"),
+    reorderPoint: parseInt((rawData.reorderPoint as string) || "5", 10),
+    isActive:
+      rawData.isActive === "on" ||
+      rawData.isActive === "true" ||
+      rawData.isActive === true,
+    imageUrls: formData
+      .getAll("imageUrls")
+      .filter((url) => typeof url === "string" && url),
+    variants: parsedVariants,
+  });
+
+  if (!validatedFields.success) {
+    console.error(
+      "Validation Errors:",
+      validatedFields.error.flatten().fieldErrors
+    );
+    return {
+      error: "Validation failed.",
+      fieldErrors: validatedFields.error.flatten().fieldErrors,
+    };
+  }
+
+  const { id, variants, ...data } = validatedFields.data;
+
+  try {
+    const existingVariants = await prisma.productVariant.findMany({
+      where: { productId: id },
+      select: { id: true },
+    });
+    const existingVariantIds = new Set(existingVariants.map((v) => v.id));
+
+    const variantsToCreate = variants?.filter((v) => !v.id) || [];
+    const variantsToUpdate =
+      variants?.filter((v) => v.id && existingVariantIds.has(v.id)) || [];
+    const variantIdsToKeep = new Set(
+      variants?.map((v) => v.id).filter(Boolean)
+    );
+    const variantsToDelete = existingVariants.filter(
+      (v) => !variantIdsToKeep.has(v.id)
+    );
+
+    const updatedProduct = await prisma.$transaction(async (tx) => {
+      if (variantsToDelete.length > 0) {
+        await tx.productVariant.deleteMany({
+          where: { id: { in: variantsToDelete.map((v) => v.id) } },
+        });
+      }
+
+      const product = await tx.product.update({
+        where: { id },
+        data: {
+          ...data,
+          basePrice: new Prisma.Decimal(data.basePrice),
+          variants: {
+            create: variantsToCreate.map((v) => ({
+              name: v.name,
+              sku: v.sku,
+              skuSuffix: v.skuSuffix,
+              barcode: v.barcode,
+              priceModifier: new Prisma.Decimal(v.priceModifier),
+              attributes: v.attributes as unknown as Prisma.InputJsonValue,
+            })),
+          },
+        },
+      });
+
+      for (const v of variantsToUpdate) {
+        if (v.id) {
+          await tx.productVariant.update({
+            where: { id: v.id },
+            data: {
+              barcode: v.barcode,
+              priceModifier: new Prisma.Decimal(v.priceModifier),
+              attributes: v.attributes as unknown as Prisma.InputJsonValue,
+            },
+          });
+        }
+      }
+
+      return product;
+    });
+
+    revalidatePath("/products");
+    revalidatePath(`/products/${id}`);
+    return { success: true, product: updatedProduct };
+  } catch (error) {
+    return handlePrismaError(error);
+  }
+}
+
+export async function toggleProductStatus(
+  productId: string,
+  isActive: boolean
+) {
+  if (!productId) return { error: "Product ID is required." };
+
+  try {
+    const updatedProduct = await prisma.product.update({
+      where: { id: productId },
+      data: { isActive },
+    });
+    revalidatePath("/products");
+    return { success: true, product: updatedProduct };
+  } catch (error) {
+    return handlePrismaError(error);
+  }
+}
+
+// --- Stock Management Actions ---
+
+export async function addStockBatch(formData: FormData) {
+  const rawData = Object.fromEntries(formData.entries());
+  const expiryDateStr = formData.get("expiryDate") as string | null;
+  const parsedData = {
+    ...rawData,
+    expiryDate:
+      expiryDateStr && expiryDateStr !== "" ? new Date(expiryDateStr) : null,
+    initialQuantity: parseInt(
+      (formData.get("initialQuantity") as string) || "0",
+      10
+    ),
+    purchasePrice: parseFloat((formData.get("purchasePrice") as string) || "0"),
+  };
+
+  const validatedFields = RestockSchema.safeParse(parsedData);
+
+  if (!validatedFields.success) {
+    console.error(
+      "Validation Errors:",
+      validatedFields.error.flatten().fieldErrors
+    );
+    return {
+      error: "Validation failed.",
+      fieldErrors: validatedFields.error.flatten().fieldErrors,
+    };
+  }
+
+  const data = validatedFields.data;
+
+  try {
+    const newBatch = await prisma.stockBatch.create({
+      data: {
+        productId: data.productId,
+        variantId: data.variantId || undefined,
+        batchNumber: data.batchNumber || undefined,
+        initialQuantity: data.initialQuantity,
+        currentQuantity: data.initialQuantity,
+        purchasePrice: new Prisma.Decimal(data.purchasePrice),
+        expiryDate: data.expiryDate || undefined,
+        location: data.location || undefined,
+        purchaseItemId: data.purchaseItemId || undefined,
+      },
+    });
+
+    revalidatePath("/stocks");
+    return { success: true, batch: newBatch };
+  } catch (error) {
+    return handlePrismaError(error);
+  }
+}
+
+export async function getStockBatches(
+  options: {
+    productId?: string;
+    variantId?: string;
+    includeProduct?: boolean;
+    activeOnly?: boolean;
+    page?: number;
+    limit?: number;
+  } = {}
+) {
+  const {
+    productId,
+    variantId,
+    includeProduct = true,
+    activeOnly = true,
+    page = 1,
+    limit = 20,
+  } = options;
+
+  const skip = (page - 1) * limit;
+
+  try {
+    const [batches, totalBatches] = await Promise.all([
+      prisma.stockBatch.findMany({
+        where: {
+          productId,
+          variantId,
+          currentQuantity: activeOnly ? { gt: 0 } : undefined,
+        },
+        include: {
+          product: includeProduct,
+          variant: true,
+          purchaseItem: true,
+        },
+        orderBy: {
+          receivedDate: "desc",
+        },
+        skip,
+        take: limit,
+      }),
+      prisma.stockBatch.count({
+        where: {
+          productId,
+          variantId,
+          currentQuantity: activeOnly ? { gt: 0 } : undefined,
+        },
+      }),
+    ]);
+
+    const cleanBatches = batches.map((batch) => ({
+      ...batch,
+      purchasePrice: batch.purchasePrice.toString(),
+      product: batch.product
+        ? {
+            ...batch.product,
+            basePrice: batch.product.basePrice.toString(),
+          }
+        : null,
+    }));
+
+    return {
+      batches: cleanBatches,
+      totalBatches,
+      totalPages: Math.ceil(totalBatches / limit),
+      currentPage: page,
+    };
+  } catch (error) {
+    console.error("Error fetching stock batches:", error);
+    return {
+      error: "Failed to fetch stock batches.",
+      batches: [],
+      totalBatches: 0,
+      totalPages: 0,
+      currentPage: 1,
+    };
+  }
+}
+
+export async function getPastStockBatches(
+  options: {
+    includeProduct?: boolean;
+    page?: number;
+    limit?: number;
+  } = {}
+) {
+  const { includeProduct = true, page = 1, limit = 20 } = options;
+
+  const skip = (page - 1) * limit;
+
+  try {
+    const [batches, totalBatches] = await Promise.all([
+      prisma.stockBatch.findMany({
+        where: {
+          currentQuantity: 0,
+        },
+        include: {
+          product: includeProduct,
+          variant: true,
+          purchaseItem: true,
+          saleItems: {
+            select: { id: true, quantity: true, saleId: true },
+          },
+        },
+        orderBy: {
+          receivedDate: "desc",
+        },
+        skip,
+        take: limit,
+      }),
+      prisma.stockBatch.count({
+        where: {
+          currentQuantity: 0,
+        },
+      }),
+    ]);
+
+    return {
+      batches,
+      totalBatches,
+      totalPages: Math.ceil(totalBatches / limit),
+      currentPage: page,
+    };
+  } catch (error) {
+    console.error("Error fetching past stock batches:", error);
+    return {
+      error: "Failed to fetch past stock batches.",
+      batches: [],
+      totalBatches: 0,
+      totalPages: 0,
+      currentPage: 1,
+    };
+  }
+}
+
+export async function adjustStock(formData: FormData) {
+  const rawData = Object.fromEntries(formData.entries());
+  const userId = formData.get("userId") as string;
+
+  if (!userId) {
+    return { error: "User ID is required for stock adjustment." };
+  }
+
+  const validatedFields = StockAdjustmentSchema.safeParse({
+    ...rawData,
+    quantity: parseInt(rawData.quantity as string, 10),
+  });
+
+  if (!validatedFields.success) {
+    console.error(
+      "Validation Errors:",
+      validatedFields.error.flatten().fieldErrors
+    );
+    return {
+      error: "Validation failed.",
+      fieldErrors: validatedFields.error.flatten().fieldErrors,
+    };
+  }
+
+  const { productId, variantId, stockBatchId, quantity, reason, notes } =
+    validatedFields.data;
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Create the adjustment record
+      const adjustment = await tx.stockAdjustment.create({
+        data: {
+          productId,
+          variantId: variantId || undefined,
+          stockBatchId: stockBatchId || undefined,
+          userId,
+          quantity,
+          reason,
+          notes,
+        },
+      });
+
+      // 2. Update the stock batch if specified
+      if (stockBatchId) {
+        await tx.stockBatch.update({
+          where: { id: stockBatchId },
+          data: {
+            currentQuantity: {
+              increment: quantity,
+            },
+          },
+        });
+      } else if (variantId) {
+        // Update the first available batch for the variant
+        await tx.stockBatch.updateMany({
+          where: {
+            productId,
+            variantId,
+            currentQuantity: { gt: 0 },
+          },
+          data: {
+            currentQuantity: {
+              increment: quantity,
+            },
+          },
+        });
+      } else {
+        // Update the first available batch for the product
+        await tx.stockBatch.updateMany({
+          where: {
+            productId,
+            variantId: null,
+            currentQuantity: { gt: 0 },
+          },
+          data: {
+            currentQuantity: {
+              increment: quantity,
+            },
+          },
+        });
+      }
+
+      return adjustment;
+    });
+
+    revalidatePath("/stocks");
+    return { success: true, adjustment: result };
+  } catch (error) {
+    return handlePrismaError(error);
+  }
+}
+
+export async function getLowStockProducts(threshold: number = 5) {
+  try {
+    const products = await prisma.product.findMany({
+      where: {
+        isActive: true,
+      },
+      include: {
+        stockBatches: {
+          select: { currentQuantity: true },
+        },
+        variants: {
+          include: {
+            stockBatches: {
+              select: { currentQuantity: true },
+            },
+          },
+        },
+      },
+    });
+
+    const lowStockProducts = products.filter((p) => {
+      const baseStock = p.stockBatches.reduce(
+        (sum, batch) => sum + batch.currentQuantity,
+        0
+      );
+      const variantStock = p.variants.reduce(
+        (variantSum, variant) =>
+          variantSum +
+          variant.stockBatches.reduce(
+            (batchSum, batch) => batchSum + batch.currentQuantity,
+            0
+          ),
+        0
+      );
+      return baseStock + variantStock <= threshold;
+    });
+
+    return { products: lowStockProducts };
+  } catch (error) {
+    console.error("Error fetching low stock products:", error);
+    return { error: "Failed to fetch low stock products." };
+  }
+}
+
+// --- Variant Actions ---
+
+export async function getProductVariants(productId: string) {
+  if (!productId) return { error: "Product ID is required." };
+
+  try {
+    const variants = await prisma.productVariant.findMany({
+      where: { productId },
+      include: {
+        stockBatches: {
+          select: { currentQuantity: true },
+        },
+      },
+    });
+
+    const variantsWithStock = variants.map((v) => ({
+      ...v,
+      priceModifier: v.priceModifier.toString(),
+      totalStock: v.stockBatches.reduce(
+        (sum, batch) => sum + batch.currentQuantity,
+        0
+      ),
+    }));
+
+    return { variants: variantsWithStock };
+  } catch (error) {
+    console.error("Error fetching variants:", error);
+    return { error: "Failed to fetch variants." };
+  }
+}
+
+export async function toggleVariantStatus(
+  variantId: string,
+  isActive: boolean
+) {
+  if (!variantId) return { error: "Variant ID is required." };
+
+  try {
+    const updatedVariant = await prisma.productVariant.update({
+      where: { id: variantId },
+      data: { isActive },
+    });
+    revalidatePath("/products");
+    return { success: true, variant: updatedVariant };
+  } catch (error) {
+    return handlePrismaError(error);
+  }
+}

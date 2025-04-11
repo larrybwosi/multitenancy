@@ -71,7 +71,7 @@ export default function ReturnsPage() {
         if (reason) params.append("reason", reason);
         if (dateRange) params.append("dateRange", dateRange);
 
-        const res = await fetch(`/api/returns?${params.toString()}`);
+        const res = await fetch(`/api/sales/returns?${params.toString()}`);
         const data = await res.json();
         setReturns(data.returns);
         setTotalCount(data.totalCount);
@@ -198,7 +198,7 @@ export default function ReturnsPage() {
       <SectionHeader
         title="Returns"
         subtitle="View and manage product returns"
-        icon={<PackageX className="h-5 w-5" />}
+        icon={<PackageX className="h-8 w-8 text-gray-600" />}
       />
 
       <FilterControls
@@ -292,7 +292,7 @@ export default function ReturnsPage() {
                       {ret.customerName}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {ret.items.length} item(s)
+                      {ret.items} item(s)
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {ret.reason.replace("_", " ")}

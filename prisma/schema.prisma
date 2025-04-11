@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -21,19 +20,12 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  sales             Sale[]
-  purchases            Purchase[]
-  purchasePayments     PurchasePayment[]
-  stockAdjustments     StockAdjustment[] 
-  loyaltyTransactions  LoyaltyTransaction[]
-  cashDrawers          CashDrawer[]
   emailVerified        Boolean
   image                String?
   banned               Boolean?
   banReason            String?
   banExpires           DateTime?
   username             String?
-  displayUsername      String?
   accounts             Account[]
   members              Member[]
   invitations          Invitation[]
@@ -87,6 +79,8 @@ model Product {
   purchaseItems    PurchaseItem[]
   stockBatches     StockBatch[]
   stockAdjustments StockAdjustment[]
+  stockMovements   StockMovement[]
+  variantStock     ProductVariantStock[]
 
   @@index([name])
   @@index([sku])
@@ -96,12 +90,18 @@ model ProductVariant {
   id            String   @id @default(cuid())
   productId     String
   product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  name          String // e.g., "Red, Large"
-  sku           String   @unique // Variant specific SKU
+  name          String 
+  sku           String   @unique
   barcode       String?  @unique
   priceModifier Decimal  @default(0) @db.Decimal(10, 2)
-  attributes    Json // { "color": "Red", "size": "Large" }
+  attributes    Json
   isActive      Boolean  @default(true)
+  
+  // Stock related fields
+  reorderPoint  Int      @default(5)  // When to reorder
+  reorderQty    Int      @default(10) // How much to reorder
+  lowStockAlert Boolean  @default(false) // Flag for low stock
+  
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -109,7 +109,9 @@ model ProductVariant {
   saleItems        SaleItem[]
   purchaseItems    PurchaseItem[]
   stockBatches     StockBatch[]
-  stockAdjustments StockAdjustment[] 
+  stockAdjustments StockAdjustment[]
+  stockMovements   StockMovement[]
+  variantStock     ProductVariantStock?
 
   @@unique([productId, sku])
   @@index([sku])
@@ -162,11 +164,17 @@ model Customer {
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  createdBy     String
+  createdById   String
+  updatedById   String?
+  organizationId String  
 
   // Relations
   sales               Sale[]
   loyaltyTransactions LoyaltyTransaction[]
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdBy     Member     @relation("CustomerCreatedBy", fields: [createdById], references: [id])  
+  updatedBy     Member?    @relation("CustomerUpdatedBy", fields: [updatedById], references: [id]) 
+
 
   @@index([name])
   @@index([email])
@@ -180,7 +188,7 @@ model Sale {
   customerId     String?
   customer       Customer?     @relation(fields: [customerId], references: [id])
   userId           String
-  user             User                @relation(fields: [userId], references: [id])
+  user             Member                @relation(fields: [userId], references: [id])
   saleDate       DateTime      @default(now())
   totalAmount    Decimal       @db.Decimal(10, 2)
   discountAmount Decimal       @db.Decimal(10, 2) @default(0)
@@ -199,6 +207,7 @@ model Sale {
   items              SaleItem[]
   attachments        Attachment[]
   loyaltyTransaction LoyaltyTransaction?
+  returns            Return[] // Added this relation field
 
   // @@index([userId])
   @@index([saleDate])
@@ -225,6 +234,7 @@ model SaleItem {
   totalAmount    Decimal         @db.Decimal(10, 2)
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
+  returns        ReturnItem[]
 
   @@index([saleId])
   @@index([productId])
@@ -238,7 +248,7 @@ model Purchase {
   supplierId     String
   supplier       Supplier       @relation(fields: [supplierId], references: [id])
   userId         String
-  user           User           @relation(fields: [userId], references: [id])
+  user           Member           @relation(fields: [userId], references: [id])
   orderDate      DateTime       @default(now())
   expectedDate   DateTime?
   receivedDate   DateTime?
@@ -287,7 +297,7 @@ model PurchasePayment {
   purchaseId    String
   purchase      Purchase      @relation(fields: [purchaseId], references: [id])
   userId        String
-  user          User          @relation(fields: [userId], references: [id])
+  user          Member          @relation(fields: [userId], references: [id])
   paymentDate   DateTime      @default(now())
   amount        Decimal       @db.Decimal(10, 2)
   paymentMethod PaymentMethod
@@ -308,7 +318,7 @@ model Return {
   saleNumber    String
   customerId    String
   customerName  String
-  items         Json         // Array of returned items with details
+  items         ReturnItem[]         // Array of returned items with details
   totalAmount   Decimal      @db.Decimal(10, 2)
   reason        ReturnReason
   status        ReturnStatus @default(PENDING)
@@ -324,12 +334,38 @@ model Return {
   @@index([createdAt])
 }
 
+model ReturnItem {
+  id             String          @id @default(cuid())
+  returnId       String
+  return         Return          @relation(fields: [returnId], references: [id])
+  saleItemId     String
+  saleItem       SaleItem        @relation(fields: [saleItemId], references: [id])
+  productId      String
+  variantId      String?
+  quantity       Int
+  unitPrice      Decimal         @db.Decimal(10, 2)
+  
+  // Enhancements
+  status         ReturnItemStatus @default(PENDING)
+  reason         ReturnReason?   // Individual reason can override the main return reason
+  stockBatchId   String?         // Which batch was this returned to?
+  stockBatch     StockBatch?     @relation(fields: [stockBatchId], references: [id])
+  notes          String?         // Item-specific notes
+}
+
 enum ReturnStatus {
   PENDING
   APPROVED
   REJECTED
   PROCESSED
   REFUNDED
+}
+
+enum ReturnItemStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PROCESSED
 }
 
 enum ReturnReason {
@@ -357,18 +393,42 @@ model StockBatch {
   purchasePrice   Decimal         @db.Decimal(10, 2)
   expiryDate      DateTime?
   receivedDate    DateTime        @default(now())
-  location        String?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
   // Relations
   saleItems   SaleItem[] // Track which sales depleted this batch
   adjustments StockAdjustment[] // Adjustments specifically affecting this batch
+  returnItems ReturnItem[] // Track which return items replenished this batch
+  stockMovements StockMovement[] // Track stock movements for this batch
+  locationId      String?
+  location        InventoryLocation? @relation(fields: [locationId], references: [id])
 
   @@index([productId, variantId])
   @@index([expiryDate])
   @@index([receivedDate])
   @@index([currentQuantity])
+}
+
+model ProductVariantStock {
+  id            String         @id @default(cuid())
+  productId     String
+  product       Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId     String
+  variant       ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  currentStock  Int            @default(0)
+  reservedStock Int            @default(0) // For items in cart but not yet purchased
+  reorderPoint  Int            @default(5)
+  reorderQty    Int            @default(10)
+  lastUpdated   DateTime       @updatedAt
+  
+  // Location info
+  locationId String?
+  location   InventoryLocation? @relation(fields: [locationId], references: [id]) // Make this a relation
+  @@unique([variantId, locationId])
+  
+  @@unique([variantId])
+  @@index([productId])
 }
 
 model StockAdjustment {
@@ -380,7 +440,7 @@ model StockAdjustment {
   stockBatchId   String? // Optional: Which batch is being adjusted?
   stockBatch     StockBatch?           @relation(fields: [stockBatchId], references: [id]) // Relation to Batch
   userId         String
-  user           User                  @relation(fields: [userId], references: [id])
+  user           Member                  @relation(fields: [userId], references: [id])
   quantity       Int // Positive for increase, negative for decrease
   reason         StockAdjustmentReason
   notes          String?
@@ -407,6 +467,56 @@ enum StockAdjustmentReason {
   OTHER
 }
 
+model StockMovement {
+  id               String           @id @default(cuid())
+  productId        String
+  product          Product          @relation(fields: [productId], references: [id])
+  variantId        String
+  variant          ProductVariant   @relation(fields: [variantId], references: [id])
+  stockBatchId     String?
+  stockBatch       StockBatch?      @relation(fields: [stockBatchId], references: [id])
+  quantity         Int              // Positive for additions, negative for removals
+  previousStock    Int              // Stock before this movement
+  newStock         Int              // Stock after this movement
+  reference        String?          // Optional reference code
+  referenceType    MovementRefType  // Type of movement
+  referenceId      String?          // ID of related record (sale, purchase, etc.)
+  userId           String
+  user             Member           @relation(fields: [userId], references: [id])
+  notes            String?
+  createdAt        DateTime         @default(now())
+  
+  @@index([productId, variantId])
+  @@index([createdAt])
+  @@index([referenceType, referenceId])
+}
+
+enum MovementRefType {
+  PURCHASE
+  SALE
+  ADJUSTMENT
+  RETURN
+  TRANSFER
+  INITIAL
+  STOCKTAKE
+  OTHER
+}
+
+model InventoryLocation {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Add relations to relevant models
+  stockBatches StockBatch[]
+  variantStock         ProductVariantStock[] // Stock levels stored here
+  
+  @@index([name])
+}
+
 // --- Customer Loyalty ---
 
 model LoyaltyTransaction {
@@ -414,7 +524,7 @@ model LoyaltyTransaction {
   customerId      String
   customer        Customer      @relation(fields: [customerId], references: [id])
   userId          String
-  user            User          @relation(fields: [userId], references: [id])
+  user            Member          @relation(fields: [userId], references: [id])
   pointsChange    Int
   reason          LoyaltyReason
   relatedSaleId   String?       @unique // <<< ADDED @unique: Ensures one Sale maps to one primary LoyaltyTransaction
@@ -461,7 +571,7 @@ model Attachment {
 model CashDrawer {
   id             String       @id @default(cuid())
   userId         String
-  user           User         @relation(fields: [userId], references: [id])
+  user           Member         @relation(fields: [userId], references: [id])
   openingAmount  Decimal      @db.Decimal(10, 2)
   closingAmount  Decimal?     @db.Decimal(10, 2)
   expectedAmount Decimal?     @db.Decimal(10, 2)
@@ -600,6 +710,7 @@ model Organization {
   metadata    String?
   members     Member[]
   invitations Invitation[]
+  customers   Customer[]
 
   @@unique([slug])
   @@map("organization")
@@ -614,6 +725,17 @@ model Member {
   role           String
   createdAt      DateTime
   auditLogs      AuditLog[]
+  sales             Sale[]
+  purchases            Purchase[]
+  purchasePayments     PurchasePayment[]
+  stockAdjustments     StockAdjustment[] 
+  stockMovements       StockMovement[]
+  loyaltyTransactions  LoyaltyTransaction[]
+  cashDrawers          CashDrawer[]
+  createdCustomers Customer[] @relation("CustomerCreatedBy")
+  updatedCustomers Customer[] @relation("CustomerUpdatedBy")
+
+  @@unique([organizationId, userId])
 
   @@map("member")
 }

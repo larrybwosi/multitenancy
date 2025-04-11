@@ -63,7 +63,7 @@ export default async function CategoriesPage(params: {
       <SectionHeader
         title="Categories"
         subtitle="Manage your categories efficiently and effectively"
-        icon={<Group className="h-5 w-5" />}
+        icon={<Group className="h-8 w-8 text-indigo-500" />}
         autoUpdate="2 min"
       />
 

@@ -1,11 +1,6 @@
 import { db } from "@/lib/db";
+import redis from "@/lib/redis";
 import { Customer, Product } from "@prisma/client";
-import { Redis } from "@upstash/redis";
-
-const redis = new Redis({
-  url: process.env.NEXT_PUBLIC_UPSTASH_REDIS_REST_URL,
-  token: process.env.NEXT_PUBLIC_UPSTASH_REDIS_REST_TOKEN,
-});
 
 const CACHE_KEY = "pos_data";
 const CACHE_TTL = 60 * 60; // 1 hour

@@ -28,7 +28,7 @@ export default function CustomersPage() {
   // Fetch customers using SWR
   const { data, error, mutate, isLoading } = useSWR<CustomersResponse>(
     `/api/customers?page=${currentPage}`,
-    () => getCustomers(currentPage)
+    () => getCustomers()
   );
 
   const customers = data?.data?.customers || [];

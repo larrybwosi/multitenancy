@@ -21,8 +21,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { deleteCustomer } from "@/actions/customerActions";
 import { toast } from "sonner";
+import { deleteCustomer } from "@/actions/customers.actions";
 
 interface CustomerActionsProps {
   customer: Customer;
@@ -37,7 +37,7 @@ export function CustomerActions({ customer, onEdit, onView }: CustomerActionsPro
   const handleDelete = () => {
     startTransition(async () => {
       const result = await deleteCustomer(customer.id);
-      if (result?.message.startsWith("Error:")) {
+      if (result?.message) {
         toast.error(result.message);
       } else {
         toast.success(result?.message || "Customer deleted!");

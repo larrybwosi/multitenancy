@@ -216,7 +216,7 @@ export default function SalesPage() {
         title="Sales"
         subtitle="View and manage all sales transactions"
         actionLabel="New Sale"
-        icon={<FilePlus2 className="h-8 w-8" />}
+        icon={<FilePlus2 className="h-8 w-8 text-green-500" />}
       />
 
       <FilterControls

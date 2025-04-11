@@ -70,7 +70,7 @@ const routes: RouteGroup[] = [
           {
             id: "returns",
             title: "Returns",
-            path: "/sales/history/returns",
+            path: "/sales/history/returned",
             icon: null,
           },
           {

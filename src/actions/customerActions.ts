@@ -4,6 +4,7 @@ import { LoyaltyReason, Prisma } from "@prisma/client";
 import { z } from "zod";
 import { revalidatePath, revalidateTag } from "next/cache";
 import db from "@/lib/db";
+import { invalidatePosDataCache } from "@/app/pos/actions";
 
 // --- Type Definitions ---
 
@@ -226,7 +227,8 @@ export async function saveCustomer(formData: FormData) {
         data: customerData,
       });
       revalidateTag(`customer_${id}`); // Revalidate specific customer detail page
-      revalidatePath("/dashboard/customers"); // Revalidate list page
+      revalidatePath("/customers"); // Revalidate list page
+      invalidatePosDataCache()
     } else {
       // Create
       // Check for existing email if provided
@@ -247,6 +249,7 @@ export async function saveCustomer(formData: FormData) {
         },
       });
       revalidatePath("/customer"); // Revalidate list page
+      invalidatePosDataCache();
     }
 
     return {

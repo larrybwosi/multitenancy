@@ -22,9 +22,9 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { useState, useTransition } from "react";
-import { saveCustomer } from "@/actions/customerActions";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { saveCustomer } from "@/actions/customers.actions";
 
 // Zod Schema
 const CustomerFormSchema = z.object({
@@ -94,9 +94,12 @@ export function CustomerForm({ customer, onFormSubmit }: CustomerFormProps) {
       if (result?.errors) {
         setError("Validation failed on server.");
         toast.error("Failed to save customer. Check fields.");
-      } else if (result?.message.startsWith("Error:")) {
-        setError(result.message);
-        toast.error(result.message);
+      } else if (result?.message) {
+        setError(result?.message|| 'Failed to save customer');
+        toast.error("Failed to save customer", {
+          description: result?.message,
+          duration:5000
+        });
       } else {
         toast.success(
           result?.message ||

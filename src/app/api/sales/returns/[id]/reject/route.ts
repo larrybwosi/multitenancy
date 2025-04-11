@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import prisma from "@/lib/db";
 
 export async function POST(
   request: Request,
@@ -9,6 +7,7 @@ export async function POST(
 ) {
   try {
     const { id } = params;
+    const body = await request.json();
 
     // First verify the return exists and is pending
     const returnRequest = await prisma.return.findUnique({
@@ -32,7 +31,7 @@ export async function POST(
       data: {
         status: "REJECTED",
         processedAt: new Date(),
-        rejectionReason: request.body?.rejectionReason || "Not specified",
+        rejectionReason: body?.rejectionReason || "Not specified",
       },
     });
 

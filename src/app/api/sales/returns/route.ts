@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-import { ReturnStatus, ReturnReason } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { ReturnStatus, ReturnReason, Prisma } from "@prisma/client";
+import prisma from "@/lib/db";
 
 export async function GET(request: Request) {
   try {
@@ -113,11 +111,11 @@ export async function GET(request: Request) {
               ],
             }
           : {},
-        status ? { status } : {},
-        reason ? { reason } : {},
+        status ? { status: ReturnStatus[status] } : {},
+        reason ? { reason: ReturnReason[reason] } : {},
         Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {},
       ],
-    };
+    } as Prisma.ReturnWhereInput;
 
     // Get total count for pagination
     const totalCount = await prisma.return.count({ where });
