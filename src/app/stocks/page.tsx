@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import OverviewTab from "./components/overview-tab";
-import ProductsTab from "./components/products-tab";
 import PastBatchesTab from "./components/past-batches-tab";
 import {
   getProducts,
@@ -128,36 +127,6 @@ async function StockPageData() {
             <OverviewTab
               initialProducts={productData.products ?? []}
               initialBatches={activeBatchesData.batches ?? []}
-            />
-          </CardContent>
-        </Card>
-      </TabsContent>
-
-      <TabsContent
-        value="products"
-        className="focus-visible:outline-none focus-visible:ring-0"
-      >
-        <Card className="border-none shadow-lg rounded-xl overflow-hidden bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900">
-          <CardHeader className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                <Package2 className="h-5 w-5 text-green-500 dark:text-green-400" />
-              </div>
-              <div>
-                <CardTitle className="text-xl">
-                  Products & Current Stock
-                </CardTitle>
-                <CardDescription className="text-gray-500 dark:text-gray-400">
-                  Manage your products and their active stock batches.
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-6">
-            <ProductsTab
-              initialProducts={productData.products ?? []}
-              initialCategories={categoryData.categories ?? []}
-              initialActiveBatches={activeBatchesData.batches ?? []}
             />
           </CardContent>
         </Card>

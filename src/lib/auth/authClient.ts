@@ -2,30 +2,31 @@ import { createAuthClient } from "better-auth/react";
 import {
   adminClient,
   customSessionClient,
-  passkeyClient,
   organizationClient,
 } from "better-auth/client/plugins";
 import { auth } from "../auth";
-import { redirect } from "next/navigation";
-// import { ac, owner, member, myCustomRole } from "./organisation/permisions";
+import { ac, ADMIN, CASHIER, DEVELOPER } from "./permissions";
 
-export const { signIn, signUp, useSession, signOut, admin, changePassword, organization } =
-  createAuthClient({
-    baseURL: process.env.BETTER_AUTH_URL,
-    plugins: [
-      customSessionClient<typeof auth>(),
-      adminClient(),
-      passkeyClient(),
-      organizationClient(),
-    ],
-    fetchOptions: {
-      onError: async (context) => {
-        const { response } = context;
-        if (response.status === 429) {
-          const retryAfter = response.headers.get("X-Retry-After");
-          console.log(`Rate limit exceeded. Retry after ${retryAfter} seconds`);
-          redirect("/too-fast");
-        }
+export const {
+  signIn,
+  signUp,
+  useSession,
+  signOut,
+  admin,
+  changePassword,
+  organization,
+} = createAuthClient({
+  baseURL: process.env.BETTER_AUTH_URL,
+  plugins: [
+    customSessionClient<typeof auth>(),
+    adminClient({
+      ac,
+      roles: {
+        ADMIN,
+        CASHIER,
+        DEVELOPER,
       },
-    },
-  });
+    }),
+    organizationClient(),
+  ],
+});

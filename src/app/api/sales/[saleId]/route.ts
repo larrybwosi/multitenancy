@@ -1,37 +1,22 @@
-// app/api/sales/[saleId]/route.ts
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
 import prisma from "@/lib/db";
 
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { saleId: string } }
 ) {
-  // Add Auth checks
-  const saleId = params.saleId;
-  if (!saleId) {
-    return NextResponse.json({ error: "Sale ID required" }, { status: 400 });
-  }
-
+  const saleId = await params.saleId;
+  console.log("saleId", saleId);
   try {
     const sale = await prisma.sale.findUnique({
-      where: { id: saleId },
+      where: { id: saleId},
       include: {
-        customer: true, // Include full customer details
-        user: { select: { id: true, name: true, email: true } }, // User who made sale
+        customer: true,
         items: {
-          // Include detailed items
           include: {
-            product: { select: { id: true, name: true, sku: true } },
-            variant: { select: { id: true, name: true, sku: true } },
-            stockBatch: {
-              select: { id: true, batchNumber: true, purchasePrice: true },
-            }, // Show batch info
+            product: true,
           },
         },
-        cashDrawer: true, // If applicable
-        loyaltyTransaction: true, // Show linked loyalty transaction
-        attachments: true, // Show attachments
       },
     });
 
@@ -41,9 +26,9 @@ export async function GET(
 
     return NextResponse.json(sale);
   } catch (error) {
-    console.error(`Failed to get sale details for ${saleId}:`, error);
+    console.error("Failed to fetch sale:", error);
     return NextResponse.json(
-      { error: "Internal Server Error" },
+      { error: "Failed to fetch sale" },
       { status: 500 }
     );
   }

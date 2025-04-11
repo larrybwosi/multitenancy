@@ -1,24 +1,13 @@
-import { Suspense } from "react";
-import { mockProducts, mockCategories, mockCustomers } from "./lib/mock-data";
-import POSPageContent from "./components/client-page";
-import { listProducts } from "@/actions/products";
+import { PosClientWrapper } from "./components/PosClientWrapper";
+import { getPosData } from "./actions";
 
-export default async function POSPage() {
-  const products = await listProducts({});
-  console.log(products)
+export default async function PosPage() {
+  const { products, customers } = await getPosData();
+
   return (
-    <Suspense
-      fallback={
-        <div className="flex items-center justify-center h-screen">
-          Loading POS...
-        </div>
-      }
-    >
-      <POSPageContent
-        initialProducts={mockProducts}
-        initialCategories={mockCategories}
-        initialCustomers={mockCustomers}
-      />
-    </Suspense>
+    <PosClientWrapper products={products} customers={customers} />
   );
 }
+
+// Disable caching for real-time data
+export const dynamic = "force-dynamic";

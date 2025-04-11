@@ -1,124 +1,125 @@
+// components/pos/Receipt.tsx
 "use client";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { CheckCircle } from "lucide-react";
-import { format } from "date-fns";
-import { MockCustomer } from "../lib/mock-data";
-import useCart from "../lib/use-cart";
+import React from "react";
+import { formatCurrency } from "@/lib/utils";
+import { Customer, PaymentMethod } from "../types";
+import { CalendarDays, Phone, Mail, CheckCircle2 } from "lucide-react";
 
-interface ReceiptDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  cart: ReturnType<typeof useCart>;
-  customer: MockCustomer;
+interface ReceiptProps {
+  items: {
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+    sku?: string;
+  }[];
+  subtotal: number;
+  taxAmount: number;
+  total: number;
+  paymentMethod: PaymentMethod;
+  customer: Customer | null;
+  date: Date;
 }
 
-const DEFAULT_TAX_RATE = 8;
-const LOYALTY_POINTS_PER_AMOUNT = 10;
-
-export default function ReceiptDialog({
-  open,
-  onOpenChange,
-  cart,
+export function Receipt({
+  items,
+  subtotal,
+  taxAmount,
+  total,
+  paymentMethod,
   customer,
-}: ReceiptDialogProps) {
-  const pointsEarned = Math.floor(cart.subtotal / LOYALTY_POINTS_PER_AMOUNT);
-
+  date,
+}: ReceiptProps) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md w-full">
-        <DialogHeader>
-          <DialogTitle className="text-center text-lg font-semibold">
-            <CheckCircle className="h-6 w-6 mx-auto text-green-500 mb-2" />
-            Receipt
-          </DialogTitle>
-        </DialogHeader>
+    <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm max-h-[70vh] overflow-auto">
+      <div className="text-center mb-4">
+        <h2 className="text-xl font-bold text-gray-800 tracking-tight">INVOICE</h2>
+        <div className="flex items-center justify-center gap-1 text-sm text-gray-500 mt-1">
+          <CalendarDays size={14} className="text-blue-500" />
+          <p>{date.toLocaleDateString()} {date.toLocaleTimeString()}</p>
+        </div>
+      </div>
 
-        <div className="py-4">
-          <p className="text-sm text-gray-600 text-center">
-            {format(new Date(), "yyyy-MM-dd HH:mm:ss")}
-          </p>
-          {customer.name !== "Walk-in Customer" && (
-            <p className="text-sm text-gray-600">
-              Customer: {customer.name} (ID: {customer.id})
-            </p>
-          )}
-
-          <Separator className="my-2" />
-
-          <ul className="space-y-2">
-            {cart.items.map((item) => (
-              <li key={item.name} className="flex justify-between text-sm">
-                <span>
-                  {item.name} x {item.quantity}
-                </span>
-                <span>KES {(item.price * item.quantity).toFixed(2)}</span>
-              </li>
-            ))}
-          </ul>
-
-          <Separator className="my-2" />
-
-          <div className="flex justify-between font-semibold text-sm">
-            <span>Subtotal:</span>
-            <span>KES {cart.subtotal.toFixed(2)}</span>
+      {customer && (
+        <div className="mb-5 bg-blue-50 p-3 rounded-md border border-blue-100">
+          <h3 className="font-medium text-gray-700 flex items-center gap-1 mb-1">
+            <CheckCircle2 size={14} className="text-blue-600" />
+            Customer
+          </h3>
+          <p className="text-gray-800 font-medium">{customer.name}</p>
+          <div className="text-sm space-y-1 mt-1">
+            {customer.email && (
+              <p className="text-gray-600 flex items-center gap-1">
+                <Mail size={12} className="text-gray-400" />
+                {customer.email}
+              </p>
+            )}
+            {customer.phone && (
+              <p className="text-gray-600 flex items-center gap-1">
+                <Phone size={12} className="text-gray-400" />
+                {customer.phone}
+              </p>
+            )}
           </div>
+        </div>
+      )}
 
-          <div className="flex justify-between text-sm text-gray-600">
-            <span>Tax ({DEFAULT_TAX_RATE}%):</span>
-            <span>KES {cart.taxAmount.toFixed(2)}</span>
-          </div>
+      <div className="border border-gray-200 rounded-md overflow-hidden mb-4">
+        <div className="grid grid-cols-12 gap-2 font-medium text-gray-700 text-sm p-2 bg-gray-50 border-b border-gray-200">
+          <div className="col-span-6">Item</div>
+          <div className="col-span-2 text-center">Qty</div>
+          <div className="col-span-2 text-right">Price</div>
+          <div className="col-span-2 text-right">Total</div>
+        </div>
 
-          {cart.redeemedAmount > 0 && (
-            <div className="flex justify-between text-sm text-green-600 font-semibold">
-              <span>Loyalty Discount:</span>
-              <span>- KES {cart.redeemedAmount.toFixed(2)}</span>
+        <div className="divide-y divide-gray-100">
+          {items.map((item, index) => (
+            <div key={index} className="grid grid-cols-12 gap-2 text-sm p-2 hover:bg-gray-50 transition-colors">
+              <div className="col-span-6">
+                <p className="font-medium text-gray-800">{item.name}</p>
+                {item.sku && <p className="text-xs text-gray-500 mt-0.5">{item.sku}</p>}
+              </div>
+              <div className="col-span-2 text-center">{item.quantity}</div>
+              <div className="col-span-2 text-right text-gray-600">
+                {formatCurrency(item.unitPrice)}
+              </div>
+              <div className="col-span-2 text-right font-medium text-gray-800">
+                {formatCurrency(item.totalPrice)}
+              </div>
             </div>
-          )}
-
-          <Separator className="my-2" />
-
-          <div className="flex justify-between font-bold text-md">
-            <span>Total:</span>
-            <span>KES {cart.total.toFixed(2)}</span>
-          </div>
-
-          {pointsEarned > 0 && (
-            <p className="text-xs text-green-500 mt-2">
-              Earned {pointsEarned} loyalty points!
-            </p>
-          )}
-
-          {cart.pointsToRedeem > 0 && (
-            <p className="text-xs text-yellow-500 mt-1">
-              Redeemed {cart.pointsToRedeem} loyalty points.
-            </p>
-          )}
-
-          <div className="text-center mt-4">
-            <p className="text-sm text-gray-700">
-              Thank you for your purchase!
-            </p>
-          </div>
+          ))}
         </div>
+      </div>
 
-        <div className="flex justify-end">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-          >
-            Close
-          </Button>
+      <div className="space-y-2 text-sm bg-gray-50 p-3 rounded-md border border-gray-200 mb-4">
+        <div className="flex justify-between">
+          <span className="text-gray-600">Subtotal:</span>
+          <span className="text-gray-800">{formatCurrency(subtotal)}</span>
         </div>
-      </DialogContent>
-    </Dialog>
+        <div className="flex justify-between">
+          <span className="text-gray-600">Tax:</span>
+          <span className="text-gray-800">{formatCurrency(taxAmount)}</span>
+        </div>
+        <div className="flex justify-between font-bold text-base border-t border-gray-200 pt-2 mt-2">
+          <span className="text-gray-800">Total:</span>
+          <span className="text-blue-600">{formatCurrency(total)}</span>
+        </div>
+      </div>
+
+      <div className="border-t border-gray-200 pt-3">
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-600">Payment Method:</span>
+          <span className="font-medium text-gray-800 bg-gray-100 px-2 py-0.5 rounded">
+            {paymentMethod.replace(/_/g, " ")}
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-6 text-center">
+        <p className="text-sm text-gray-500">Thank you for your purchase!</p>
+        <p className="mt-1 text-xs text-gray-400">Please come again</p>
+      </div>
+    </div>
   );
 }

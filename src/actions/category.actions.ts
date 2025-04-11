@@ -4,7 +4,6 @@ import { Prisma, Category } from "@prisma/client";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import db from "@/lib/db";
-import { Decimal } from "@prisma/client/runtime/library";
 
 // --- Type Definitions ---
 
@@ -13,8 +12,8 @@ export type CategoryWithStats = Category & {
   _count: {
     products: number;
   };
-  totalRevenue: Decimal;
-  potentialProfit: Decimal; // Calculated from SaleItem cost/price
+  totalRevenue: number;
+  potentialProfit: number; // Calculated from SaleItem cost/price
   bestSellingProduct: { name: string | null; totalSold: number } | null;
   // Add parent category name for display if needed
   parentName?: string | null;
@@ -34,59 +33,89 @@ const CategoryFormSchema = z.object({
 /**
  * Fetches all categories and calculates statistics for each.
  */
-export async function getCategoriesWithStats(): Promise<CategoryWithStats[]> {
+
+interface GetCategoriesWithStatsParams {
+  search?: string;
+  filter?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export async function getCategoriesWithStats({
+  search,
+  filter,
+  page = 1,
+  pageSize = 10,
+}: GetCategoriesWithStatsParams = {}): Promise<{
+  data: CategoryWithStats[];
+  totalItems: number;
+  totalPages: number;
+}> {
   try {
-    const categories = await db.category.findMany({
-      include: {
-        _count: {
-          select: { products: true },
-        },
-        parent: {
-          // Include parent to potentially display its name
-          select: { name: true },
-        },
-        // We need products to link to SaleItems
-        products: {
-          select: {
-            id: true,
-            name: true, // Needed for best seller lookup later
-            // Include SaleItems related to each product
-            saleItems: {
-              select: {
-                quantity: true,
-                totalAmount: true,
-                unitPrice: true,
-                unitCost: true, // Crucial for profit calculation
-                productId: true,
+    const where: Prisma.CategoryWhereInput = {};
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    if (filter === "withProducts") {
+      where.products = { some: {} };
+    } else if (filter === "noProducts") {
+      where.products = { none: {} };
+    }
+
+    const [categories, totalItems] = await Promise.all([
+      db.category.findMany({
+        where,
+        include: {
+          _count: {
+            select: { products: true },
+          },
+          parent: {
+            select: { name: true },
+          },
+          products: {
+            select: {
+              id: true,
+              name: true,
+              saleItems: {
+                select: {
+                  quantity: true,
+                  totalAmount: true,
+                  unitPrice: true,
+                  unitCost: true,
+                  productId: true,
+                },
               },
             },
           },
         },
-      },
-      orderBy: {
-        name: "asc",
-      },
-    });
+        orderBy: { name: "asc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      db.category.count({ where }),
+    ]);
 
-    // Calculate stats for each category
-    const categoriesWithStats = categories.map((category) => {
-      let totalRevenue = new Decimal(0);
-      let potentialProfit = new Decimal(0);
+    const totalPages = Math.ceil(totalItems / pageSize);
+
+    const data = categories.map((category) => {
+      let totalRevenue = new Prisma.Decimal(0);
+      let potentialProfit = new Prisma.Decimal(0);
       const productSales: Record<string, { name: string; totalSold: number }> =
         {};
 
       category.products.forEach((product) => {
         product.saleItems.forEach((item) => {
           totalRevenue = totalRevenue.add(item.totalAmount);
-          // Profit for this item = (Selling Price - Cost Price) * Quantity
-          // Assuming unitPrice is the selling price before discounts/taxes reflected in totalAmount
-          // and unitCost is the cost of the item when sold.
           const itemProfit = item.unitPrice
             .sub(item.unitCost)
             .mul(item.quantity);
           potentialProfit = potentialProfit.add(itemProfit);
 
-          // Track sales per product
           if (!productSales[product.id]) {
             productSales[product.id] = { name: product.name, totalSold: 0 };
           }
@@ -94,7 +123,6 @@ export async function getCategoriesWithStats(): Promise<CategoryWithStats[]> {
         });
       });
 
-      // Find best selling product within this category
       let bestSeller: { name: string | null; totalSold: number } | null = null;
       for (const productId in productSales) {
         if (
@@ -105,23 +133,20 @@ export async function getCategoriesWithStats(): Promise<CategoryWithStats[]> {
         }
       }
 
-      // Remove the detailed product/saleItem data before sending to client
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { products, ...restOfCategory } = category;
 
       return {
         ...restOfCategory,
-        parentName: category.parent?.name, // Add parent name
-        totalRevenue,
-        potentialProfit,
+        parentName: category.parent?.name,
+        totalRevenue: totalRevenue.toNumber(),
+        potentialProfit: potentialProfit.toNumber(),
         bestSellingProduct: bestSeller,
       };
     });
 
-    return categoriesWithStats;
+    return { data, totalItems, totalPages };
   } catch (error) {
     console.error("Failed to fetch categories with stats:", error);
-    // In a real app, you might throw a more specific error or return an empty array/error structure
     throw new Error("Database error: Could not fetch categories.");
   }
 }

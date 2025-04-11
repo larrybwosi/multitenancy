@@ -241,9 +241,12 @@ export async function saveCustomer(formData: FormData) {
         }
       }
       savedCustomer = await db.customer.create({
-        data: customerData,
+        data: {
+          ...customerData,
+          createdBy: '1',
+        },
       });
-      revalidatePath("/dashboard/customers"); // Revalidate list page
+      revalidatePath("/customer"); // Revalidate list page
     }
 
     return {

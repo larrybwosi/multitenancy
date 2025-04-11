@@ -5,21 +5,9 @@ import { useQueryState, parseAsArrayOf, parseAsString } from "nuqs";
 import { createSaleAction } from "@/actions/posActions";
 import { ProductGrid } from "./ProductGrid";
 import { Cart } from "./Cart";
-import { Prisma } from "@prisma/client";
+import { Customer, Prisma, Product } from "@prisma/client";
 
-interface Product {
-  id: string;
-  name: string;
-  sku?: string;
-  basePrice: number | string | Prisma.Decimal;
-  // Add other product properties as needed
-}
 
-interface Customer {
-  id: string;
-  name: string;
-  // Add other customer properties as needed
-}
 
 interface CartItem {
   id: string;

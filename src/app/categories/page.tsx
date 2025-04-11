@@ -1,54 +1,53 @@
-
-import { getCategoriesWithStats, getCategoryOptions } from "@/actions/category.actions";
 import { Suspense } from "react";
 import { CategoryTable } from "./components/table";
+import { SectionHeader } from "@/components/ui/SectionHeader";
+import { Group } from "lucide-react";
+import {
+  getCategoriesWithStats,
+  getCategoryOptions,
+} from "@/actions/category.actions";
 
-// Optional: Add Loading UI
-function LoadingSkeleton() {
-  return (
-    <div className="w-full">
-      <div className="flex justify-end mb-4">
-        <div className="h-10 w-36 bg-gray-200 rounded animate-pulse"></div>
-      </div>
-      <div className="rounded-md border p-4">
-        <div className="h-8 w-full bg-gray-200 rounded mb-4 animate-pulse"></div>{" "}
-        {/* Header */}
-        <div className="space-y-2">
-          {[...Array(5)].map((_, i) => (
-            <div
-              key={i}
-              className="h-10 w-full bg-gray-200 rounded animate-pulse"
-            ></div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
+type SearchParams = Promise<{
+  search?: string;
+  filter?: string;
+  page?: string;
+  pageSize?: string;
+}>
 
-export default async function CategoriesPage() {
+export default async function CategoriesPage(params: {
+  searchParams: SearchParams;
+}) {
+  const searchParams = await params.searchParams;
+  // Parse pagination parameters with defaults
+  const page = Number(searchParams.page) || 1;
+  const pageSize = Number(searchParams.pageSize) || 10;
+
   // Fetch data in parallel
   const [categoriesData, categoryOptionsData] = await Promise.allSettled([
-    getCategoriesWithStats(),
+    getCategoriesWithStats({
+      search: searchParams.search,
+      filter: searchParams.filter,
+      page,
+      pageSize,
+    }),
     getCategoryOptions(),
   ]);
 
   // Handle potential errors during data fetching
   if (categoriesData.status === "rejected") {
     console.error("Failed to load categories:", categoriesData.reason);
-    // You could render an error component here
     return (
       <div className="text-red-500 p-4">
         Error loading categories. Please try again later.
       </div>
     );
   }
+
   if (categoryOptionsData.status === "rejected") {
     console.error(
       "Failed to load category options:",
       categoryOptionsData.reason
     );
-    // Options might not be critical, could proceed with empty array or show warning
     return (
       <div className="text-red-500 p-4">
         Error loading category options. Please try again later.
@@ -56,18 +55,26 @@ export default async function CategoriesPage() {
     );
   }
 
-  const categories = categoriesData.value;
+  const { data: categories, totalItems, totalPages } = categoriesData.value;
   const categoryOptions = categoryOptionsData.value;
 
   return (
     <div className="container mx-auto py-10">
-      {/* Add Toaster provider */}
-      <h1 className="text-3xl font-bold mb-6">Category Management</h1>
-      <Suspense fallback={<LoadingSkeleton />}>
-        {/* Pass fetched data to the client component */}
+      <SectionHeader
+        title="Categories"
+        subtitle="Manage your categories efficiently and effectively"
+        icon={<Group className="h-5 w-5" />}
+        autoUpdate="2 min"
+      />
+
+      <Suspense fallback={<div>Loading categories...</div>}>
         <CategoryTable
           categories={categories}
           categoryOptions={categoryOptions}
+          totalItems={totalItems}
+          totalPages={totalPages}
+          currentPage={page}
+          pageSize={pageSize}
         />
       </Suspense>
     </div>

@@ -1,4 +1,3 @@
-// actions/stockActions.ts
 "use server";
 
 import { z } from "zod";
@@ -92,6 +91,7 @@ export async function getProducts(
         (sum, batch) => sum + batch.currentQuantity,
         0
       ),
+      basePrice: p.basePrice.toString(),
     }));
 
     return { products: productsWithStock };
@@ -262,7 +262,16 @@ export async function getStockBatches(
         receivedDate: "desc",
       },
     });
-    return { batches };
+    const cleanBatches = batches.map((batch) => {
+      return {
+        ...batch,
+        product: {
+          ...batch.product,
+          basePrice: batch.product.basePrice.toString(),
+        }
+      };
+    })
+    return { batches: cleanBatches };
   } catch (error) {
     console.error("Error fetching stock batches:", error);
     return { error: "Failed to fetch stock batches." };

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { Product, Category, StockBatch, ProductVariant } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,12 +13,10 @@ import {
 } from "lucide-react";
 import AddProductDialog from "./add-product-dialog";
 import { ProductDataTable } from "./product-data-table";
-// import { BatchDataTable } from "./batch-data-table";
 import RestockDialog from "./restock-dialog";
 import EditProductDialog from "./edit-product-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { productColumns } from "./products-columns";
-import { batchColumns } from "./batch-column";
+import { productColumns, ProductWithRelations } from "./products-columns";
 import { toast } from "sonner";
 import {
   Card,
@@ -29,12 +27,6 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-type ProductWithRelations = Product & {
-  category: Category;
-  variants: ProductVariant[];
-  _count: { stockBatches: number };
-  totalStock: number;
-};
 
 type StockBatchWithRelations = StockBatch & {
   product: Product;
@@ -90,21 +82,12 @@ export default function ProductsTab({
     onEdit: handleEditClick,
     onRestock: handleRestockClick,
   });
-
-  const dynamicBatchColumns = batchColumns({});
+  
 
   return (
-    <div className="space-y-6">
-      {/* Header with brief stats */}
+    <div className="px-6">
       <div className="flex items-center justify-between mb-4">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-800">
-            Inventory Dashboard
-          </h2>
-          <p className="text-slate-500 mt-1">
-            Manage your product catalog and monitor stock levels
-          </p>
-        </div>
+        <div className="flex items-center gap-2"/>
         <div className="flex items-center gap-3">
           <Badge
             variant="outline"

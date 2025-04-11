@@ -9,7 +9,7 @@ if (!projectId || !dataset || !apiToken) {
   console.warn("Sanity client configuration missing in environment variables.");
 }
 
-export const sanityClient = createClient({
+export const client = createClient({
   projectId: projectId || "dummy_id", // Provide fallback or throw error
   dataset: dataset || "production",
   apiVersion: "2024-04-07", // Use current date or desired API version
@@ -27,7 +27,7 @@ export const uploadSanityAsset = async (
     throw new Error("Sanity client is not configured for uploads.");
   }
   try {
-    const asset = await sanityClient.assets.upload("file", fileBuffer, {
+    const asset = await client.assets.upload("file", fileBuffer, {
       filename: fileName,
       contentType: contentType, // e.g., 'application/pdf'
     });

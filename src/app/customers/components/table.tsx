@@ -21,7 +21,6 @@ import { MoreHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Customer } from "@prisma/client";
-import { PaginationComponent } from "@/components/pagination";
 
 // Extend Customer type to include fields that might exist in our app but not in the Prisma schema
 interface ExtendedCustomer extends Customer {
@@ -178,13 +177,13 @@ export function CustomerTable({
           )}
         </TableBody>
       </Table>
-      {totalPages > 1 && (
+      {/* {totalPages > 1 && (
         <PaginationComponent 
           currentPage={currentPage} 
           totalPages={totalPages} 
           handlePageChange={onPageChange}
         />
-      )}
+      )} */}
     </div>
   );
 }

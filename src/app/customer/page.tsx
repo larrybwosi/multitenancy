@@ -1,6 +1,8 @@
 import { getCustomers } from "@/actions/customerActions";
 import { Suspense } from "react";
 import { CustomerTable } from "./components/CustomerTable";
+import { SectionHeader } from "@/components/ui/SectionHeader";
+import { Users } from "lucide-react";
 
 // Loading Skeleton for Table
 function LoadingSkeleton() {
@@ -37,7 +39,7 @@ export const metadata = {
   description: "View and manage customer data.",
 };
 
-interface CustomersPageProps {
+type CustomersPageProps ={
   searchParams: {
     query?: string;
     status?: string;
@@ -60,18 +62,19 @@ export default async function CustomersPage(params: CustomersPageProps) {
   return (
     <div className="container mx-auto py-10 px-4 sm:px-6 lg:px-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground mb-2">
-          Customer Management
-        </h1>
-        <p className="text-muted-foreground">
-          Manage your customer data, track loyalty points, and monitor customer status.
-        </p>
+        <SectionHeader
+          title="Customer Management"
+          subtitle="Manage your customer data, track loyalty points, and monitor customer
+          status."
+          icon={<Users className="h-8 w-8 text-indigo-500" />}
+          autoUpdate="2 min"
+        />
       </div>
-      
-      <div className="bg-background rounded-lg p-6 shadow-sm border">
+
+      <div className=" rounded-lg p-6 shadow-sm">
         <Suspense fallback={<LoadingSkeleton />}>
-          <CustomerTable 
-            initialCustomers={customers} 
+          <CustomerTable
+            initialCustomers={customers}
             total={total}
             totalPages={totalPages}
           />

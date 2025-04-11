@@ -1,8 +1,6 @@
-// components/admin/create-organization-dialog.tsx
 "use client";
 
-import React, { useState, useEffect, useTransition } from "react";
-import { useFormState /* useFormStatus */ } from "react-dom"; // useFormStatus for pending state if using experimental React
+import { useState, useEffect, useTransition, useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,13 +14,14 @@ import {
   DialogClose,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { createOrganization } from "@/actions/admin-actions"; // Adjust path if needed
-import { Building } from "lucide-react"; // Example Icon
+import { createOrganization } from "@/actions/admin-actions";
+import { Building } from "lucide-react";
+import { toast } from "sonner";
 
 // Simple Submit Button component for useFormState pending state
 function SubmitButton() {
   // const { pending } = useFormStatus(); // Enable if using experimental React
-  const [isPending, startTransition] = useTransition(); // Fallback if not using useFormStatus
+  const [isPending, startTransition] = useTransition(); 
 
   // Note: This button's disabled state won't automatically work with useFormState
   // unless you lift the form state logic or use a library like react-hook-form.
@@ -40,30 +39,30 @@ function SubmitButton() {
 
 export function CreateOrganizationDialog() {
   const [isOpen, setIsOpen] = useState(false);
-
+  
   const initialState = {
     success: false,
     message: "",
     errors: null,
     data: null,
   };
-  const [state, formAction] = useFormState(createOrganization, initialState);
 
-  // useEffect(() => {
-  //   if (state?.message) {
-  //     toast({
-  //       title: state.success ? "Success!" : "Error!",
-  //       description: state.message,
-  //       variant: state.success ? "default" : "destructive",
-  //     });
-  //   }
-  //   // Close dialog on successful creation
-  //   if (state?.success) {
-  //     setIsOpen(false);
-  //     // Optional: Redirect or trigger data refresh here if needed
-  //     // Example: router.push(`/dashboard/${state.data?.organizationId}`);
-  //   }
-  // }, [state, toast]);
+  const [state, formAction] = useActionState(createOrganization, initialState);
+
+  useEffect(() => {
+    if (state?.message) {
+      toast( state.success ? "Success!" : "Error!",{
+        description: state.message,
+      });
+    }
+    // Close dialog on successful creation
+    if (state?.success) {
+      setIsOpen(false);
+      // Optional: Redirect or trigger data refresh here if needed
+      console.log(state.data);
+      // Example: router.push(`/admin/${state.data?.organizationId}`);
+    }
+  }, [state]);
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>

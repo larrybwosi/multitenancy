@@ -6,6 +6,9 @@ import { revalidatePath } from "next/cache";
 import { Prisma, UserRole } from "@prisma/client";
 import { db } from "@/lib/db";
 import { v4 as uuid} from 'uuid';
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+import { organization } from "@/lib/auth/authClient";
 // import { getCurrentUserId } from '@/lib/auth'; // <<< --- IMPORTANT: You NEED a way to get the current user's ID
 
 // --- Action Return Type (Ensure this type exists or define it) ---
@@ -27,27 +30,14 @@ const CreateOrganizationSchema = z.object({
       "Slug can only contain lowercase letters, numbers, and hyphens"
     )
     .optional()
-    .or(z.literal("")), // Allow empty string, we'll generate if empty
+    .or(z.literal("")),
 });
 
-// --- Helper Function (Placeholder - Implement Real Auth) ---
-async function getCurrentUserId(): Promise<string | null> {
-  // This is crucial. Replace with your actual authentication logic
-  // to get the ID of the currently logged-in user.
-  // Example using Clerk (if you were using it):
-  // import { auth } from "@clerk/nextjs/server";
-  // const { userId } = auth();
-  // return userId;
 
-  // Example Placeholder:
-  console.warn(
-    "Using placeholder user ID in createOrganization. Implement real authentication!"
-  );
-  // Find *any* user to act as the creator for demo purposes ONLY.
-  const demoUser = await db.user.findFirst();
-  console.log(demoUser);
-  return demoUser?.id ?? null;
-  // return "user_placeholder_id_implement_real_auth"; // Or a hardcoded ID for testing
+async function getCurrentUserId(): Promise<string> {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if(!session?.user?.id) throw new Error("Unauthorized");
+  return session.user.id
 }
 
 // --- New Server Action: Create Organization ---
@@ -149,20 +139,25 @@ export async function createOrganization(
         // 2. Create the initial Member record linking the creator as Admin
         await tx.member.create({
           data: {
-            // id: cuid()/uuid()
             id: uuid(),
             organizationId: org.id,
             userId: userId,
-            role: "ADMIN", // Assign the creator as ADMIN (use enum if applicable)
+            role: UserRole.ADMIN,
             createdAt: new Date(),
           },
         });
 
-        // 3. Optionally: Update the user's default role or last active org? (Depends on your logic)
-        // await tx.user.update({ where: { id: userId }, data: { ... }});
+        // 3. Optionally: Update the user's default role or last active org? 
+        await tx.user.update({
+          where: { id: userId },
+          data: { activeOrganizationId: org.id },
+        });
 
         return org; // Return the created organization
       });
+      
+        const values = await auth.api.listOrganizations()
+        console.log(values);
     } catch (transactionError) {
       console.error("Transaction failed:", transactionError);
       // Handle potential errors during transaction (e.g., unique constraint violation if somehow missed)
@@ -255,9 +250,9 @@ export async function updateOrganizationSettings(
   try {
     const orgId = formData.get("id") as string;
     // --- Authorization ---
-    // if (!await checkAdminAuthorization(orgId)) {
-    //   return { success: false, message: "Unauthorized" };
-    // }
+    if (!await checkAdminAuthorization(orgId)) {
+      return { success: false, message: "Unauthorized" };
+    }
     // --- Validation ---
     const validatedFields = UpdateOrgSchema.safeParse({
       id: orgId,
@@ -294,6 +289,7 @@ export async function inviteMember(
 ): Promise<ActionResponse> {
   try {
     const orgId = formData.get("organizationId") as string;
+    const userId = await getCurrentUserId();
     // --- Authorization ---
     // if (!await checkAdminAuthorization(orgId)) {
     //    return { success: false, message: "Unauthorized" };
@@ -345,12 +341,13 @@ export async function inviteMember(
 
     await db.invitation.create({
       data: {
+        id: uuid(),
         organizationId,
         email,
         role: role.toString(), // Store role as string, consistent with schema
         status: "PENDING",
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days expiration
-        inviterId: "clerk_or_auth0_user_id", // Replace with actual inviter user ID from your auth
+        inviterId: userId,
         // inviterId: inviter.id
       },
     });

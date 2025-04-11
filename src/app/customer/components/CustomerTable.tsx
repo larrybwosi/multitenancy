@@ -11,7 +11,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { CustomBadge } from "@/components/ui/CustomBadge";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -22,30 +21,16 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   PlusCircle,
-  ChevronLeft,
-  ChevronRight,
-  Search,
   Users,
-  SlidersHorizontal,
   Award,
   Calendar,
-  ArrowUpDown,
   Loader2,
+  FileText,
+  Grid,
+  List,
+  User,
+  Mail,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -53,9 +38,10 @@ import { CustomerActions } from "./CustomerActions";
 import { CustomerForm } from "./CustomerForm";
 import { formatDate } from "@/lib/utils";
 import { CustomerDetailView } from "./CustomerDetailView";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FilterControls } from "@/components/file-controls";
+import { Pagination } from "@/components/pagination";
 
 interface CustomerTableProps {
   initialCustomers: Customer[];
@@ -64,7 +50,7 @@ interface CustomerTableProps {
 }
 
 export function CustomerTable({
-  initialCustomers:customers,
+  initialCustomers: customers,
   total,
   totalPages: initialTotalPages,
 }: CustomerTableProps) {
@@ -88,6 +74,7 @@ export function CustomerTable({
   );
   const [isLoading, setIsLoading] = useState(false);
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");
+  const [pageSize, setPageSize] = useState(10);
 
   // Simulate loading state for UI improvements
   useEffect(() => {
@@ -117,6 +104,13 @@ export function CustomerTable({
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage);
     updateUrl({ page: newPage });
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    // You might want to reset to first page when changing page size
+    setCurrentPage(1);
+    updateUrl({ pageSize: size, page: 1 });
   };
 
   const updateUrl = (params: Record<string, string | number>) => {
@@ -173,160 +167,129 @@ export function CustomerTable({
     return colors[hash % colors.length];
   };
 
+  const handleExportPdf = () => {
+    // PDF export logic
+  };
+
+  const handleExportExcel = () => {
+    // Excel export logic
+  };
+
   return (
     <div className="w-full space-y-6">
-      <Card className="border-none shadow-md bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-900 dark:to-slate-800">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-2xl font-bold flex items-center">
-            <Users className="mr-2 h-6 w-6 text-indigo-500" />
-            Customer Management
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Manage your customers, view details and track their loyalty status
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search customers..."
-                value={searchTerm}
-                onChange={(e) => handleSearch(e.target.value)}
-                className="pl-9 rounded-full border-slate-200 focus-visible:ring-indigo-500"
+      <div className="flex justify-end">
+        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+          <SheetTrigger asChild>
+            <Button
+              onClick={() => handleOpenSheet()}
+              className="bg-indigo-500 hover:bg-indigo-600 text-white rounded-md"
+            >
+              <PlusCircle className="mr-2 h-4 w-4" />
+              <p className="text-gray-50">Add Customer</p>
+            </Button>
+          </SheetTrigger>
+          <SheetContent className="sm:max-w-[540px] p-5 overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle className="text-2xl font-bold text-indigo-600">
+                {editingCustomer ? "Edit Customer" : "Add New Customer"}
+              </SheetTitle>
+            </SheetHeader>
+            <div className="py-6">
+              <CustomerForm
+                customer={editingCustomer}
+                onFormSubmit={handleCloseSheet}
               />
             </div>
-
-            <div className="flex flex-wrap md:flex-nowrap gap-2">
-              <Select value={statusFilter} onValueChange={handleStatusChange}>
-                <SelectTrigger className="w-[150px] rounded-full border-slate-200">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="rounded-full border-slate-200"
-                  >
-                    <SlidersHorizontal className="mr-2 h-4 w-4 text-indigo-500" />
-                    Sort
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem
-                    onClick={() => handleSort("name", "asc")}
-                    className={
-                      sortBy === "name" && sortOrder === "asc"
-                        ? "bg-slate-100"
-                        : ""
-                    }
-                  >
-                    <ArrowUpDown className="mr-2 h-4 w-4 text-muted-foreground" />
-                    Name (A-Z)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleSort("name", "desc")}
-                    className={
-                      sortBy === "name" && sortOrder === "desc"
-                        ? "bg-slate-100"
-                        : ""
-                    }
-                  >
-                    <ArrowUpDown className="mr-2 h-4 w-4 text-muted-foreground" />
-                    Name (Z-A)
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => handleSort("createdAt", "desc")}
-                    className={
-                      sortBy === "createdAt" && sortOrder === "desc"
-                        ? "bg-slate-100"
-                        : ""
-                    }
-                  >
-                    <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
-                    Newest First
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleSort("loyaltyPoints", "desc")}
-                    className={
-                      sortBy === "loyaltyPoints" && sortOrder === "desc"
-                        ? "bg-slate-100"
-                        : ""
-                    }
-                  >
-                    <Award className="mr-2 h-4 w-4 text-muted-foreground" />
-                    Most Loyalty Points
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <Tabs
-                value={viewMode}
-                onValueChange={(value) =>
-                  setViewMode(value as "table" | "cards")
-                }
-                className="hidden md:block"
+            <SheetFooter>
+              <Button
+                variant="outline"
+                onClick={handleCloseSheet}
+                className="rounded-full"
               >
-                <TabsList className="grid grid-cols-2 h-9 w-[160px] rounded-full">
-                  <TabsTrigger
-                    value="table"
-                    className="rounded-full data-[state=active]:bg-indigo-500 data-[state=active]:text-white"
-                  >
-                    Table View
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="cards"
-                    className="rounded-full data-[state=active]:bg-indigo-500 data-[state=active]:text-white"
-                  >
-                    Card View
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
+                Cancel
+              </Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
+      </div>
 
-              <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-                <SheetTrigger asChild>
-                  <Button
-                    onClick={() => handleOpenSheet()}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-full"
-                  >
-                    <PlusCircle className="mr-2 h-4 w-4" /> Add Customer
-                  </Button>
-                </SheetTrigger>
-                <SheetContent className="sm:max-w-[540px] p-5 overflow-y-auto">
-                  <SheetHeader>
-                    <SheetTitle className="text-2xl font-bold text-indigo-600">
-                      {editingCustomer ? "Edit Customer" : "Add New Customer"}
-                    </SheetTitle>
-                  </SheetHeader>
-                  <div className="py-6">
-                    <CustomerForm
-                      customer={editingCustomer}
-                      onFormSubmit={handleCloseSheet}
-                    />
-                  </div>
-                  <SheetFooter>
-                    <Button
-                      variant="outline"
-                      onClick={handleCloseSheet}
-                      className="rounded-full"
-                    >
-                      Cancel
-                    </Button>
-                  </SheetFooter>
-                </SheetContent>
-              </Sheet>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <FilterControls
+        variant="default"
+        searchPlaceholder="Search categories..."
+        filters={[
+          {
+            name: "status",
+            label: "Status",
+            defaultValue: statusFilter,
+            options: [
+              { value: "all", label: "All Statuses" },
+              { value: "active", label: "Active" },
+              { value: "inactive", label: "Inactive" },
+            ],
+            onChange: (value) => handleStatusChange(value),
+          },
+          {
+            name: "view",
+            label: "View",
+            options: [
+              {
+                value: "table",
+                label: "List",
+                icon: <List className="h-4 w-4" />,
+              },
+              {
+                value: "grid",
+                label: "Grid",
+                icon: <Grid className="h-4 w-4" />,
+              },
+            ],
+            onChange: (value) => setViewMode(value as "table" | "cards"),
+          },
+          {
+            name: "sort",
+            label: "Sort",
+            options: [
+              {
+                value: "name",
+                label: "Name",
+                icon: <User className="mr-2 h-4 w-4" />,
+              },
+              {
+                value: "email",
+                label: "Email",
+                icon: <Mail className="mr-2 h-4 w-4" />,
+              },
+              {
+                value: "created",
+                label: "Date Created",
+                icon: <Calendar className="mr-2 h-4 w-4" />,
+              },
+              {
+                value: "loyaltyPoints",
+                label: "Loyalty Points",
+                icon: <Award className="mr-2 h-4 w-4" />,
+              },
+            ],
+            onChange: (value) => handleSort(value, "asc"),
+          },
+        ]}
+        onSearch={(e) => handleSearch(e)}
+        onFilterButtonClick={() =>
+          console.log("Opening advanced filters modal...")
+        }
+        exportActions={[
+          {
+            label: "PDF",
+            onClick: handleExportPdf,
+            icon: <FileText className="mr-2 h-4 w-4" />,
+          },
+          {
+            label: "Exel",
+            onClick: handleExportExcel,
+            icon: <Grid className="mr-2 h-4 w-4" />,
+          },
+        ]}
+      />
 
       {isLoading ? (
         <div className="flex items-center justify-center h-64">
@@ -560,73 +523,16 @@ export function CustomerTable({
         </>
       )}
 
-      {/* Pagination Controls */}
-      {initialTotalPages > 1 && (
-        <div className="flex items-center justify-between bg-white p-4 rounded-lg shadow-sm">
-          <div className="text-sm text-muted-foreground">
-            Showing{" "}
-            <span className="font-medium">
-              {Math.min((currentPage - 1) * 10 + 1, total)}
-            </span>{" "}
-            to{" "}
-            <span className="font-medium">
-              {Math.min(currentPage * 10, total)}
-            </span>{" "}
-            of <span className="font-medium">{total}</span> customers
-          </div>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="rounded-full w-8 h-8 p-0"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-
-            {Array.from({ length: Math.min(5, initialTotalPages) }, (_, i) => {
-              // Show current page and adjacent pages
-              let pageToShow;
-              if (initialTotalPages <= 5) {
-                pageToShow = i + 1;
-              } else if (currentPage <= 3) {
-                pageToShow = i + 1;
-              } else if (currentPage >= initialTotalPages - 2) {
-                pageToShow = initialTotalPages - 4 + i;
-              } else {
-                pageToShow = currentPage - 2 + i;
-              }
-
-              return (
-                <Button
-                  key={i}
-                  variant={currentPage === pageToShow ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => handlePageChange(pageToShow)}
-                  className={`rounded-full w-8 h-8 p-0 ${
-                    currentPage === pageToShow
-                      ? "bg-indigo-500 hover:bg-indigo-600"
-                      : ""
-                  }`}
-                >
-                  {pageToShow}
-                </Button>
-              );
-            })}
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === initialTotalPages}
-              className="rounded-full w-8 h-8 p-0"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
+      {/* Custom Pagination Component */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={initialTotalPages}
+          pageSize={pageSize}
+          totalItems={total}
+          onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
+          className="mt-6"
+        />
 
       {/* View Customer Sheet */}
       <Sheet

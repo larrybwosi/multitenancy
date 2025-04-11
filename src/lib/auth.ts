@@ -2,14 +2,9 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { admin, multiSession, openAPI, organization, username } from "better-auth/plugins";
 import { db } from "./db";
-// import { member, myCustomRole, owner, ac } from "./organisation/permisions";
-import { Redis } from "@upstash/redis";
 import { UserRole } from "@prisma/client";
-
-const redis = new Redis({
-  url: process.env.NEXT_PUBLIC_UPSTASH_REDIS_REST_URL,
-  token: process.env.NEXT_PUBLIC_UPSTASH_REDIS_REST_TOKEN,
-});
+import { ac, ADMIN, CASHIER, DEVELOPER } from "./auth/permissions";
+import redis from "./redis";
 
 
 export const auth = betterAuth({
@@ -40,31 +35,39 @@ export const auth = betterAuth({
     updateAge: 24 * 60 * 60, // 24 hours
     cookieCache: {
       enabled: true,
-      maxAge: 5 * 60, // Cache duration in seconds
+      maxAge: 5 * 60,
     },
+    preserveSessionInDatabase: true,
   },
-  databaseHooks: {
-    session: {
-      create: {
-        before: async (session) => {
-          // const org = await db.user.findUnique({where:{id: session.userId}})
-          // console.log(org)
-          // const activeOrganizationId = org?.activeOrganizationId;
-          return {
-            data: {
-              ...session,
-              // activeOrganizationId,
-            },
-          };
-        },
-      },
-    },
-  },
+  // databaseHooks: {
+  //   session: {
+  //     create: {
+  //       before: async (session) => {
+  //         const user = await db.user.findUnique({
+  //           where: { id: session.userId },
+  //         });
+  //         const activeOrganizationId = user?.activeOrganizationId;
+  //         return {
+  //           data: {
+  //             ...session,
+  //             activeOrganizationId,
+  //           },
+  //         };
+  //       },
+  //     },
+  //   },
+  // },
   plugins: [
     admin({
-      adminRoles: ["admin", "superadmin", "owner", "developer"],
+      adminRoles: [UserRole.ADMIN],
       defaultRole: UserRole.EMPLOYEE,
       defaultBanReason: "Miss behaving",
+      ac,
+      roles: {
+        ADMIN,
+        CASHIER,
+        DEVELOPER,
+      },
     }),
     username(),
     openAPI(),
@@ -72,25 +75,32 @@ export const auth = betterAuth({
       maximumSessions: 8,
     }),
 
-    organization(),
+    organization({
+      allowUserToCreateOrganization: async (user) => {
+        console.log(user);
+        return true;
+      },
+      creatorRole: UserRole.ADMIN,
+    }),
   ],
 
-  secondaryStorage: {
-    get: async (key) => {
-      const value = (await redis.get(key)) as string | null;
-      return value ? value : null;
-    },
-    set: async (key, value, ttl) => {
-      if (ttl) await redis.set(key, value, { ex: ttl });
-      else await redis.set(key, value);
-    },
-    delete: async (key) => {
-      await redis.del(key);
-    },
-  },
+  // secondaryStorage: {
+  //   get: async (key) => {
+  //     const value = await redis.get(key) as string | null;
+  //     console.log(value);
+  //     return value ? value : null;
+  //   },
+  //   set: async (key, value, ttl) => {
+  //     if (ttl) await redis.set(key, value, { ex: ttl });
+  //     else await redis.set(key, value);
+  //   },
+  //   delete: async (key) => {
+  //     await redis.del(key);
+  //   },
+  // },
   rateLimit: {
-    window: 60, // time window in seconds
-    max: 100, // max requests in the window
+    window: 60,
+    max: 100,
     storage: "secondary-storage",
   },
 });

@@ -17,7 +17,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Toaster } from "@/components/ui/sonner"; // Make sure toaster is rendered
 import { getSuppliers } from "@/actions/supplier.actions";
 import { SupplierForm } from "./components/create";
 import { SupplierTable } from "./components/table";
@@ -87,7 +86,6 @@ export default async function SuppliersPage() {
           </Suspense>
         </CardContent>
       </Card>
-      <Toaster richColors /> {/* Add Toaster for notifications */}
     </div>
   );
 }
