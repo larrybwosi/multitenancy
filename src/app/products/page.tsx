@@ -4,20 +4,18 @@ import ProductsTab from "./components/products-tab";
 import {
   getProducts,
   getCategories,
-  getStockBatches,
 } from "@/actions/stockActions";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 
 export default async function ProductsPage() {
   
-  const [productData, categoryData, activeBatchesData] =
+  const [productData, categoryData] =
     await Promise.all([
       getProducts({ includeCategory: true }),
       getCategories(),
-      getStockBatches({ activeOnly: true, includeProduct: true }),
     ]);
   return (
-    <Card className="border-none shadow-lg rounded-xl overflow-hidden bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900">
+    <Card className="border-none shadow-lg flex-1 overflow-hidden bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900">
       <CardHeader>
         <SectionHeader
           title="Products"
@@ -27,11 +25,11 @@ export default async function ProductsPage() {
         />
       </CardHeader>
 
-      <CardContent className="p-6">
+      <CardContent className="px-6">
         <ProductsTab
+          //@ts-expect-error base prise is string
           initialProducts={productData.products ?? []}
           initialCategories={categoryData.categories ?? []}
-          initialActiveBatches={activeBatchesData.batches ?? []}
         />
       </CardContent>
     </Card>

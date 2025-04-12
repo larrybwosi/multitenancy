@@ -1,4 +1,3 @@
-import React from "react";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,7 +34,7 @@ export function ProductListItem({
 }: ProductListItemProps) {
   const displayImage = product.imageUrls?.[0] || DEFAULT_IMAGE;
   const hasVariants = product.variants && product.variants.length > 0;
-
+console.log(displayImage)
   return (
     <div className="flex items-center space-x-4 p-3 hover:bg-muted/50 rounded-md transition-colors duration-150 border-b last:border-b-0">
       <Image

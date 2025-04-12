@@ -4,6 +4,7 @@ import { Prisma, Category } from "@prisma/client";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import db from "@/lib/db";
+import { getServerAuthContext } from "./auth";
 
 // --- Type Definitions ---
 
@@ -133,6 +134,7 @@ export async function getCategoriesWithStats({
         }
       }
 
+      //eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { products, ...restOfCategory } = category;
 
       return {
@@ -173,6 +175,8 @@ export async function getCategoryOptions(): Promise<
  * Creates or updates a category.
  */
 export async function saveCategory(formData: FormData) {
+  const { organizationId } = await getServerAuthContext();
+  
   const validatedFields = CategoryFormSchema.safeParse({
     id: formData.get("id") || undefined,
     name: formData.get("name"),
@@ -210,9 +214,11 @@ export async function saveCategory(formData: FormData) {
       // Create new category
       await db.category.create({
         data: {
+          id: `CATEGORY-${crypto.randomUUID().slice(0, 8)}`,
           name,
           description,
-          parentId: parentIdValue,
+          organization: { connect: { id: organizationId } },
+          parent: parentIdValue ? { connect: { id: parentIdValue } } : undefined,
         },
       });
     }

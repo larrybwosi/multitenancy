@@ -54,7 +54,11 @@ model Category {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+
   @@index([name])
+  @@index([organizationId])
 }
 
 model Product {
@@ -82,8 +86,12 @@ model Product {
   stockMovements   StockMovement[]
   variantStock     ProductVariantStock[]
 
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+
   @@index([name])
   @@index([sku])
+  @@index([organizationId])
 }
 
 model ProductVariant {
@@ -113,8 +121,12 @@ model ProductVariant {
   stockMovements   StockMovement[]
   variantStock     ProductVariantStock?
 
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+
   @@unique([productId, sku])
   @@index([sku])
+  @@index([organizationId])
 }
 
 model Supplier {
@@ -131,10 +143,15 @@ model Supplier {
   updatedAt    DateTime @updatedAt
 
   // Relations
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+
   products  ProductSupplier[]
   purchases Purchase[]
 
   @@index([name])
+  @@index([organizationId, name])
+  @@index([organizationId])
 }
 
 model ProductSupplier {
@@ -209,9 +226,15 @@ model Sale {
   loyaltyTransaction LoyaltyTransaction?
   returns            Return[] // Added this relation field
 
-  // @@index([userId])
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([userId])
   @@index([saleDate])
   @@index([customerId])
+  @@index([organizationId, saleDate])
+  @@index([organizationId, customerId])
+  @@index([organizationId])
 }
 
 
@@ -264,9 +287,13 @@ model Purchase {
   payments    PurchasePayment[]
   attachments Attachment[]
 
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+
   @@index([orderDate])
   @@index([supplierId])
   @@index([status])
+  @@index([organizationId])
 }
 
 model PurchaseItem {
@@ -328,10 +355,14 @@ model Return {
   updatedAt     DateTime     @updatedAt
   processedAt   DateTime?
 
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+
   @@index([saleNumber])
   @@index([customerId])
   @@index([status])
   @@index([createdAt])
+  @@unique([organizationId, returnNumber]) // Return numbers unique per organization
 }
 
 model ReturnItem {
@@ -340,8 +371,6 @@ model ReturnItem {
   return         Return          @relation(fields: [returnId], references: [id])
   saleItemId     String
   saleItem       SaleItem        @relation(fields: [saleItemId], references: [id])
-  productId      String
-  variantId      String?
   quantity       Int
   unitPrice      Decimal         @db.Decimal(10, 2)
   
@@ -404,10 +433,14 @@ model StockBatch {
   locationId      String?
   location        InventoryLocation? @relation(fields: [locationId], references: [id])
 
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+
   @@index([productId, variantId])
   @@index([expiryDate])
   @@index([receivedDate])
   @@index([currentQuantity])
+  @@index([organizationId])
 }
 
 model ProductVariantStock {
@@ -422,6 +455,8 @@ model ProductVariantStock {
   reorderQty    Int            @default(10)
   lastUpdated   DateTime       @updatedAt
   
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
   // Location info
   locationId String?
   location   InventoryLocation? @relation(fields: [locationId], references: [id]) // Make this a relation
@@ -429,6 +464,7 @@ model ProductVariantStock {
   
   @@unique([variantId])
   @@index([productId])
+  @@index([organizationId])
 }
 
 model StockAdjustment {
@@ -446,11 +482,15 @@ model StockAdjustment {
   notes          String?
   adjustmentDate DateTime              @default(now())
   createdAt      DateTime              @default(now())
-  updatedAt      DateTime              @updatedAt
+  updatedAt      DateTime?              @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
 
   @@index([productId, variantId])
   @@index([stockBatchId])
   @@index([adjustmentDate])
+  @@index([organizationId])
 }
 
 enum StockAdjustmentReason {
@@ -486,9 +526,13 @@ model StockMovement {
   notes            String?
   createdAt        DateTime         @default(now())
   
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id])
+
   @@index([productId, variantId])
   @@index([createdAt])
   @@index([referenceType, referenceId])
+  @@index([organizationId])
 }
 
 enum MovementRefType {
@@ -509,12 +553,18 @@ model InventoryLocation {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  managerId   String?
+  manager     Member?  @relation(fields: [managerId], references: [id])
   
   // Add relations to relevant models
   stockBatches StockBatch[]
   variantStock         ProductVariantStock[] // Stock levels stored here
   
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+
   @@index([name])
+  @@index([organizationId])
 }
 
 // --- Customer Loyalty ---
@@ -584,10 +634,15 @@ model CashDrawer {
   updatedAt      DateTime     @updatedAt
 
   sales Sale[]
+  
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+
 
   @@index([openedAt])
   @@index([closedAt])
   @@index([userId])
+  @@index([organizationId])
 }
 
 enum DrawerStatus {
@@ -702,18 +757,41 @@ model Verification {
 }
 
 model Organization {
-  id          String       @id
+  id          String       @id @default(cuid())
   name        String
   slug        String?
   logo        String?
-  createdAt   DateTime
+  createdAt   DateTime     @default(now())
   metadata    String?
+  description String?
   members     Member[]
   invitations Invitation[]
   customers   Customer[]
+  
+  categories           Category[]
+  products             Product[]
+  productVariants      ProductVariant[]
+  suppliers            Supplier[]
+  sales                Sale[]
+  purchases            Purchase[]
+  stockBatches         StockBatch[]
+  inventoryLocations   InventoryLocation[]
+  cashDrawers          CashDrawer[]
+  returns              Return[]
+  stockAdjustments     StockAdjustment[]
+  stockMovements       StockMovement[]
+  productVariantStocks ProductVariantStock[]
 
   @@unique([slug])
   @@map("organization")
+}
+
+enum MemberRole {
+  OWNER
+  MANAGER
+  EMPLOYEE
+  CASHIER
+  VIEWER
 }
 
 model Member {
@@ -722,8 +800,9 @@ model Member {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   userId         String
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role           String
-  createdAt      DateTime
+  role           MemberRole
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
   auditLogs      AuditLog[]
   sales             Sale[]
   purchases            Purchase[]
@@ -732,6 +811,7 @@ model Member {
   stockMovements       StockMovement[]
   loyaltyTransactions  LoyaltyTransaction[]
   cashDrawers          CashDrawer[]
+  inventoryManagements InventoryLocation[]
   createdCustomers Customer[] @relation("CustomerCreatedBy")
   updatedCustomers Customer[] @relation("CustomerUpdatedBy")
 

@@ -63,12 +63,12 @@ export interface SupplierStockHistorySummary {
     productId: string;
     productName: string;
     totalValue: number;
-  };
-  mostPurchasedProduct: {
+  }| null;
+  mostPurchasedProduct?: {
     productId: string;
     productName: string;
     totalQuantity: number;
-  };
+  } | null;
   byCategory?: Array<{
     category: string;
     totalQuantity: number;
@@ -92,4 +92,14 @@ export interface SupplierStockHistoryResponse {
     totalSpent: number;
     lastOrderDate: Date | null;
   };
+  mostPurchasedProduct?: {
+    productId: string;
+    productName: string;
+    totalQuantity: number;
+  } | null;
+  highestValueProduct?: {
+    productId: string;
+    productName: string;
+    totalValue: number;
+  } | null;
 }

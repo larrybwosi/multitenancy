@@ -5,22 +5,21 @@ import { headers } from "next/headers";
 
 
 // Cache TTL constants
-const AUTH_CONTEXT_TTL = 300; // 5 minutes
-const AUTHORIZATION_TTL = 1800; // 30 minutes (longer TTL since org membership changes less frequently)
+const AUTH_CONTEXT_TTL = 1800; // 30 minutes
+const AUTHORIZATION_TTL = 3600; // 60 minutes (longer TTL since org membership changes less frequently)
 
 async function getServerAuthContext(): Promise<{
   userId: string;
   organizationId: string;
-} | null> {
+}> {
   const headersList = await headers();
-  const authToken = headersList.get('authorization')?.split(' ')[1] || '';
-
-  const cacheKey = `auth:context:${authToken}`;
+  const cacheKey = `auth:context`;
 
   try {
     // Try to get from cache first
     const cachedAuthContext = await redis.get(cacheKey);
     if (cachedAuthContext) {
+      console.log("Using cached auth context");
       return cachedAuthContext as {
         userId: string;
         organizationId: string;
@@ -29,14 +28,18 @@ async function getServerAuthContext(): Promise<{
 
     // If not in cache, fetch from auth service
     const session = await auth.api.getSession({ headers: headersList });
-    
-    if (!session?.user?.id || !session.session?.activeOrganizationId) {
-      return null;
+    if (!session?.user?.id ) {
+      throw new Error("Unauthorized - No user ID found in session.");
     }
+
+    const org = await db.user.findUnique({
+      where: { id: session.user.id },
+      select: { activeOrganizationId: true },
+    })
 
     const authContext = {
       userId: session.user.id,
-      organizationId: session.session.activeOrganizationId,
+      organizationId: org?.activeOrganizationId || "",
     };
 
     // Cache the result
@@ -45,13 +48,13 @@ async function getServerAuthContext(): Promise<{
     return authContext;
   } catch (error) {
     console.error("Error in getServerAuthContext:", error);
-    return null;
+    throw error;
   }
 }
 
 async function checkUserAuthorization(
   userId: string,
-  organizationId: string
+  organizationId: string,
 ): Promise<boolean> {
   const cacheKey = `auth:membership:${userId}:${organizationId}`;
 

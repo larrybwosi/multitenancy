@@ -1,9 +1,10 @@
 "use server";
 
 import { z } from "zod";
-import prisma from "@/lib/db";
+import prisma from "@/lib/db"; 
 import { revalidatePath } from "next/cache";
-import { Prisma } from "@prisma/client";
+import { Prisma,  StockAdjustmentReason } from "@prisma/client";
+import { getServerAuthContext } from "./auth";
 
 // --- Zod Schemas for Validation ---
 
@@ -12,119 +13,152 @@ const VariantAttributeSchema = z.object({
   value: z.string().min(1, "Attribute value required"),
 });
 
-const getRandomSku = () => {
-  return (
-    Math.floor(Math.random() * 1000000).toString() +
-    Math.floor(Math.random() * 1000000).toString()
-  );
-}
+// Helper for SKUs - Ensure uniqueness might require checking the DB in practice
+
+// Example: Base Variant Schema (adjust fields as per your needs)
 const VariantSchema = z.object({
-  id: z.string().cuid().optional(), // Optional for new variants
-  name: z.string(),
-  sku: z.string().optional().default(getRandomSku()),
-  skuSuffix: z.string().optional().nullable(),
+  id: z.string().cuid().optional(), // Optional for creation
+  name: z.string().min(1),
+  sku: z.string().min(1),
   barcode: z.string().optional().nullable(),
+  priceModifier: z.coerce.number(), // Coerce from string/number
+  attributes: z.record(z.any()).optional(), // Basic JSON validation
   isActive: z.boolean().default(true),
-  priceModifier: z.coerce
-    .number()
-    .default(0)
-    .describe("Amount to add/subtract from base price"),
-  attributes: z
-    .array(VariantAttributeSchema)
-    .min(1, "At least one attribute is required"),
+  reorderPoint: z.coerce.number().int().positive().default(5),
+  reorderQty: z.coerce.number().int().positive().default(10),
+  lowStockAlert: z.boolean().default(false),
+  // Ensure fields match your ProductVariant model
 });
 
+// Example: Product Schema for Creation
 const ProductSchema = z.object({
-  name: z.string().min(1, "Product name is required"),
-  description: z.string().optional(),
-  sku: z.string().min(1, "SKU is required"),
-  barcode: z
-    .string()
-    .optional()
-    .nullable()
-    .describe("Base product barcode if no variants"),
-  categoryId: z.string().min(1, "Category is required"),
-  basePrice: z.coerce.number().min(0, "Base price must be non-negative"),
-  reorderPoint: z.coerce
-    .number()
-    .int()
-    .min(0, "Reorder point must be non-negative")
-    .default(5),
+  name: z.string().min(1),
+  description: z.string().optional().nullable(),
+  sku: z.string().min(1),
+  barcode: z.string().optional().nullable(),
+  categoryId: z.string().min(1),
+  basePrice: z.coerce.number(), // Coerce from string/number
+  reorderPoint: z.coerce.number().int().positive().default(5),
   isActive: z.boolean().default(true),
-  imageUrls: z.array(z.string().url()).optional().default([]),
-  variants: z.array(VariantSchema).optional().default([]),
+  imageUrls: z.array(z.string().url()).optional(),
+  variants: z.array(VariantSchema).optional().default([]), // Array of variants
+  // Ensure fields match your Product model
 });
 
+// Define the actual type based on your Zod schema if needed elsewhere
+type ProductVariantInput = z.infer<typeof VariantSchema>;
+
+
+
+// Schema for editing includes the Product ID
 const EditProductSchema = ProductSchema.extend({
   id: z.string().cuid(),
-  variants: z
-    .array(
-      VariantSchema.extend({
-        id: z.string().cuid().optional(),
-      })
-    )
-    .optional()
-    .default([]),
+  // Allow variants to have IDs during update
+  // variants: z.array(VariantSchema).optional().default([]),
 });
 
+// Schema for adding a stock batch (Restock)
 const RestockSchema = z.object({
-  productId: z.string().cuid(),
-  variantId: z.string().cuid().optional().nullable(),
+  productId: z.string().cuid("Valid Product ID required"),
+  variantId: z.string().cuid().optional().nullable(), // Optional variant link
   batchNumber: z.string().optional().nullable(),
   initialQuantity: z.coerce
     .number()
     .int()
-    .positive("Quantity must be positive"),
+    .positive("Quantity must be a positive whole number"),
   purchasePrice: z.coerce
     .number()
-    .min(0, "Purchase price must be non-negative"),
+    .min(0, "Purchase price must be non-negative"), // Coerce for input, convert later
   expiryDate: z.coerce.date().optional().nullable(),
-  location: z.string().optional().nullable(),
-  purchaseItemId: z.string().cuid().optional().nullable(),
+  // Use locationId based on the schema relation
+  locationId: z
+    .string()
+    .cuid("Valid Location ID required")
+    .optional()
+    .nullable(),
+  purchaseItemId: z.string().cuid().optional().nullable(), // Link to purchase order item
 });
 
+// Schema for stock adjustments
 const StockAdjustmentSchema = z.object({
-  productId: z.string().cuid(),
+  productId: z.string().cuid("Valid Product ID required"),
   variantId: z.string().cuid().optional().nullable(),
-  stockBatchId: z.string().cuid().optional().nullable(),
+  stockBatchId: z.string().cuid("Valid Stock Batch ID required"), // Require specifying the batch for adjustment
   quantity: z
     .number()
     .int()
-    .refine((val) => val !== 0, "Quantity must not be zero"),
-  reason: z.enum([
-    "INITIAL_STOCK",
-    "DAMAGED",
-    "EXPIRED",
-    "LOST",
-    "STOLEN",
-    "FOUND",
-    "RETURN_TO_SUPPLIER",
-    "CUSTOMER_RETURN",
-    "INVENTORY_COUNT",
-    "OTHER",
-  ]),
+    .refine((val) => val !== 0, "Quantity change cannot be zero"), // Can be positive or negative
+  // Use the imported Prisma enum type for validation
+  reason: z.nativeEnum(StockAdjustmentReason),
   notes: z.string().optional(),
 });
 
 // --- Helper Function for Error Handling ---
-const handlePrismaError = (error: unknown): { error: string } => {
+const handlePrismaError = (
+  error: unknown
+): { error: string; fieldErrors?: Record<string, string> } => {
   console.error("Prisma Error:", error);
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     if (error.code === "P2002") {
+      // Unique constraint violation
       const target = error.meta?.target as string[] | undefined;
+      const field = target ? target.join(", ") : "field";
       return {
-        error: `A record with this ${target?.join(", ")} already exists.`,
+        error: `A record with this ${field} already exists. Please use a unique value.`,
+        fieldErrors: target
+          ? { [target[0]]: `This ${target[0]} is already taken.` }
+          : undefined,
       };
     }
-    return { error: `Database error: ${error.code}` };
+    if (error.code === "P2025") {
+      // Record to update not found
+      return {
+        error: "The record you tried to update or delete does not exist.",
+      };
+    }
+    // Add more specific error codes as needed
+    return {
+      error: `Database error occurred (Code: ${error.code}). Please try again.`,
+    };
   } else if (error instanceof Prisma.PrismaClientValidationError) {
-    return { error: "Invalid data provided." };
+    // Data validation failed on Prisma's side (less common with Zod)
+    return { error: "Invalid data format submitted. Please check your input." };
   }
-  return { error: "An unexpected error occurred." };
+  // Generic error for other cases
+  return {
+    error:
+      "An unexpected error occurred. Please contact support if the problem persists.",
+  };
 };
+
+
+/**
+ * Utility to safely parse JSON from FormData
+ */
+function safeParseVariants(formData: FormData): ProductVariantInput[] | { error: string } {
+    const variantsString = formData.get("variants") as string | null;
+    if (!variantsString) {
+        return []; // No variants provided is valid
+    }
+    try {
+        // Add more robust validation if needed after parsing
+        const parsed = JSON.parse(variantsString);
+        if (!Array.isArray(parsed)) {
+             return { error: "Variants data must be an array." };
+        }
+        // You might want to run Zod validation on each parsed item here too for extra safety
+        return parsed as ProductVariantInput[];
+    } catch (e) {
+        console.error("Error parsing variants JSON:", e);
+        return { error: "Invalid JSON format for variant data." };
+    }
+}
 
 // --- Product Actions ---
 
+/**
+ * Fetches products with pagination, search, filtering, sorting, and stock counts.
+ */
 export async function getProducts(
   options: {
     includeVariants?: boolean;
@@ -133,7 +167,7 @@ export async function getProducts(
     limit?: number;
     search?: string;
     categoryId?: string;
-    sortBy?: "name" | "createdAt" | "basePrice" | "totalStock";
+    sortBy?: "name" | "createdAt" | "basePrice";
     sortOrder?: "asc" | "desc";
   } = {}
 ) {
@@ -148,21 +182,34 @@ export async function getProducts(
     sortOrder = "asc",
   } = options;
 
-  const skip = (page - 1) * limit;
+    const { organizationId } = await getServerAuthContext();
+
   const where: Prisma.ProductWhereInput = {
+    organizationId,
+    category: {
+      organizationId
+    },
     isActive: true,
     ...(search && {
       OR: [
         { name: { contains: search, mode: "insensitive" } },
         { sku: { contains: search, mode: "insensitive" } },
         { description: { contains: search, mode: "insensitive" } },
+        {
+          variants: {
+            some: { sku: { contains: search, mode: "insensitive" } },
+          },
+        },
       ],
     }),
     ...(categoryId && { categoryId }),
   };
 
+  const skip = (page - 1) * limit;
+
   try {
-    const [products, totalProducts] = await Promise.all([
+    // Perform database operations within the context of the fetched organization
+    const [products, totalProducts] = await prisma.$transaction([
       prisma.product.findMany({
         where,
         include: {
@@ -172,12 +219,15 @@ export async function getProducts(
                 include: {
                   stockBatches: {
                     select: { currentQuantity: true },
+                    where: { currentQuantity: { gt: 0 } },
                   },
                 },
+                where: { isActive: true },
               }
             : false,
           stockBatches: {
             select: { currentQuantity: true },
+            where: { variantId: null, currentQuantity: { gt: 0 } },
           },
         },
         orderBy: { [sortBy]: sortOrder },
@@ -187,92 +237,98 @@ export async function getProducts(
       prisma.product.count({ where }),
     ]);
 
+    // --- Stock Calculation and Data Cleaning (remains the same) ---
     const productsWithStock = products.map((p) => {
       const baseStock = p.stockBatches.reduce(
         (sum, batch) => sum + batch.currentQuantity,
         0
       );
-      const variantStock = p.variants.reduce(
-        (variantSum, variant) =>
-          variantSum +
-          variant.variantStock.reduce(
-            (batchSum, batch) => batchSum + batch.currentQuantity,
+      const variantsWithStock =
+        p.variants?.map((v) => {
+          //@ts-expect-error This is fine
+          const variantStockTotal = v.variantStock.reduce(
+            //@ts-expect-error This is fine
+            (sum, batch) => sum + batch.currentQuantity,
             0
-          ),
+          );
+          return {
+            ...v,
+            priceModifier: v.priceModifier.toString(),
+            totalStock: variantStockTotal,
+            attributes: v.attributes
+          };
+        }) || [];
+      const totalVariantStock = variantsWithStock.reduce(
+        (sum, v) => sum + v.totalStock,
         0
       );
 
       return {
         ...p,
         basePrice: p.basePrice.toString(),
-        totalStock: baseStock + variantStock,
-        variants: p.variants.map((v) => ({
-          ...v,
-          totalStock: v.stockBatches.reduce(
-            (batchSum, batch) => batchSum + batch.currentQuantity,
-            0
-          ),
-        })),
+        totalStock: baseStock + totalVariantStock,
+        variants: variantsWithStock,
+        stockBatches: undefined,
+        category: p.category ? { ...p.category } : undefined,
       };
     });
+    // --- End Stock Calculation ---
 
     return {
-      products: productsWithStock,
-      totalProducts,
-      totalPages: Math.ceil(totalProducts / limit),
-      currentPage: page,
-      pageSize: limit,
+      data: productsWithStock,
+      meta: {
+        totalProducts,
+        totalPages: Math.ceil(totalProducts / limit),
+        currentPage: page,
+        pageSize: limit,
+      },
     };
   } catch (error) {
     console.error("Error fetching products:", error);
-    return {
-      error: "Failed to fetch products.",
-      products: [],
-      totalProducts: 0,
-      totalPages: 0,
-      currentPage: 1,
-      pageSize: limit,
-    };
+    // Use the consistent error handling function if available
+    // return handlePrismaError(error); // Or just return a simple error message
+    return { error: "Failed to fetch products due to a database error." };
   }
 }
-
-export async function getCategories() {
-  try {
-    const categories = await prisma.category.findMany({
-      orderBy: { name: "asc" },
-    });
-    return { categories };
-  } catch (error) {
-    console.error("Error fetching categories:", error);
-    return { error: "Failed to fetch categories." };
-  }
-}
-
 export async function addProduct(formData: FormData) {
+  const context = await getServerAuthContext();
+  
+  const { organizationId } = context; // userId could be used for createdByI d if needed
+
   const rawData = Object.fromEntries(formData.entries());
-  const variantsString = formData.get("variants") as string | null;
-  let parsedVariants = [];
 
-  try {
-    parsedVariants = variantsString ? JSON.parse(variantsString) : [];
-  } catch (e) {
-    console.error("Error parsing variants:", e);
-    return { error: "Invalid variant data format." };
+  // Handle JSON parsing for variants carefully
+  const parsedVariantsResult = safeParseVariants(formData);
+  if ("error" in parsedVariantsResult) {
+    return parsedVariantsResult; // Return error object
   }
+  const parsedVariants = parsedVariantsResult;
 
-  const validatedFields = ProductSchema.safeParse({
+  // Prepare data for Zod validation (coercion happens within schema usually)
+  const dataToValidate = {
     ...rawData,
-    basePrice: parseFloat((rawData.basePrice as string) || "0"),
-    reorderPoint: parseInt((rawData.reorderPoint as string) || "5", 10),
-    isActive:
-      rawData.isActive === "on" ||
-      rawData.isActive === "true" ||
-      rawData.isActive === true,
+    // Let Zod handle coercion for numbers/booleans if defined with z.coerce
+    isActive: rawData.isActive === "on" || rawData.isActive === "true", // Explicit handling if schema doesn't coerce boolean
     imageUrls: formData
       .getAll("imageUrls")
-      .filter((url) => typeof url === "string" && url),
-    variants: parsedVariants,
-  });
+      .filter(
+        (url): url is string => typeof url === "string" && url.length > 0
+      ),
+    variants: parsedVariants.map((v) => ({
+      ...v,
+      // Let Zod handle coercion for numbers/booleans within VariantSchema
+      isActive:
+        typeof v.isActive === "boolean"
+          ? v.isActive
+          : v.isActive === "on" || v.isActive === "true", // Example explicit handling if needed
+      lowStockAlert:
+        typeof v.lowStockAlert === "boolean"
+          ? v.lowStockAlert
+          : v.lowStockAlert === "on" || v.lowStockAlert === "true", // Example explicit handling if needed
+    })),
+  };
+
+  const validatedFields = ProductSchema.safeParse(dataToValidate);
 
   if (!validatedFields.success) {
     console.error(
@@ -280,66 +336,102 @@ export async function addProduct(formData: FormData) {
       validatedFields.error.flatten().fieldErrors
     );
     return {
-      error: "Validation failed.",
+      error: "Validation failed. Please check your input.",
       fieldErrors: validatedFields.error.flatten().fieldErrors,
     };
   }
 
-  const data = validatedFields.data;
+  // Destructure validated data AFTER successful validation
+  const { variants, categoryId, ...productData } = validatedFields.data;
 
   try {
     const newProduct = await prisma.product.create({
       data: {
-        ...data,
-        basePrice: new Prisma.Decimal(data.basePrice),
+        ...productData,
+        organization: { connect: { id: organizationId } },
+        // categoryId,
+        category: { connect: { id: categoryId } }, // Connect relation
+        // Convert numbers to Decimal *after* validation
+        basePrice: new Prisma.Decimal(productData.basePrice),
+        reorderPoint: productData.reorderPoint, // Already number via Zod coerce
+        imageUrls: productData.imageUrls ?? [], // Use validated array
+        isActive: productData.isActive, // Use validated boolean
+        // Nested create for variants
         variants: {
-          create:
-            data.variants?.map((v) => ({
-              name: v.name,
-              sku: v.sku,
-              skuSuffix: v.skuSuffix,
-              barcode: v.barcode,
-              priceModifier: new Prisma.Decimal(v.priceModifier),
-              attributes: v.attributes as unknown as Prisma.InputJsonValue,
-            })) || [],
+          create: variants.map((v) => ({
+            ...v,
+            organization: { connect: { id: organizationId } },
+            priceModifier: new Prisma.Decimal(v.priceModifier),
+            attributes:
+              (v.attributes as Prisma.InputJsonValue) ?? Prisma.JsonNull, // Cast/handle validated JSON
+            // Use validated numbers/booleans directly
+            reorderPoint: v.reorderPoint,
+            reorderQty: v.reorderQty,
+            isActive: v.isActive,
+            lowStockAlert: v.lowStockAlert,
+            // id: undefined, // Ensure ID is not passed for create
+            barcode: v.barcode,
+            name: v.name,
+            sku: v.sku,
+          })),
         },
+        // Add createdById: context.userId if you have the relation setup via Member
       },
+      include: { variants: true }, // Include variants in the returned object
     });
-    revalidatePath("/products");
-    return { success: true, product: newProduct };
+    console.log("New product created:", newProduct);
+
+    revalidatePath("/products"); // Revalidate the products list page
+    return { success: true, data: newProduct };
   } catch (error) {
-    return handlePrismaError(error);
+    return handlePrismaError(error); // Use your specific error handler
   }
 }
 
+/**
+ * Updates an existing product and manages its variants (create/update/delete).
+ */
 export async function updateProduct(formData: FormData) {
+  const { organizationId } = await getServerAuthContext();
   const rawData = Object.fromEntries(formData.entries());
-  const productId = rawData.id as string;
+  const productId = rawData.id as string; // Get ID from form data
 
   if (!productId) return { error: "Product ID is missing." };
 
-  const variantsString = formData.get("variants") as string | null;
-  let parsedVariants = [];
-  try {
-    parsedVariants = variantsString ? JSON.parse(variantsString) : [];
-  } catch (e) {
-    console.error("Error parsing variants:", e);
-    return { error: "Invalid variant data format." };
+  // Handle JSON parsing for variants
+  const parsedVariantsResult = safeParseVariants(formData);
+  if ("error" in parsedVariantsResult) {
+    return parsedVariantsResult;
   }
+  const parsedVariants = parsedVariantsResult;
 
-  const validatedFields = EditProductSchema.safeParse({
+  // Prepare data for Zod validation
+  const dataToValidate = {
     ...rawData,
-    basePrice: parseFloat((rawData.basePrice as string) || "0"),
-    reorderPoint: parseInt((rawData.reorderPoint as string) || "5", 10),
-    isActive:
-      rawData.isActive === "on" ||
-      rawData.isActive === "true" ||
-      rawData.isActive === true,
+    id: productId, // Include ID for validation
+    // Let Zod handle coercion
+    isActive: rawData.isActive === "on" || rawData.isActive === "true", // Explicit handling if schema doesn't coerce boolean
     imageUrls: formData
       .getAll("imageUrls")
-      .filter((url) => typeof url === "string" && url),
-    variants: parsedVariants,
-  });
+      .filter(
+        (url): url is string => typeof url === "string" && url.length > 0
+      ),
+    variants: parsedVariants.map((v) => ({
+      ...v,
+      id: v.id || undefined, // Keep ID if present, otherwise undefined
+      // Let Zod handle coercion for numbers/booleans within VariantSchema
+      isActive:
+        typeof v.isActive === "boolean"
+          ? v.isActive
+          : v.isActive === "on" || v.isActive === "true",
+      lowStockAlert:
+        typeof v.lowStockAlert === "boolean"
+          ? v.lowStockAlert
+          : v.lowStockAlert === "on" || v.lowStockAlert === "true",
+    })),
+  };
+
+  const validatedFields = EditProductSchema.safeParse(dataToValidate);
 
   if (!validatedFields.success) {
     console.error(
@@ -347,92 +439,165 @@ export async function updateProduct(formData: FormData) {
       validatedFields.error.flatten().fieldErrors
     );
     return {
-      error: "Validation failed.",
+      error: "Validation failed. Please check your input.",
       fieldErrors: validatedFields.error.flatten().fieldErrors,
     };
   }
 
-  const { id, variants, ...data } = validatedFields.data;
+  // Destructure validated data
+  const {
+    id, // Same as productId, validated
+    categoryId,
+    variants: submittedVariants,
+    ...productData
+  } = validatedFields.data;
 
   try {
-    const existingVariants = await prisma.productVariant.findMany({
-      where: { productId: id },
-      select: { id: true },
-    });
-    const existingVariantIds = new Set(existingVariants.map((v) => v.id));
-
-    const variantsToCreate = variants?.filter((v) => !v.id) || [];
-    const variantsToUpdate =
-      variants?.filter((v) => v.id && existingVariantIds.has(v.id)) || [];
-    const variantIdsToKeep = new Set(
-      variants?.map((v) => v.id).filter(Boolean)
-    );
-    const variantsToDelete = existingVariants.filter(
-      (v) => !variantIdsToKeep.has(v.id)
-    );
-
-    const updatedProduct = await prisma.$transaction(async (tx) => {
-      if (variantsToDelete.length > 0) {
-        await tx.productVariant.deleteMany({
-          where: { id: { in: variantsToDelete.map((v) => v.id) } },
+    // Use transaction for robustness when handling multiple variant operations
+    const updatedProduct = await prisma.$transaction(
+      async (tx) => {
+        // 1. Get existing variant IDs associated with this product *within this organization*
+        const existingVariants = await tx.productVariant.findMany({
+          where: { productId: id, organizationId: organizationId }, // Ensure we only check variants for THIS product AND org
+          select: { id: true },
         });
-      }
+        const existingVariantIds = new Set(existingVariants.map((v) => v.id));
 
-      const product = await tx.product.update({
-        where: { id },
-        data: {
-          ...data,
-          basePrice: new Prisma.Decimal(data.basePrice),
-          variants: {
-            create: variantsToCreate.map((v) => ({
-              name: v.name,
-              sku: v.sku,
-              skuSuffix: v.skuSuffix,
-              barcode: v.barcode,
-              priceModifier: new Prisma.Decimal(v.priceModifier),
-              attributes: v.attributes as unknown as Prisma.InputJsonValue,
-            })),
-          },
-        },
-      });
+        // 2. Identify variants to create, update, and delete based on submitted data
+        const variantsToCreate = submittedVariants.filter((v) => !v.id); // No ID means create
+        const variantsToUpdate = submittedVariants.filter(
+          (v) => v.id && existingVariantIds.has(v.id) // Has ID and it exists in DB
+        );
+        const submittedVariantIds = new Set(
+          submittedVariants
+            .map((v) => v.id)
+            .filter((variantId): variantId is string => !!variantId) // Get IDs from submitted data
+        );
+        const variantsToDeleteIds = [...existingVariantIds].filter(
+          (existingId) => !submittedVariantIds.has(existingId) // Existing IDs not in submission = delete
+        );
 
-      for (const v of variantsToUpdate) {
-        if (v.id) {
-          await tx.productVariant.update({
-            where: { id: v.id },
-            data: {
-              barcode: v.barcode,
-              priceModifier: new Prisma.Decimal(v.priceModifier),
-              attributes: v.attributes as unknown as Prisma.InputJsonValue,
+        // 3. Perform deletions first
+        if (variantsToDeleteIds.length > 0) {
+          await tx.productVariant.deleteMany({
+            where: {
+              id: { in: variantsToDeleteIds },
+              organizationId: organizationId,
             },
           });
         }
-      }
 
-      return product;
-    });
+        // 4. Update the main product data
+        // Ensure we only update within the correct organization
+         await tx.product.update({
+          where: { id: id, organizationId: organizationId },
+          data: {
+            ...productData,
+            category: { connect: { id: categoryId } }, // Allow category change
+            basePrice: new Prisma.Decimal(productData.basePrice), // Use validated & converted value
+            reorderPoint: productData.reorderPoint,
+            imageUrls: productData.imageUrls ?? [],
+            isActive: productData.isActive,
+            // DO NOT include 'variants' here - managed manually below
+            // Add updatedById: context.userId if needed
+          },
+        });
+
+        // 5. Perform creations
+        if (variantsToCreate.length > 0) {
+          await tx.productVariant.createMany({
+            data: variantsToCreate.map((v) => ({
+              // Map validated data for creation
+              productId: id, // Link to the parent product
+              organizationId: organizationId,
+              name: v.name,
+              sku: v.sku,
+              barcode: v.barcode,
+              isActive: v.isActive,
+              priceModifier: new Prisma.Decimal(v.priceModifier),
+              attributes:
+                (v.attributes as Prisma.InputJsonValue) ?? Prisma.JsonNull,
+              reorderPoint: v.reorderPoint,
+              reorderQty: v.reorderQty,
+              lowStockAlert: v.lowStockAlert,
+            })),
+          });
+        }
+
+        // 6. Perform updates (individually, as updateMany doesn't support varying data)
+        for (const v of variantsToUpdate) {
+          if (v.id) {
+            // Type guard
+            await tx.productVariant.update({
+              where: {
+                id: v.id,
+                organizationId, // Ensure update is scoped to org
+              },
+              data: {
+                // Map validated data for update
+                name: v.name,
+                sku: v.sku,
+                barcode: v.barcode,
+                isActive: v.isActive,
+                priceModifier: new Prisma.Decimal(v.priceModifier),
+                attributes:
+                  (v.attributes as Prisma.InputJsonValue) ?? Prisma.JsonNull,
+                reorderPoint: v.reorderPoint,
+                reorderQty: v.reorderQty,
+                lowStockAlert: v.lowStockAlert,
+                // updatedById: context.userId // If tracking variant updates
+              },
+            });
+          }
+        }
+
+        // Fetch the final state of the product with its variants after all operations
+        const finalProduct = await tx.product.findUnique({
+          where: { id: id },
+          include: { variants: true }, // Include updated variants
+        });
+
+        if (!finalProduct) {
+          // This should ideally not happen if the initial update succeeded
+          throw new Error(
+            "Failed to retrieve updated product within transaction."
+          );
+        }
+
+        return finalProduct; // Return the updated product with variants
+      },
+      {
+        maxWait: 10000, // Optional: Max wait time for transaction lock
+        timeout: 20000, // Optional: Max time for the transaction to run
+      }
+    );
 
     revalidatePath("/products");
-    revalidatePath(`/products/${id}`);
-    return { success: true, product: updatedProduct };
+    revalidatePath(`/products/${id}`); // Revalidate specific product page
+    return { success: true, data: updatedProduct };
   } catch (error) {
+    // Make sure handlePrismaError can understand transaction errors too
     return handlePrismaError(error);
   }
 }
-
+/**
+ * Toggles the isActive status of a product.
+ */
 export async function toggleProductStatus(
   productId: string,
   isActive: boolean
 ) {
+  // TODO: Auth checks
   if (!productId) return { error: "Product ID is required." };
 
   try {
     const updatedProduct = await prisma.product.update({
-      where: { id: productId },
+      where: { id: productId /* , organizationId: orgId */ }, // Add org check
       data: { isActive },
     });
     revalidatePath("/products");
-    return { success: true, product: updatedProduct };
+    revalidatePath(`/products/${productId}`);
+    return { success: true, data: updatedProduct };
   } catch (error) {
     return handlePrismaError(error);
   }
@@ -440,25 +605,33 @@ export async function toggleProductStatus(
 
 // --- Stock Management Actions ---
 
+/**
+ * Adds a new stock batch for a product or variant.
+ */
 export async function addStockBatch(formData: FormData) {
+  // const context = await getServerAuthContext();
+  // const { organizationId, userId } = context;
+
   const rawData = Object.fromEntries(formData.entries());
-  const expiryDateStr = formData.get("expiryDate") as string | null;
-  const parsedData = {
+
+  // Prepare data for validation
+  const dataToValidate = {
     ...rawData,
+    // Ensure numeric types are handled correctly by coerce
+    initialQuantity: rawData.initialQuantity,
+    purchasePrice: rawData.purchasePrice,
+    // Parse date string if present
     expiryDate:
-      expiryDateStr && expiryDateStr !== "" ? new Date(expiryDateStr) : null,
-    initialQuantity: parseInt(
-      (formData.get("initialQuantity") as string) || "0",
-      10
-    ),
-    purchasePrice: parseFloat((formData.get("purchasePrice") as string) || "0"),
+      rawData.expiryDate && rawData.expiryDate !== ""
+        ? new Date(rawData.expiryDate as string)
+        : null,
   };
 
-  const validatedFields = RestockSchema.safeParse(parsedData);
+  const validatedFields = RestockSchema.safeParse(dataToValidate);
 
   if (!validatedFields.success) {
     console.error(
-      "Validation Errors:",
+      "Validation Errors (addStockBatch):",
       validatedFields.error.flatten().fieldErrors
     );
     return {
@@ -471,176 +644,167 @@ export async function addStockBatch(formData: FormData) {
 
   try {
     const newBatch = await prisma.stockBatch.create({
+      //@ts-expect-error This is fine
       data: {
         productId: data.productId,
-        variantId: data.variantId || undefined,
+        variantId: data.variantId || undefined, // Use undefined if null/empty
         batchNumber: data.batchNumber || undefined,
         initialQuantity: data.initialQuantity,
-        currentQuantity: data.initialQuantity,
+        currentQuantity: data.initialQuantity, // Current quantity starts same as initial
         purchasePrice: new Prisma.Decimal(data.purchasePrice),
         expiryDate: data.expiryDate || undefined,
-        location: data.location || undefined,
-        purchaseItemId: data.purchaseItemId || undefined,
+        // Connect to location using locationId
+        location: data.locationId
+          ? { connect: { id: data.locationId } }
+          : undefined,
+        // Connect to purchase item if ID is provided
+        purchaseItem: data.purchaseItemId
+          ? { connect: { id: data.purchaseItemId } }
+          : undefined,
+        // Add user/member relation if batch needs tracking
+        // createdBy: { connect: { id: userId } },
       },
     });
 
-    revalidatePath("/stocks");
-    return { success: true, batch: newBatch };
+    revalidatePath("/inventory"); // Or wherever stock is displayed
+    revalidatePath(`/products/${data.productId}`);
+    return { success: true, data: newBatch };
   } catch (error) {
     return handlePrismaError(error);
   }
 }
 
+/**
+ * Fetches stock batches with filtering and pagination.
+ */
 export async function getStockBatches(
   options: {
     productId?: string;
-    variantId?: string;
+    variantId?: string | null; // Allow explicitly querying for base product batches (null)
+    locationId?: string;
     includeProduct?: boolean;
-    activeOnly?: boolean;
+    includeVariant?: boolean;
+    activeOnly?: boolean; // Only batches with currentQuantity > 0
+    expired?: boolean; // Filter by expiry date
     page?: number;
     limit?: number;
+    organizationId?: string; // If batches are org-specific
   } = {}
 ) {
   const {
     productId,
-    variantId,
+    variantId, // If undefined, fetches all for product; if null, fetches base only; if string, fetches specific variant
+    locationId,
     includeProduct = true,
+    includeVariant = true,
     activeOnly = true,
+    expired, // undefined = don't filter, true = expired, false = not expired
     page = 1,
     limit = 20,
   } = options;
 
   const skip = (page - 1) * limit;
+  const now = new Date();
+
+  const where: Prisma.StockBatchWhereInput = {
+    ...(productId && { productId }),
+    // Handle variantId filtering: undefined = no filter, null = base product, string = specific variant
+    ...(variantId !== undefined && { variantId: variantId }),
+    ...(locationId && { locationId }),
+    ...(activeOnly && { currentQuantity: { gt: 0 } }),
+    ...(expired === true && { expiryDate: { not: null, lt: now } }),
+    ...(expired === false && {
+      OR: [{ expiryDate: null }, { expiryDate: { gte: now } }],
+    }),
+    // product: { organizationId: organizationId } // Add org filtering if applicable
+  };
 
   try {
-    const [batches, totalBatches] = await Promise.all([
+    const [batches, totalBatches] = await prisma.$transaction([
       prisma.stockBatch.findMany({
-        where: {
-          productId,
-          variantId,
-          currentQuantity: activeOnly ? { gt: 0 } : undefined,
-        },
+        where,
         include: {
-          product: includeProduct,
-          variant: true,
-          purchaseItem: true,
+          product: includeProduct
+            ? { select: { id: true, name: true, sku: true, basePrice: true } }
+            : false,
+          variant: includeVariant
+            ? {
+                select: {
+                  id: true,
+                  name: true,
+                  sku: true,
+                  priceModifier: true,
+                },
+              }
+            : false,
+          purchaseItem: { select: { id: true, purchaseId: true } }, // Include link to purchase if needed
+          location: { select: { id: true, name: true } }, // Include location info
         },
         orderBy: {
-          receivedDate: "desc",
+          // Order by expiry date (soonest first), then received date
+          expiryDate: "asc",
+          receivedDate: "asc",
         },
         skip,
         take: limit,
       }),
-      prisma.stockBatch.count({
-        where: {
-          productId,
-          variantId,
-          currentQuantity: activeOnly ? { gt: 0 } : undefined,
-        },
-      }),
+      prisma.stockBatch.count({ where }),
     ]);
 
+    // Clean data for client, convert Decimals
     const cleanBatches = batches.map((batch) => ({
       ...batch,
       purchasePrice: batch.purchasePrice.toString(),
       product: batch.product
+        ? { ...batch.product, basePrice: batch.product.basePrice.toString() }
+        : null,
+      variant: batch.variant
         ? {
-            ...batch.product,
-            basePrice: batch.product.basePrice.toString(),
+            ...batch.variant,
+            priceModifier: batch.variant.priceModifier.toString(),
           }
         : null,
+      // Ensure nested objects are serializable if needed elsewhere
+      purchaseItem: batch.purchaseItem ? { ...batch.purchaseItem } : null,
+      location: batch.location ? { ...batch.location } : null,
     }));
 
     return {
-      batches: cleanBatches,
-      totalBatches,
-      totalPages: Math.ceil(totalBatches / limit),
-      currentPage: page,
+      data: cleanBatches,
+      meta: {
+        totalBatches,
+        totalPages: Math.ceil(totalBatches / limit),
+        currentPage: page,
+        pageSize: limit,
+      },
     };
   } catch (error) {
     console.error("Error fetching stock batches:", error);
-    return {
-      error: "Failed to fetch stock batches.",
-      batches: [],
-      totalBatches: 0,
-      totalPages: 0,
-      currentPage: 1,
-    };
+    return { error: "Failed to fetch stock batches." };
   }
 }
 
-export async function getPastStockBatches(
-  options: {
-    includeProduct?: boolean;
-    page?: number;
-    limit?: number;
-  } = {}
-) {
-  const { includeProduct = true, page = 1, limit = 20 } = options;
-
-  const skip = (page - 1) * limit;
-
-  try {
-    const [batches, totalBatches] = await Promise.all([
-      prisma.stockBatch.findMany({
-        where: {
-          currentQuantity: 0,
-        },
-        include: {
-          product: includeProduct,
-          variant: true,
-          purchaseItem: true,
-          saleItems: {
-            select: { id: true, quantity: true, saleId: true },
-          },
-        },
-        orderBy: {
-          receivedDate: "desc",
-        },
-        skip,
-        take: limit,
-      }),
-      prisma.stockBatch.count({
-        where: {
-          currentQuantity: 0,
-        },
-      }),
-    ]);
-
-    return {
-      batches,
-      totalBatches,
-      totalPages: Math.ceil(totalBatches / limit),
-      currentPage: page,
-    };
-  } catch (error) {
-    console.error("Error fetching past stock batches:", error);
-    return {
-      error: "Failed to fetch past stock batches.",
-      batches: [],
-      totalBatches: 0,
-      totalPages: 0,
-      currentPage: 1,
-    };
-  }
-}
-
+/**
+ * Adjusts stock for a SPECIFIC batch.
+ */
 export async function adjustStock(formData: FormData) {
+  const { userId, organizationId } = await getServerAuthContext();
+
   const rawData = Object.fromEntries(formData.entries());
-  const userId = formData.get("userId") as string;
 
-  if (!userId) {
-    return { error: "User ID is required for stock adjustment." };
-  }
-
-  const validatedFields = StockAdjustmentSchema.safeParse({
+  // Prepare for validation
+  const dataToValidate = {
     ...rawData,
-    quantity: parseInt(rawData.quantity as string, 10),
-  });
+    quantity: rawData.quantity, // Keep as string for coerce
+    // Ensure userId is correctly passed and validated
+    // userId: memberIdFromAuth, // Get this from session/auth context
+  };
+
+  const validatedFields = StockAdjustmentSchema.safeParse(dataToValidate);
 
   if (!validatedFields.success) {
     console.error(
-      "Validation Errors:",
+      "Validation Errors (adjustStock):",
       validatedFields.error.flatten().fieldErrors
     );
     return {
@@ -649,112 +813,215 @@ export async function adjustStock(formData: FormData) {
     };
   }
 
-  const { productId, variantId, stockBatchId, quantity, reason, notes } =
-    validatedFields.data;
+  // Destructure validated data
+  const {
+    productId,
+    variantId,
+    stockBatchId,
+    quantity,
+    reason,
+    notes,
+  } = validatedFields.data;
 
   try {
+    // Use transaction to ensure atomicity
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Create the adjustment record
-      const adjustment = await tx.stockAdjustment.create({
+      // 1. Find the batch to get current stock and lock it (implicitly via update)
+      const batchToUpdate = await tx.stockBatch.findUnique({
+        where: { id: stockBatchId },
+        select: { currentQuantity: true, productId: true, variantId: true }, // Select necessary fields
+      });
+
+      if (!batchToUpdate) {
+        throw new Error("Stock batch not found."); // Or handle more gracefully
+      }
+
+      // Optional: Verify productId/variantId match the batch if provided in form
+      if (
+        productId !== batchToUpdate.productId ||
+        (variantId || undefined) !== (batchToUpdate.variantId || undefined)
+      ) {
+        throw new Error(
+          "Product/Variant mismatch with the specified stock batch."
+        );
+      }
+
+      const previousStock = batchToUpdate.currentQuantity;
+      const newStock = previousStock + quantity;
+
+      // Basic check: prevent stock going negative unnecessarily (unless reason allows it)
+      if (
+        newStock < 0 &&
+        reason !== StockAdjustmentReason.LOST &&
+        reason !== StockAdjustmentReason.STOLEN &&
+        reason !== StockAdjustmentReason.DAMAGED &&
+        reason !== StockAdjustmentReason.EXPIRED &&
+        reason !== StockAdjustmentReason.RETURN_TO_SUPPLIER
+      ) {
+        throw new Error(
+          `Adjustment results in negative stock (${newStock}) for batch ${stockBatchId}. Please check quantity or reason.`
+        );
+      }
+
+      // 2. Update the stock batch quantity
+      await tx.stockBatch.update({
+        where: { id: stockBatchId },
         data: {
-          productId,
-          variantId: variantId || undefined,
-          stockBatchId: stockBatchId || undefined,
-          userId,
-          quantity,
-          reason,
-          notes,
+          currentQuantity: {
+            increment: quantity, // Use increment for atomicity
+          },
         },
       });
 
-      // 2. Update the stock batch if specified
-      if (stockBatchId) {
-        await tx.stockBatch.update({
-          where: { id: stockBatchId },
-          data: {
-            currentQuantity: {
-              increment: quantity,
-            },
-          },
-        });
-      } else if (variantId) {
-        // Update the first available batch for the variant
-        await tx.stockBatch.updateMany({
-          where: {
-            productId,
-            variantId,
-            currentQuantity: { gt: 0 },
-          },
-          data: {
-            currentQuantity: {
-              increment: quantity,
-            },
-          },
-        });
-      } else {
-        // Update the first available batch for the product
-        await tx.stockBatch.updateMany({
-          where: {
-            productId,
-            variantId: null,
-            currentQuantity: { gt: 0 },
-          },
-          data: {
-            currentQuantity: {
-              increment: quantity,
-            },
-          },
-        });
-      }
+      // 3. Create the StockAdjustment record
+      const adjustment = await tx.stockAdjustment.create({
+        data: {
+          productId, // Store the product ID on adjustment record
+          organizationId,
+          variantId: variantId || undefined, // Store variant ID if applicable
+          stockBatchId, // Link adjustment to the specific batch
+          userId, // Link to the Member performing the action
+          quantity,
+          reason,
+          notes,
+          // Store previous/new stock on adjustment for audit? (Optional - add fields to schema if needed)
+          // previousQuantity: previousStock,
+          // newQuantity: newStock,
+        },
+      });
 
-      return adjustment;
+      // 4. Create a StockMovement record for detailed logging
+      await tx.stockMovement.create({
+        data: {
+          productId,
+          variantId: variantId || '',
+          organizationId,
+          stockBatchId,
+          quantity, // The change amount
+          previousStock: previousStock,
+          newStock: newStock,
+          userId, // Member performing action
+          referenceType: "ADJUSTMENT",
+          referenceId: adjustment.id, // Link to the adjustment record
+          notes: `Reason: ${reason}. ${notes || ""}`.trim(),
+        },
+      });
+
+      return adjustment; // Return the created adjustment record
     });
 
-    revalidatePath("/stocks");
-    return { success: true, adjustment: result };
-  } catch (error) {
+    revalidatePath("/inventory"); // Or relevant stock page
+    revalidatePath(`/products/${productId}`);
+    return { success: true, data: result };
+    //eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (error: any) {
+    // Check for specific errors thrown in transaction
+    console.error("Error adjusting stock:", error);
+    if (
+      error.message.includes("negative stock") ||
+      error.message.includes("Stock batch not found") ||
+      error.message.includes("Product/Variant mismatch")
+    ) {
+      return { error: error.message };
+    }
+    // Handle potential Prisma errors (like concurrent updates if not handled by increment)
     return handlePrismaError(error);
   }
 }
 
-export async function getLowStockProducts(threshold: number = 5) {
+/**
+ * Fetches products considered "low stock" based on their reorder points.
+ */
+export async function getLowStockProducts() {
+  // TODO: Auth checks
   try {
+    // Fetch all active products (potentially filter by org)
     const products = await prisma.product.findMany({
       where: {
         isActive: true,
+        // organizationId: organizationId // Add if products linked to org
       },
       include: {
+        // Include base product batches (no variant link)
         stockBatches: {
           select: { currentQuantity: true },
+          where: { variantId: null, currentQuantity: { gt: 0 } },
         },
+        // Include variants and their batches
         variants: {
+          where: { isActive: true },
           include: {
             stockBatches: {
               select: { currentQuantity: true },
+              where: { currentQuantity: { gt: 0 } },
             },
           },
         },
       },
     });
 
-    const lowStockProducts = products.filter((p) => {
+    const lowStockItems: Array<{
+      type: "product" | "variant";
+      id: string;
+      name: string;
+      sku: string;
+      currentStock: number;
+      reorderPoint: number;
+      productId: string;
+      productName: string;
+    }> = [];
+
+    products.forEach((p) => {
+      // Calculate base product stock
       const baseStock = p.stockBatches.reduce(
         (sum, batch) => sum + batch.currentQuantity,
         0
       );
-      const variantStock = p.variants.reduce(
-        (variantSum, variant) =>
-          variantSum +
-          variant.stockBatches.reduce(
-            (batchSum, batch) => batchSum + batch.currentQuantity,
-            0
-          ),
-        0
-      );
-      return baseStock + variantStock <= threshold;
+
+      // Check if base product itself is low stock (only if no variants or if base product tracked separately)
+      // This logic depends on whether base product SKU can be sold if variants exist.
+      // Assuming base product stock matters if variants *don't* exist OR if explicitly tracked.
+      // Let's simplify: check base product stock *if* it has a reorder point defined (implicitly meaning it's tracked).
+      if (p.reorderPoint !== null && baseStock <= p.reorderPoint) {
+        // Check if variants exist - if they do, maybe only variants matter? Depends on business logic.
+        // For now, report base product low stock if below its reorder point.
+        if (p.variants.length === 0) {
+          // Only report base product if no variants exist
+          lowStockItems.push({
+            type: "product",
+            id: p.id,
+            name: p.name,
+            sku: p.sku,
+            currentStock: baseStock,
+            reorderPoint: p.reorderPoint,
+            productId: p.id,
+            productName: p.name,
+          });
+        }
+      }
+
+      // Check each active variant for low stock
+      p.variants.forEach((v) => {
+        const variantStock = v.stockBatches.reduce(
+          (sum, batch) => sum + batch.currentQuantity,
+          0
+        );
+        if (v.reorderPoint !== null && variantStock <= v.reorderPoint) {
+          lowStockItems.push({
+            type: "variant",
+            id: v.id,
+            name: v.name,
+            sku: v.sku,
+            currentStock: variantStock,
+            reorderPoint: v.reorderPoint,
+            productId: p.id,
+            productName: p.name,
+          });
+        }
+      });
     });
 
-    return { products: lowStockProducts };
+    return { data: lowStockItems };
   } catch (error) {
     console.error("Error fetching low stock products:", error);
     return { error: "Failed to fetch low stock products." };
@@ -763,49 +1030,94 @@ export async function getLowStockProducts(threshold: number = 5) {
 
 // --- Variant Actions ---
 
+/**
+ * Fetches all active variants for a specific product, including stock counts.
+ */
 export async function getProductVariants(productId: string) {
+  // TODO: Auth checks
   if (!productId) return { error: "Product ID is required." };
 
   try {
     const variants = await prisma.productVariant.findMany({
-      where: { productId },
+      where: { productId: productId, isActive: true }, // Fetch only active variants
       include: {
+        // Include active stock batches for stock calculation
         stockBatches: {
           select: { currentQuantity: true },
+          where: { currentQuantity: { gt: 0 } },
         },
+        // product: { select: { name: true }} // Optionally include product name
       },
+      orderBy: { name: "asc" }, // Order variants by name
     });
 
+    // Calculate stock and convert decimals
     const variantsWithStock = variants.map((v) => ({
       ...v,
-      priceModifier: v.priceModifier.toString(),
+      priceModifier: v.priceModifier.toString(), // Convert Decimal
       totalStock: v.stockBatches.reduce(
         (sum, batch) => sum + batch.currentQuantity,
         0
       ),
+      attributes: v.attributes, // Type assertion if needed for client
+      stockBatches: undefined, // Don't send raw batches
     }));
 
-    return { variants: variantsWithStock };
+    return { data: variantsWithStock };
   } catch (error) {
-    console.error("Error fetching variants:", error);
-    return { error: "Failed to fetch variants." };
+    console.error(`Error fetching variants for product ${productId}:`, error);
+    return { error: "Failed to fetch product variants." };
   }
 }
 
+/**
+ * Toggles the isActive status of a product variant.
+ */
 export async function toggleVariantStatus(
   variantId: string,
   isActive: boolean
 ) {
+  // TODO: Auth checks
   if (!variantId) return { error: "Variant ID is required." };
 
   try {
     const updatedVariant = await prisma.productVariant.update({
       where: { id: variantId },
       data: { isActive },
+      select: { id: true, isActive: true, productId: true }, // Select needed fields
     });
-    revalidatePath("/products");
-    return { success: true, variant: updatedVariant };
+
+    // Revalidate the product page where this variant might be shown
+    revalidatePath(`/products/${updatedVariant.productId}`);
+    return { success: true, data: updatedVariant };
   } catch (error) {
     return handlePrismaError(error);
+  }
+}
+
+
+export async function deleteProduct(id: string) {
+  const { organizationId } = await getServerAuthContext();
+  try {
+    await prisma.product.delete({
+      where: { id, organizationId },
+    });
+    
+    revalidatePath("/products");
+    return { success: true, message: "Product deleted successfully." };
+  } catch (error) {
+    console.error("Failed to delete product:", error);
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      // Handle related records preventing deletion if necessary (e.g., P2014)
+      if (error.code === "P2025") {
+        // Record not found
+        return { success: false, message: "Product not found." };
+      }
+      // Add more specific error handling if needed (e.g., foreign key constraints)
+    }
+    return {
+      success: false,
+      message: "Database error: Failed to delete product.",
+    };
   }
 }

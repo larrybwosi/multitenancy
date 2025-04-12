@@ -1,22 +1,15 @@
 "use server";
 
-import { headers } from "next/headers";
 import { Prisma, type Organization, MemberRole } from "@prisma/client";
 import slugify from "slugify";
 
-import {db as prisma} from "@/lib/db"; // Adjust path as needed
-import {
-  ensureAuthenticated,
-  canReadOrganization,
-  canUpdateOrganization,
-  canDeleteOrganization,
-  // getUserRoleInOrganization,
-} from "@/lib/auth/permissions"; 
+import { db as prisma } from "@/lib/db";
 import type {
   CreateOrganizationInput,
   UpdateOrganizationInput,
 } from "@/lib/types"; // Adjust path
-import { auth } from "@/lib/auth";
+import { getServerAuthContext } from "./auth";
+import { revalidatePath } from "next/cache";
 
 /**
  * Creates a new organization and assigns the current user as the owner.
@@ -27,15 +20,9 @@ import { auth } from "@/lib/auth";
 export async function createOrganization(
   data: CreateOrganizationInput
 ): Promise<Organization> {
-  const headerData = await headers(); 
-  const session = await auth.api.getSession({
-    headers: headerData,
-  }); // Pass headers to getSession
-  console.log(session)
-  ensureAuthenticated(session); // Throws error if not authenticated
-
+  const { userId } = await getServerAuthContext();
   const { name, description, logo } = data;
-  const userId = session?.user.id;
+  console.log(data);
 
   // Generate a unique slug
   const baseSlug = slugify(name, { lower: true, strict: true, trim: true });
@@ -62,16 +49,19 @@ export async function createOrganization(
       }
     }
   }
+  console.log(finalSlug);
 
   try {
     const newOrganization = await prisma.organization.create({
       data: {
+        id: `Org-${finalSlug}`,
         name,
         slug: finalSlug,
         description,
         logo,
         members: {
           create: {
+            id: `User-org-${finalSlug}-${userId}`,
             userId: userId!,
             role: MemberRole.OWNER, // Assign the creator as OWNER
           },
@@ -86,11 +76,12 @@ export async function createOrganization(
     });
 
     // Optionally: Update the user's activeOrganizationId if desired
-    await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: { activeOrganizationId: newOrganization.id },
     });
-    
+
+    console.log(updatedUser);
     console.log("New Organization Created:", newOrganization);
     return newOrganization;
   } catch (error) {
@@ -120,14 +111,7 @@ export async function createOrganization(
 export async function getOrganizationBySlug(
   slug: string
 ): Promise<Organization | null> {
-  const headerData = await headers();
-  const session = await auth.api.getSession({
-    headers: headerData,
-  });
-  // No need for ensureAuthenticated here, as public orgs might exist (adjust if needed)
-  // But we need the user ID for permission checks if logged in.
-  const userId = session?.user?.id;
-
+  // const { userId } = await getServerAuthContext();
   try {
     const organization = await prisma.organization.findUnique({
       where: { slug },
@@ -139,12 +123,12 @@ export async function getOrganizationBySlug(
     }
 
     // Permission Check: Ensure the current user can read this organization
-    const canRead = await canReadOrganization(userId, organization.id);
-    if (!canRead) {
-      // Instead of throwing, return null if the user isn't authorized
-      // Or throw new Error('Forbidden: You do not have permission to view this organization.');
-      return null;
-    }
+    // const canRead = await canReadOrganization(userId, organization.id);
+    // if (!canRead) {
+    //   // Instead of throwing, return null if the user isn't authorized
+    //   // Or throw new Error('Forbidden: You do not have permission to view this organization.');
+    //   return null;
+    // }
 
     return organization;
   } catch (error) {
@@ -162,30 +146,10 @@ export async function getOrganizationBySlug(
 export async function getOrganizationById(
   id: string
 ): Promise<Organization | null> {
-  const headerData = await headers();
-  const session = await auth.api.getSession({
-    headers: headerData,
-  });
-  const userId = session?.user?.id;
-
-  if (!id) {
-    console.warn("getOrganizationById called with empty ID.");
-    return null;
-  }
-
   try {
     const organization = await prisma.organization.findUnique({
       where: { id },
     });
-
-    if (!organization) {
-      return null; // Not found
-    }
-
-    const canRead = await canReadOrganization(userId, organization.id);
-    if (!canRead) {
-      return null;
-    }
 
     return organization;
   } catch (error) {
@@ -200,12 +164,7 @@ export async function getOrganizationById(
  * @throws Error if user is not authenticated.
  */
 export async function getUserOrganizations(): Promise<Organization[]> {
-  const headerData = await headers();
-  const session = await auth.api.getSession({
-    headers: headerData,
-  });
-  ensureAuthenticated(session);
-  const userId = session?.user.id;
+  const { userId } = await getServerAuthContext();
 
   try {
     const organizations = await prisma.organization.findMany({
@@ -240,20 +199,13 @@ export async function updateOrganization(
   id: string,
   data: UpdateOrganizationInput
 ): Promise<Organization> {
-  const headerData = await headers();
-  const session = await auth.api.getSession({
-    headers: headerData,
-  });
-  ensureAuthenticated(session);
-  const userId = session?.user.id;
-
   // Permission Check
-  const canUpdate = await canUpdateOrganization(userId, id);
-  if (!canUpdate) {
-    throw new Error(
-      "Forbidden: You do not have permission to update this organization."
-    );
-  }
+  // const canUpdate = await canUpdateOrganization(userId, id);
+  // if (!canUpdate) {
+  //   throw new Error(
+  //     "Forbidden: You do not have permission to update this organization."
+  //   );
+  // }
 
   const { name, ...restData } = data;
   let slugData = {};
@@ -297,7 +249,6 @@ export async function updateOrganization(
         name, // Include name if provided
         ...restData, // Include other fields like description, logo
         ...slugData, // Include new slug if name changed
-        updatedAt: new Date(), // Explicitly set updatedAt
       },
     });
     return updatedOrganization;
@@ -328,18 +279,11 @@ export async function updateOrganization(
  * @throws Error if user is not authenticated, not permitted (not OWNER), or org not found.
  */
 export async function deleteOrganization(id: string): Promise<Organization> {
-  const headerData = await headers();
-  const session = await auth.api.getSession({
-    headers: headerData,
-  });
-  ensureAuthenticated(session);
-  const userId = session?.user.id;
-
   // Permission Check - Only OWNER can delete
-  const canDelete = await canDeleteOrganization(userId, id);
-  if (!canDelete) {
-    throw new Error("Forbidden: Only the organization owner can delete it.");
-  }
+  // const canDelete = await canDeleteOrganization(userId, id);
+  // if (!canDelete) {
+  //   throw new Error("Forbidden: Only the organization owner can delete it.");
+  // }
 
   // Optional: Add checks here to prevent deletion if certain conditions are met
   // e.g., active subscriptions, non-zero product count, etc.
@@ -374,5 +318,54 @@ export async function deleteOrganization(id: string): Promise<Organization> {
     throw new Error(
       `Could not delete organization. ${error instanceof Error ? error.message : ""}`
     );
+  }
+}
+
+export async function saveOrganizationCategories(
+  organizationId: string,
+  categoryNames: string[]
+): Promise<{ success: boolean; message: string }> {
+  if (!organizationId || categoryNames.length === 0) {
+    return {
+      success: false,
+      message: "Missing organization ID or categories.",
+    };
+  }
+
+  try {
+    // Check if user has permission to add categories to this org
+    // await checkUserPermission(organizationId);
+
+    // Option 1: Create categories if they don't exist globally (less ideal for org-specific)
+    // Option 2: Create categories specific to this organization
+    // This uses the provided Prisma model structure implicitly
+
+    const categoryData = categoryNames.map((name) => ({
+      name: name.trim(),
+      organizationId: organizationId,
+      // Add description or parentId if needed/available
+    }));
+
+    // Use transaction to ensure atomicity if needed
+    await prisma.$transaction(async (tx) => {
+      // Optional: Delete existing categories for this org before adding new ones
+      // await tx.category.deleteMany({ where: { organizationId } });
+
+      // Create new categories
+      await tx.category.createMany({
+        data: categoryData,
+        skipDuplicates: true, // Avoid errors if a category name already exists for this org
+      });
+    });
+
+    revalidatePath(`/organizations/${organizationId}`); // Revalidate org page/tabs
+
+    return { success: true, message: "Categories saved successfully." };
+  } catch (error) {
+    console.error(
+      `Error saving categories for organization ${organizationId}:`,
+      error
+    );
+    return { success: false, message: "Failed to save categories." };
   }
 }

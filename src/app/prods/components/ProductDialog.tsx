@@ -27,11 +27,45 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { toast } from "sonner"; // Using Shadcn's toaster
+import { toast } from "sonner";
 import { Loader2, PlusCircle, Trash2, X } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area"; // For long variant lists
+import { ScrollArea } from "@/components/ui/scroll-area"; 
 
-// Determine if we are editing based on the presence of an ID
+// Example: Base Variant Schema (adjust fields as per your needs)
+const VariantSchema = z.object({
+  id: z.string().cuid().optional(), // Optional for creation
+  name: z.string().min(1),
+  sku: z.string().min(1),
+  barcode: z.string().optional().nullable(),
+  priceModifier: z.coerce.number(), // Coerce from string/number
+  attributes: z.record(z.any()).optional(), // Basic JSON validation
+  isActive: z.boolean().default(true),
+  reorderPoint: z.coerce.number().int().positive().default(5),
+  reorderQty: z.coerce.number().int().positive().default(10),
+  lowStockAlert: z.boolean().default(false),
+  // Ensure fields match your ProductVariant model
+});
+
+const ProductSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional().nullable(),
+  sku: z.string().min(1),
+  barcode: z.string().optional().nullable(),
+  categoryId: z.string().min(1),
+  basePrice: z.coerce.number(), // Coerce from string/number
+  reorderPoint: z.coerce.number().int().positive().default(5),
+  isActive: z.boolean().default(true),
+  imageUrls: z.array(z.string()).optional(),
+  variants: z.array(VariantSchema).optional().default([]), // Array of variants
+  // Ensure fields match your Product model
+});
+
+const EditProductSchema = ProductSchema.extend({
+  id: z.string().cuid(),
+  // Allow variants to have IDs during update
+  // variants: z.array(VariantSchema).optional().default([]),
+});
+
 type ProductFormData =
   | z.infer<typeof ProductSchema>
   | z.infer<typeof EditProductSchema>;
@@ -57,7 +91,7 @@ export function ProductDialog({
 
   const [isLoading, setIsLoading] = useState(false);
 
-  const form = useForm<ProductFormData>({
+  const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: isEditing
       ? {
@@ -97,17 +131,6 @@ export function ProductDialog({
   } = useFieldArray({
     control: form.control,
     name: "variants",
-  });
-
-  const {
-    fields: attributeFields,
-    append: appendAttribute,
-    remove: removeAttribute,
-  } = useFieldArray({
-    control: form.control,
-    // This needs careful handling if inside the variant field array
-    // Usually done within the variant mapping or a sub-component
-    name: `variants.${0}.attributes`, // Placeholder - needs dynamic index
   });
 
   // Reset form when dialog closes or productToEdit changes

@@ -17,15 +17,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { getSuppliers } from "@/actions/supplier.actions";
 import { SupplierForm } from "./components/create";
 import { SupplierTable } from "./components/table";
+import { getSuppliers } from "@/actions/supplier";
 
 
 export const dynamic = "force-dynamic"; // Ensure data is fetched on each request
 
 export default async function SuppliersPage() {
-  // Fetch suppliers directly in the Server Component
   const suppliers = await getSuppliers();
 
   return (
@@ -82,7 +81,7 @@ export default async function SuppliersPage() {
             }
           >
             {/* Pass fetched data to the client component table */}
-            <SupplierTable suppliers={suppliers} />
+            <SupplierTable suppliers={suppliers.success ? suppliers.data : []} />
           </Suspense>
         </CardContent>
       </Card>

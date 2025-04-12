@@ -85,12 +85,12 @@ const routes: RouteGroup[] = [
         id: "customers",
         title: "Customers",
         path: "/customers",
-        icon: <Users size={18} />,
+        icon: <Users size={18} className='w-5 h-5' />,
         children: [
           {
             id: "customer-list",
             title: "Customer List",
-            path: "/customer",
+            path: "/customers",
             icon: null,
           },
           {

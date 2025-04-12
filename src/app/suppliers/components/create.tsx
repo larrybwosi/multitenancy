@@ -2,7 +2,6 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -42,29 +41,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-import {
-  createSupplier,
-  updateSupplier,
-  SupplierFormData,
-} from "@/actions/supplier.actions";
 import type { Supplier } from "@prisma/client";
-
-const formSchema = z.object({
-  name: z
-    .string()
-    .min(2, { message: "Supplier name must be at least 2 characters." }),
-  contactName: z.string().optional(),
-  email: z
-    .string()
-    .email({ message: "Invalid email address." })
-    .optional()
-    .or(z.literal("")),
-  phone: z.string().optional(),
-  address: z.string().optional(),
-  paymentTerms: z.string().optional(),
-  leadTime: z.coerce.number().int().positive().optional().nullable(),
-  isActive: z.boolean().default(true),
-});
+import { createSupplier, updateSupplier } from "@/actions/supplier";
+import { CreateSupplierPayload, CreateSupplierPayloadSchema } from "@/lib/validations/suppliers";
 
 interface SupplierFormProps {
   mode: "create" | "edit";
@@ -77,7 +56,7 @@ export function SupplierForm({ mode, supplier, onSuccess }: SupplierFormProps) {
   const [error, setError] = useState<string | null>(null);
 
   const form = useForm({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(CreateSupplierPayloadSchema),
     defaultValues:
       mode === "edit" && supplier
         ? {
@@ -102,7 +81,7 @@ export function SupplierForm({ mode, supplier, onSuccess }: SupplierFormProps) {
           },
   });
 
-  function onSubmit(values: SupplierFormData) {
+  function onSubmit(values: CreateSupplierPayload) {
     setError(null); // Clear previous errors
     startTransition(async () => {
       try {

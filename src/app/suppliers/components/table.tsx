@@ -52,8 +52,8 @@ import {
 import type { Supplier } from "@prisma/client";
 import { SupplierForm } from "./create"; // Import the form
 import { SupplierDetailsSheet } from "./details-sheet"; // Import the details sheet
-import { toggleSupplierStatus } from "@/actions/supplier.actions"; // Import toggle action
 import { toast } from "sonner";
+import { toggleSupplierStatus } from "@/actions/supplier";
 
 interface SupplierTableProps {
   suppliers: Supplier[];

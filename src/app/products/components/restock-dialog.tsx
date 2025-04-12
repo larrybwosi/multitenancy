@@ -36,16 +36,15 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { ProductWithRelations } from "./product-columns"; // Use the extended type
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover"; // For Date Picker
+} from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
-import { Calendar } from "@/components/ui/calendar"; // For Date Picker
-import { format } from "date-fns"; // For Date Picker
-import { cn } from "@/lib/utils"; // For Date Picker className merging
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 // Zod schema matching the server action's RestockSchema (client-side)
 const RestockFormSchema = z.object({

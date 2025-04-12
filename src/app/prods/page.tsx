@@ -12,16 +12,9 @@ import { ProductListItem } from "./components/List";
 import { ProductCard } from "./components/ProductCard";
 import { Pagination } from "@/components/pagination";
 import { Prisma } from "@prisma/client";
+import ProductDialog from "../products/components/add-product-dialog";
+import { deleteProduct } from "@/actions/products";
 
-// Assuming Product type includes relations after getProducts processing
-type ProductWithDetails =
-  Awaited<ReturnType<typeof getProducts>> extends { products: infer P }
-    ? P[number]
-    : never;
-type Category =
-  Awaited<ReturnType<typeof getCategories>> extends { categories: infer C }
-    ? C[number]
-    : never;
 
 const PAGE_SIZE_OPTIONS = [12, 24, 48, 96];
 
@@ -30,12 +23,12 @@ export default function ProductsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition(); // For server action calls
+  const [isPending, startTransition] = useTransition(); 
 
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] =
-    useState<ProductWithDetails | null>(null);
+    useState<any | null>(null);
 
   // Filters & Search State
   const [searchTerm, setSearchTerm] = useState("");
@@ -133,17 +126,15 @@ export default function ProductsPage() {
       )
     ) {
       startTransition(async () => {
-        toast.info("Deleting product...");
+        toast.warning("Deleting product...");
         // *** TODO: Implement deleteProduct server action ***
-        // const result = await deleteProductAction(productId);
-        // if (result.success) {
-        //    toast.success("Product deleted successfully.");
-        //    fetchProductsAndCategories(); // Refresh list
-        // } else {
-        //    toast.error(`Failed to delete product: ${result.error}`);
-        // }
-        console.log("Placeholder: Delete product with ID:", productId);
-        toast.warning("Delete functionality not yet implemented."); // Placeholder message
+        const result = await deleteProduct(productId);
+        if (result.success) {
+           toast.success("Product deleted successfully.");
+           fetchProductsAndCategories(); 
+        } else {
+           toast.error(`Failed to delete product: ${result.message}`);
+        }
       });
     }
   };
@@ -249,7 +240,7 @@ export default function ProductsPage() {
       {/* Filter Controls */}
       <FilterControls
         searchPlaceholder="Search by name, SKU..."
-        onSearch={debouncedSearch} // Use debounced handler
+        // onSearch={debouncedSearch} 
         filters={filterConfig}
         exportActions={exportActions}
         showSearch={true}
@@ -319,14 +310,11 @@ export default function ProductsPage() {
       {/* Add/Edit Dialog */}
       <ProductDialog
         isOpen={isDialogOpen}
-        onClose={handleCloseDialog}
-        productToEdit={editingProduct ?? undefined}
+        initialData={editingProduct ?? undefined}
         categories={categories}
         onSuccess={handleDialogSuccess}
+        setIsOpen={setIsDialogOpen}
       />
-
-      {/* Toaster for notifications */}
-      {/* <Toaster richColors position="top-right" />  Make sure Toaster is included in your layout */}
     </div>
   );
 }
