@@ -4,7 +4,7 @@ import { z } from "zod";
 import { Customer, LoyaltyReason, Prisma } from "@prisma/client";
 import { db as prisma } from "@/lib/db";
 import { revalidatePath, revalidateTag } from "next/cache";
-import { invalidatePosDataCache } from "@/app/pos/actions"; 
+import { invalidatePosDataCache } from "@/app/(org)/pos/actions"; 
 import { checkUserAuthorization, getServerAuthContext } from "./auth";
 
 // --- Helper Types ---

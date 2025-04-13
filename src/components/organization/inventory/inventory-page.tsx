@@ -115,10 +115,7 @@ export function InventoryPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold">Inventory Management</h1>
-          <p className="text-muted-foreground">
-            Track and manage your organization&lsquo;s inventory across all
-            warehouses
-          </p>
+          <p className="text-muted-foreground">Track and manage your organization's inventory across all warehouses</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline">
@@ -154,16 +151,11 @@ export function InventoryPage() {
             <CardHeader>
               <CardTitle>Inventory</CardTitle>
               <CardDescription>
-                View and manage all products in your inventory. Monitor stock
-                levels, prices, and product details.
+                View and manage all products in your inventory. Monitor stock levels, prices, and product details.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <InventoryList
-                inventory={inventory}
-                loading={loading}
-                filter="all"
-              />
+              <InventoryList inventory={inventory} loading={loading} filter="all" />
             </CardContent>
           </Card>
         </TabsContent>
@@ -173,16 +165,11 @@ export function InventoryPage() {
             <CardHeader>
               <CardTitle>Low Stock Items</CardTitle>
               <CardDescription>
-                Products that are below their minimum stock level and need to be
-                restocked soon.
+                Products that are below their minimum stock level and need to be restocked soon.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <InventoryList
-                inventory={inventory}
-                loading={loading}
-                filter="low-stock"
-              />
+              <InventoryList inventory={inventory} loading={loading} filter="low-stock" />
             </CardContent>
           </Card>
         </TabsContent>
@@ -191,21 +178,14 @@ export function InventoryPage() {
           <Card>
             <CardHeader>
               <CardTitle>Out of Stock Items</CardTitle>
-              <CardDescription>
-                Products that are currently out of stock and need immediate
-                attention.
-              </CardDescription>
+              <CardDescription>Products that are currently out of stock and need immediate attention.</CardDescription>
             </CardHeader>
             <CardContent>
-              <InventoryList
-                inventory={inventory}
-                loading={loading}
-                filter="out-of-stock"
-              />
+              <InventoryList inventory={inventory} loading={loading} filter="out-of-stock" />
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
     </div>
-  );
+  )
 }

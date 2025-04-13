@@ -65,7 +65,7 @@ const routes: RouteGroup[] = [
             id: "all-sales",
             title: "All Sales",
             path: "/sales",
-            icon: null, 
+            icon: null,
           },
           {
             id: "returns",
@@ -85,7 +85,7 @@ const routes: RouteGroup[] = [
         id: "customers",
         title: "Customers",
         path: "/customers",
-        icon: <Users size={18} className='w-5 h-5' />,
+        icon: <Users size={18} className="w-5 h-5" />,
         children: [
           {
             id: "customer-list",
@@ -256,6 +256,12 @@ const routes: RouteGroup[] = [
             icon: null,
           },
         ],
+      },
+      {
+        id: "invitations",
+        title: "Invitations",
+        path: "/invitations",
+        icon: <Users size={18} />,
       },
       {
         id: "settings",

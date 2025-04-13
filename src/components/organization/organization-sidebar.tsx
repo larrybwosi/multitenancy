@@ -21,6 +21,9 @@ import {
   Warehouse,
   BarChart2,
   ShoppingBag,
+  ArrowLeftRight,
+  Layers,
+  ClipboardEdit,
 } from "lucide-react"
 
 export function OrganizationSidebar() {
@@ -43,6 +46,27 @@ export function OrganizationSidebar() {
       icon: Warehouse,
     },
     {
+      name: "Stock Management",
+      icon: Package,
+      children: [
+        {
+          name: "Stock Levels",
+          href: "/organization/stock/levels",
+          icon: Layers,
+        },
+        {
+          name: "Stock Transfers",
+          href: "/organization/stock/transfers",
+          icon: ArrowLeftRight,
+        },
+        {
+          name: "Inventory Adjustments",
+          href: "/organization/stock/adjustments",
+          icon: ClipboardEdit,
+        },
+      ],
+    },
+    {
       name: "Inventory",
       href: "/organization/inventory",
       icon: Package,
@@ -61,6 +85,37 @@ export function OrganizationSidebar() {
       name: "Reports",
       href: "/organization/reports",
       icon: BarChart2,
+    },
+    {
+      name: "Financial Management",
+      icon: CreditCard,
+      children: [
+        {
+          name: "Dashboard",
+          href: "/organization/finance/dashboard",
+          icon: BarChart3,
+        },
+        {
+          name: "Transactions",
+          href: "/organization/finance/transactions",
+          icon: ArrowLeftRight,
+        },
+        {
+          name: "Expenses",
+          href: "/organization/finance/expenses",
+          icon: FileText,
+        },
+        {
+          name: "Taxes",
+          href: "/organization/finance/taxes",
+          icon: Briefcase,
+        },
+        {
+          name: "Reports",
+          href: "/organization/finance/reports",
+          icon: BarChart2,
+        },
+      ],
     },
     {
       name: "Payment voucher",
@@ -139,24 +194,53 @@ export function OrganizationSidebar() {
       </div>
       <div className="flex-1 overflow-y-auto py-4">
         <nav className="space-y-1 px-2">
-          {routes.map((route) => (
-            <Link
-              key={route.href}
-              href={route.href}
-              className={cn(
-                "flex items-center px-2 py-2 text-sm font-medium rounded-md group",
-                pathname === route.href ? "bg-indigo-50 text-indigo-600" : "text-gray-700 hover:bg-gray-100",
-              )}
-            >
-              <route.icon
+          {routes.map((route) =>
+            route.children ? (
+              <div key={route.name} className="space-y-1">
+                <div className="flex items-center px-2 py-2 text-sm font-medium text-gray-700">
+                  <route.icon className="mr-3 h-5 w-5 flex-shrink-0 text-gray-500" />
+                  {route.name}
+                </div>
+                <div className="pl-10 space-y-1">
+                  {route.children.map((child) => (
+                    <Link
+                      key={child.href}
+                      href={child.href}
+                      className={cn(
+                        "flex items-center px-2 py-2 text-sm font-medium rounded-md group",
+                        pathname === child.href ? "bg-indigo-50 text-indigo-600" : "text-gray-700 hover:bg-gray-100",
+                      )}
+                    >
+                      <child.icon
+                        className={cn(
+                          "mr-3 h-4 w-4 flex-shrink-0",
+                          pathname === child.href ? "text-indigo-600" : "text-gray-500 group-hover:text-gray-600",
+                        )}
+                      />
+                      {child.name}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <Link
+                key={route.href}
+                href={route.href}
                 className={cn(
-                  "mr-3 h-5 w-5 flex-shrink-0",
-                  pathname === route.href ? "text-indigo-600" : "text-gray-500 group-hover:text-gray-600",
+                  "flex items-center px-2 py-2 text-sm font-medium rounded-md group",
+                  pathname === route.href ? "bg-indigo-50 text-indigo-600" : "text-gray-700 hover:bg-gray-100",
                 )}
-              />
-              {route.name}
-            </Link>
-          ))}
+              >
+                <route.icon
+                  className={cn(
+                    "mr-3 h-5 w-5 flex-shrink-0",
+                    pathname === route.href ? "text-indigo-600" : "text-gray-500 group-hover:text-gray-600",
+                  )}
+                />
+                {route.name}
+              </Link>
+            ),
+          )}
         </nav>
 
         <div className="mt-8">

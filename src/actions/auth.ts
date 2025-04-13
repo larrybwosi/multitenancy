@@ -19,7 +19,6 @@ async function getServerAuthContext(): Promise<{
     // Try to get from cache first
     const cachedAuthContext = await redis.get(cacheKey);
     if (cachedAuthContext) {
-      console.log("Using cached auth context");
       return cachedAuthContext as {
         userId: string;
         organizationId: string;
@@ -28,6 +27,7 @@ async function getServerAuthContext(): Promise<{
 
     // If not in cache, fetch from auth service
     const session = await auth.api.getSession({ headers: headersList });
+    console.log("session", session);
     if (!session?.user?.id ) {
       throw new Error("Unauthorized - No user ID found in session.");
     }

@@ -4,7 +4,7 @@ import { LoyaltyReason, Prisma } from "@prisma/client";
 import { z } from "zod";
 import { revalidatePath, revalidateTag } from "next/cache";
 import db from "@/lib/db";
-import { invalidatePosDataCache } from "@/app/pos/actions";
+import { invalidatePosDataCache } from "@/app/(org)/pos/actions";
 
 // --- Type Definitions ---
 

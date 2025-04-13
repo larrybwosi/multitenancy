@@ -3,11 +3,10 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Plus, Download, ShoppingBag } from "lucide-react"
+import { Plus, Download } from "lucide-react"
 import { WarehouseList } from "./warehouse-list"
 import { WarehouseStats } from "./warehouse-stats"
 import { WarehouseCreateSheet } from "./warehouse-create-sheet"
-import { SectionHeader } from "@/components/ui/SectionHeader"
 
 export function WarehousePage() {
   const [loading, setLoading] = useState(true)
@@ -36,15 +35,12 @@ export function WarehousePage() {
   }
 
   return (
-    <div className="space-y-6 container">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <SectionHeader
-          title="Warehouse Management"
-          subtitle="Manage your organization's warehouses and storage facilities"
-          icon={<ShoppingBag className="h-8 w-8 text-blue-800" />}
-          autoUpdate="2 min"
-        />
-
+        <div>
+          <h1 className="text-2xl font-bold">Warehouse Management</h1>
+          <p className="text-muted-foreground">Manage your organization's warehouses and storage facilities</p>
+        </div>
         <div className="flex gap-2">
           <Button variant="outline">
             <Download className="mr-2 h-4 w-4" />
@@ -63,8 +59,7 @@ export function WarehousePage() {
         <CardHeader>
           <CardTitle>Warehouses</CardTitle>
           <CardDescription>
-            View and manage all warehouses. Monitor capacity, inventory levels,
-            and warehouse status.
+            View and manage all warehouses. Monitor capacity, inventory levels, and warehouse status.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -72,11 +67,7 @@ export function WarehousePage() {
         </CardContent>
       </Card>
 
-      <WarehouseCreateSheet
-        open={showCreateSheet}
-        onOpenChange={setShowCreateSheet}
-        onSuccess={handleCreateSuccess}
-      />
+      <WarehouseCreateSheet open={showCreateSheet} onOpenChange={setShowCreateSheet} onSuccess={handleCreateSuccess} />
     </div>
-  );
+  )
 }

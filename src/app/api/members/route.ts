@@ -1,66 +1,128 @@
-import { NextResponse } from "next/server"
+import { NextResponse } from "next/server";
+import { MemberRole } from "@prisma/client";
+import { db } from "@/lib/db";
+import { getServerAuthContext } from "@/actions/auth";
+import {
+  handleApiError,
+  AuthorizationError,
+  NotFoundError,
+} from "@/lib/api-utils"; 
+import { updateMemberBulkSchema } from "@/lib/validations/members";
 
-export async function GET() {
-  // Simulate a delay to mimic a real API call
-  await new Promise((resolve) => setTimeout(resolve, 500))
+// GET - List all members in the organization
+export async function GET(request: Request) {
+  try {
+    // 1. Authentication & Base Authorization
+    // getServerAuthContext should ideally throw if no session or org found
+    const { organizationId, userId } = await getServerAuthContext();
+    if (!organizationId || !userId) {
+      throw new AuthorizationError("Authentication required.");
+    }
 
-  return NextResponse.json({
-    members: [
-      {
-        id: "mem_01",
+    // 2. Core Logic
+    const members = await db.member.findMany({
+      where: { organizationId },
+      include: {
         user: {
-          id: "user_01",
-          name: "John Doe",
-          email: "john.doe@example.com",
-          image: "/placeholder.svg?height=40&width=40",
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+            banned: true, // Keep these fields from original
+            banReason: true,
+            banExpires: true,
+          },
         },
-        role: "OWNER",
-        createdAt: "2023-01-15T08:00:00.000Z",
       },
-      {
-        id: "mem_02",
+      orderBy: { createdAt: "desc" },
+    });
+
+    // 3. Success Response
+    return NextResponse.json({ members });
+  } catch (error) {
+    // 4. Error Handling
+    return handleApiError(error);
+  }
+}
+
+// PATCH - Update a member's role/status (original bulk-like function)
+export async function PATCH(request: Request) {
+  try {
+    // 1. Authentication & Base Authorization
+    const { userId, organizationId } = await getServerAuthContext();
+    if (!organizationId || !userId) {
+      throw new AuthorizationError("Authentication required.");
+    }
+
+    // 2. Body Parsing & Validation
+    const body = await request.json();
+    const validatedData = updateMemberBulkSchema.parse(body);
+    const { memberId, role, isActive } = validatedData;
+
+    // 3. Specific Authorization Logic (Admin/Owner check)
+    const currentMember = await db.member.findFirst({
+      where: {
+        userId,
+        organizationId,
+        role: { in: [MemberRole.OWNER, MemberRole.ADMIN] },
+      },
+      select: { role: true }, // Only select needed field
+    });
+
+    if (!currentMember) {
+      throw new AuthorizationError(
+        "You don't have permission to perform this action."
+      );
+    }
+
+    // 4. Core Logic
+    const memberToUpdate = await db.member.findUnique({
+      where: { id: memberId, organizationId }, // Ensure member belongs to the org
+      select: { role: true }, // Only select needed field
+    });
+
+    if (!memberToUpdate) {
+      // Use custom error or let Prisma handle potentially (P2025 in update)
+      throw new NotFoundError("Member not found in this organization.");
+    }
+
+    // Cannot modify owners unless you're an owner
+    if (
+      memberToUpdate.role === MemberRole.OWNER &&
+      currentMember.role !== MemberRole.OWNER
+    ) {
+      throw new AuthorizationError("Only owners can modify other owners.");
+    }
+
+    // Update member
+    const updatedMember = await db.member.update({
+      where: { id: memberId },
+      data: {
+        // Only include fields if they are present in the validated data
+        ...(role !== undefined && { role }),
+        ...(isActive !== undefined && { isActive }),
+      },
+      include: {
         user: {
-          id: "user_02",
-          name: "Jane Smith",
-          email: "jane.smith@example.com",
-          image: "/placeholder.svg?height=40&width=40",
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+            // Also include ban status here if relevant for response
+            banned: true,
+            banReason: true,
+            banExpires: true,
+          },
         },
-        role: "MANAGER",
-        createdAt: "2023-02-10T10:30:00.000Z",
       },
-      {
-        id: "mem_03",
-        user: {
-          id: "user_03",
-          name: "Robert Johnson",
-          email: "robert.johnson@example.com",
-          image: "/placeholder.svg?height=40&width=40",
-        },
-        role: "EMPLOYEE",
-        createdAt: "2023-03-05T14:15:00.000Z",
-      },
-      {
-        id: "mem_04",
-        user: {
-          id: "user_04",
-          name: "Emily Davis",
-          email: "emily.davis@example.com",
-          image: "/placeholder.svg?height=40&width=40",
-        },
-        role: "CASHIER",
-        createdAt: "2023-04-20T09:45:00.000Z",
-      },
-      {
-        id: "mem_05",
-        user: {
-          id: "user_05",
-          name: "Michael Wilson",
-          email: "michael.wilson@example.com",
-          image: "/placeholder.svg?height=40&width=40",
-        },
-        role: "VIEWER",
-        createdAt: "2023-05-12T11:20:00.000Z",
-      },
-    ],
-  })
+    });
+
+    // 5. Success Response
+    return NextResponse.json({ member: updatedMember });
+  } catch (error) {
+    // 6. Error Handling
+    return handleApiError(error);
+  }
 }

@@ -1,3 +1,4 @@
+// datasource and generator definitions remain the same
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,17 +11,17 @@ datasource db {
 // --- Core Models ---
 
 model User {
-  id        String   @id @default(cuid())
-  name      String?
-  email     String   @unique
-  password  String?
-  role      UserRole @default(EMPLOYEE)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                   String        @id @default(cuid())
+  name                 String?
+  email                String        @unique
+  password             String?
+  role                 UserRole      @default(MEMBER) 
+  isActive             Boolean       @default(true)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
 
   // Relations
-  emailVerified        Boolean
+  emailVerified        Boolean?      // Made optional as not in original schema
   image                String?
   banned               Boolean?
   banReason            String?
@@ -30,51 +31,95 @@ model User {
   members              Member[]
   invitations          Invitation[]
   sessions             Session[]
-  activeOrganizationId String?
+  activeOrganizationId String?       // Should likely relate to Member's organization
 
-  @@unique([username])
+  @@unique([username]) // Ensure username is optional if field is optional
   @@map("user")
 }
 
 enum UserRole {
+  SUPER_ADMIN
   ADMIN
-  MANAGER
-  EMPLOYEE
-  CASHIER
+  DEVELOPER
+  CLIENT
+  MEMBER
+}
+
+enum MemberRole {
+  OWNER     // Full control over the organization
+  ADMIN     // Can manage most aspects, except billing/org deletion
+  MANAGER   // Can manage day-to-day operations (sales, inventory, staff)
+  EMPLOYEE  // Standard user, can perform assigned tasks (e.g., make sales, receive stock)
+  CASHIER   // Limited role, primarily for making sales
+  REPORTER  // View-only access to reports
+  // Removed VIEWER - use REPORTER or more specific roles
+}
+
+model Member {
+  id             String       @id @default(cuid()) // Use cuid for consistency
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           MemberRole
+  isActive       Boolean      @default(true) // Added: Is the member currently active in the org?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Relations showing actions performed by this member
+  auditLogs           AuditLog[]
+  sales               Sale[]               // Sales made by this member
+  purchases           Purchase[]           // Purchases created by this member
+  purchasePayments    PurchasePayment[]    // Purchase payments recorded by this member
+  stockAdjustments    StockAdjustment[]    // Adjustments performed by this member
+  stockMovements      StockMovement[]      // Movements initiated by this member
+  loyaltyTransactions LoyaltyTransaction[] // Loyalty points adjustments by this member
+  cashDrawers         CashDrawer[]         // Cash drawer sessions managed by this member
+  inventoryManagements InventoryLocation[] @relation("LocationManager") // Locations managed by this member
+  createdCustomers    Customer[]           @relation("CustomerCreatedBy")
+  updatedCustomers    Customer[]           @relation("CustomerUpdatedBy")
+  uploadedAttachments Attachment[]         // Attachments uploaded by this member
+  processedReturns    Return[]             // Returns processed by this member
+
+  @@unique([organizationId, userId]) // User can only be a member of an org once
+  @@index([userId]) // Index added
+  @@index([organizationId]) // Index added
+  @@map("member")
 }
 
 model Category {
-  id            String     @id @default(cuid())
-  name          String
-  description   String?
-  parentId      String?
-  parent        Category?  @relation("CategoryToSubcategory", fields: [parentId], references: [id], onDelete: Restrict)
-  subcategories Category[] @relation("CategoryToSubcategory")
-  products      Product[]
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id             String     @id @default(cuid())
+  name           String
+  description    String?
+  parentId       String?
+  parent         Category?  @relation("CategoryToSubcategory", fields: [parentId], references: [id], onDelete: Restrict)
+  subcategories  Category[] @relation("CategoryToSubcategory")
+  products       Product[]
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
 
   @@index([name])
   @@index([organizationId])
 }
 
 model Product {
-  id           String   @id @default(cuid())
-  name         String
-  description  String?
-  sku          String   @unique // Stock Keeping Unit
-  barcode      String?  @unique
-  categoryId   String
-  category     Category @relation(fields: [categoryId], references: [id])
-  basePrice    Decimal  @db.Decimal(10, 2)
-  reorderPoint Int      @default(5)
-  isActive     Boolean  @default(true)
-  imageUrls    String[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             String     @id @default(cuid())
+  name           String
+  description    String?
+  sku            String     @unique // Stock Keeping Unit
+  barcode        String?    @unique
+  categoryId     String
+  category       Category   @relation(fields: [categoryId], references: [id])
+  basePrice      Decimal    @db.Decimal(10, 2)
+  reorderPoint   Int        @default(5)
+  isActive       Boolean    @default(true)
+  imageUrls      String[]
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  customFields   Json?      // Added for customization
 
   // Relations
   variants         ProductVariant[]
@@ -84,10 +129,10 @@ model Product {
   stockBatches     StockBatch[]
   stockAdjustments StockAdjustment[]
   stockMovements   StockMovement[]
-  variantStock     ProductVariantStock[]
+  variantStock     ProductVariantStock[] // Renamed from variantStock to avoid conflict
 
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
 
   @@index([name])
   @@index([sku])
@@ -95,23 +140,23 @@ model Product {
 }
 
 model ProductVariant {
-  id            String   @id @default(cuid())
-  productId     String
-  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  name          String 
-  sku           String   @unique
-  barcode       String?  @unique
-  priceModifier Decimal  @default(0) @db.Decimal(10, 2)
-  attributes    Json
-  isActive      Boolean  @default(true)
-  
-  // Stock related fields
-  reorderPoint  Int      @default(5)  // When to reorder
-  reorderQty    Int      @default(10) // How much to reorder
-  lowStockAlert Boolean  @default(false) // Flag for low stock
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id             String     @id @default(cuid())
+  productId      String
+  product        Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name           String     // Name for the variant (e.g., "Red", "Large")
+  sku            String     @unique
+  barcode        String?    @unique
+  priceModifier  Decimal    @default(0) @db.Decimal(10, 2) // Added price modifier
+  attributes     Json       // e.g., {"color": "Red", "size": "L"}
+  isActive       Boolean    @default(true)
+
+  // Stock related fields moved to ProductVariantStock for location-specific stock
+  reorderPoint   Int        @default(5) // Default reorder point, can be overridden in ProductVariantStock
+  reorderQty     Int        @default(10) // Default reorder qty
+  lowStockAlert  Boolean    @default(false) // Default low stock alert setting
+
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
   // Relations
   saleItems        SaleItem[]
@@ -119,10 +164,10 @@ model ProductVariant {
   stockBatches     StockBatch[]
   stockAdjustments StockAdjustment[]
   stockMovements   StockMovement[]
-  variantStock     ProductVariantStock?
+  variantStocks    ProductVariantStock[] // One variant can have stock in multiple locations
 
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
 
   @@unique([productId, sku])
   @@index([sku])
@@ -130,106 +175,112 @@ model ProductVariant {
 }
 
 model Supplier {
-  id           String   @id @default(cuid())
-  name         String   @unique
-  contactName  String?
-  email        String?
-  phone        String?
-  address      String?
-  paymentTerms String?
-  leadTime     Int?
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             String     @id @default(cuid())
+  name           String     @unique // Unique within an organization context might be better
+  contactName    String?
+  email          String?
+  phone          String?
+  address        String?
+  paymentTerms   String?
+  leadTime       Int?       // Lead time in days
+  isActive       Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  customFields   Json?      // Added for customization
 
   // Relations
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
 
-  products  ProductSupplier[]
-  purchases Purchase[]
+  products    ProductSupplier[]
+  purchases   Purchase[]
 
-  @@index([name])
-  @@index([organizationId, name])
+  @@unique([organizationId, name]) // Enforce uniqueness per organization
+  @@index([name]) // Keep general index if needed, maybe remove if @@unique above is sufficient
   @@index([organizationId])
 }
 
 model ProductSupplier {
-  id          String   @id @default(cuid())
-  productId   String
-  product     Product  @relation(fields: [productId], references: [id])
-  supplierId  String
-  supplier    Supplier @relation(fields: [supplierId], references: [id])
-  supplierSku String?
-  costPrice   Decimal  @db.Decimal(10, 2)
-  isPreferred Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  productId            String
+  product              Product  @relation(fields: [productId], references: [id], onDelete: Cascade) // Added onDelete
+  supplierId           String
+  supplier             Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade) // Added onDelete
+  supplierSku          String?  // The SKU used by the supplier for this product
+  costPrice            Decimal  @db.Decimal(10, 2)
+  minimumOrderQuantity Int?     // Added: Minimum quantity required by supplier
+  packagingUnit        String?  // Added: e.g., "Case of 12", "Pallet", "Each"
+  isPreferred          Boolean  @default(false) // Is this the preferred supplier for this product?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   @@unique([productId, supplierId])
   @@index([supplierId])
 }
 
 model Customer {
-  id            String   @id @default(cuid())
-  name          String
-  email         String?  @unique
-  phone         String?
-  address       String?
-  notes         String?
-  loyaltyPoints Int      @default(0)
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  createdById   String
-  updatedById   String?
-  organizationId String  
+  id                String     @id @default(cuid())
+  name              String
+  email             String?    // Unique within an organization
+  phone             String?
+  address           String?
+  notes             String?
+  loyaltyPoints     Int        @default(0)
+  isActive          Boolean    @default(true)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  createdById       String     // Link to Member ID
+  updatedById       String?    // Link to Member ID
 
   // Relations
-  sales               Sale[]
+  organizationId    String
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
+  sales             Sale[]
   loyaltyTransactions LoyaltyTransaction[]
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  createdBy     Member     @relation("CustomerCreatedBy", fields: [createdById], references: [id])  
-  updatedBy     Member?    @relation("CustomerUpdatedBy", fields: [updatedById], references: [id]) 
+  createdBy         Member             @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete:Restrict) // Prevent deleting member if they created customers
+  updatedBy         Member?            @relation("CustomerUpdatedBy", fields: [updatedById], references: [id], onDelete:SetNull) // Allow setting null if updater deleted
 
-
+  @@unique([organizationId, email]) // Email should be unique per organization
   @@index([name])
-  @@index([email])
+  @@index([email]) // Keep general index if needed
+  @@index([organizationId]) // Index for filtering by org
 }
+
 
 // --- Transactional Models ---
 
 model Sale {
   id             String        @id @default(cuid())
-  saleNumber     String        @unique
+  saleNumber     String        // Unique within an organization
   customerId     String?
-  customer       Customer?     @relation(fields: [customerId], references: [id])
-  userId           String
-  user             Member                @relation(fields: [userId], references: [id])
+  customer       Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull) // Allow sale without customer, or if customer deleted
+  memberId       String        // Changed from userId to memberId for clarity
+  member         Member        @relation(fields: [memberId], references: [id]) // Changed relation name
   saleDate       DateTime      @default(now())
-  totalAmount    Decimal       @db.Decimal(10, 2)
+  totalAmount    Decimal       @db.Decimal(10, 2) // Before discounts and taxes
   discountAmount Decimal       @db.Decimal(10, 2) @default(0)
   taxAmount      Decimal       @db.Decimal(10, 2) @default(0)
-  finalAmount    Decimal       @db.Decimal(10, 2)
+  finalAmount    Decimal       @db.Decimal(10, 2) // After discounts and taxes
   paymentMethod  PaymentMethod
   paymentStatus  PaymentStatus @default(PENDING)
   notes          String?
   cashDrawerId   String?
-  cashDrawer     CashDrawer?   @relation(fields: [cashDrawerId], references: [id])
+  cashDrawer     CashDrawer?   @relation(fields: [cashDrawerId], references: [id], onDelete: SetNull) // Allow sale if drawer deleted
+  receiptUrl     String?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
   // Relations
-  receiptUrl         String?
   items              SaleItem[]
   attachments        Attachment[]
   loyaltyTransaction LoyaltyTransaction?
-  returns            Return[] // Added this relation field
+  returns            Return[]
 
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
 
-  @@index([userId])
+  @@unique([organizationId, saleNumber]) // Enforce uniqueness per organization
+  @@index([memberId]) // Changed from userId
   @@index([saleDate])
   @@index([customerId])
   @@index([organizationId, saleDate])
@@ -243,21 +294,23 @@ model SaleItem {
   saleId         String
   sale           Sale            @relation(fields: [saleId], references: [id], onDelete: Cascade)
   productId      String
-  product        Product         @relation(fields: [productId], references: [id])
+  product        Product         @relation(fields: [productId], references: [id], onDelete: Restrict) // Prevent product deletion if sold
   variantId      String?
-  variant        ProductVariant? @relation(fields: [variantId], references: [id])
-  stockBatchId   String
-  stockBatch     StockBatch      @relation(fields: [stockBatchId], references: [id])
+  variant        ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Restrict) // Prevent variant deletion if sold
+  stockBatchId   String          // Which specific batch was sold (important for FIFO/FEFO/Costing)
+  stockBatch     StockBatch      @relation(fields: [stockBatchId], references: [id], onDelete: Restrict) // Prevent batch deletion if sold
   quantity       Int
-  unitPrice      Decimal         @db.Decimal(10, 2)
-  unitCost       Decimal         @db.Decimal(10, 2)
-  discountAmount Decimal         @db.Decimal(10, 2) @default(0)
-  taxRate        Decimal         @db.Decimal(5, 4) @default(0)
-  taxAmount      Decimal         @db.Decimal(10, 2)
-  totalAmount    Decimal         @db.Decimal(10, 2)
+  unitPrice      Decimal         @db.Decimal(10, 2) // Price per unit at time of sale
+  unitCost       Decimal         @db.Decimal(10, 2) // Cost per unit from StockBatch at time of sale
+  discountAmount Decimal         @db.Decimal(10, 2) @default(0) // Discount on this item
+  taxRate        Decimal         @db.Decimal(5, 4) @default(0) // Tax rate applied to this item
+  taxAmount      Decimal         @db.Decimal(10, 2) // Calculated tax for this item line
+  totalAmount    Decimal         @db.Decimal(10, 2) // (unitPrice * quantity) - discountAmount + taxAmount
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
-  returns        ReturnItem[]
+
+  // Relations
+  returns ReturnItem[] // Items returned referencing this sale item
 
   @@index([saleId])
   @@index([productId])
@@ -267,15 +320,15 @@ model SaleItem {
 
 model Purchase {
   id             String         @id @default(cuid())
-  purchaseNumber String         @unique
+  purchaseNumber String         // Unique within an organization
   supplierId     String
-  supplier       Supplier       @relation(fields: [supplierId], references: [id])
-  userId         String
-  user           Member           @relation(fields: [userId], references: [id])
+  supplier       Supplier       @relation(fields: [supplierId], references: [id], onDelete: Restrict) // Prevent supplier deletion if purchases exist
+  memberId       String         // Changed from userId
+  member         Member         @relation(fields: [memberId], references: [id]) // Changed relation name
   orderDate      DateTime       @default(now())
   expectedDate   DateTime?
-  receivedDate   DateTime?
-  totalAmount    Decimal        @db.Decimal(10, 2) // Should be calculated from items
+  receivedDate   DateTime?      // Date when the entire order was fully received
+  totalAmount    Decimal        @db.Decimal(10, 2) // Should be calculated from items' totalCost
   paidAmount     Decimal        @default(0) @db.Decimal(10, 2)
   status         PurchaseStatus @default(ORDERED)
   notes          String?
@@ -287,9 +340,10 @@ model Purchase {
   payments    PurchasePayment[]
   attachments Attachment[]
 
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
 
+  @@unique([organizationId, purchaseNumber]) // Enforce uniqueness per organization
   @@index([orderDate])
   @@index([supplierId])
   @@index([status])
@@ -301,17 +355,18 @@ model PurchaseItem {
   purchaseId       String
   purchase         Purchase        @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
   productId        String
-  product          Product         @relation(fields: [productId], references: [id])
+  product          Product         @relation(fields: [productId], references: [id], onDelete: Restrict) // Prevent product deletion
   variantId        String?
-  variant          ProductVariant? @relation(fields: [variantId], references: [id])
+  variant          ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Restrict) // Prevent variant deletion
   orderedQuantity  Int
-  receivedQuantity Int             @default(0)
-  unitCost         Decimal         @db.Decimal(10, 2)
+  receivedQuantity Int             @default(0) // Quantity received so far for this item
+  unitCost         Decimal         @db.Decimal(10, 2) // Cost per unit for this purchase
   totalCost        Decimal         @db.Decimal(10, 2) // unitCost * orderedQuantity
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
   // Relations
+  // When items are received, they create StockBatch records
   stockBatches StockBatch[]
 
   @@index([purchaseId])
@@ -322,79 +377,85 @@ model PurchaseItem {
 model PurchasePayment {
   id            String        @id @default(cuid())
   purchaseId    String
-  purchase      Purchase      @relation(fields: [purchaseId], references: [id])
-  userId        String
-  user          Member          @relation(fields: [userId], references: [id])
+  purchase      Purchase      @relation(fields: [purchaseId], references: [id], onDelete: Cascade) // Cascade delete with purchase
+  memberId      String        // Changed from userId
+  member        Member        @relation(fields: [memberId], references: [id]) // Changed relation name
   paymentDate   DateTime      @default(now())
   amount        Decimal       @db.Decimal(10, 2)
   paymentMethod PaymentMethod
-  reference     String?
+  reference     String?       // e.g., Cheque number, transaction ID
   notes         String?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
   @@index([purchaseId])
   @@index([paymentDate])
+  @@index([memberId]) // Index added
 }
 
 model Return {
-  id            String       @id @default(cuid())
-  returnNumber  String       @unique
-  saleId        String
-  sale          Sale         @relation(fields: [saleId], references: [id])
-  saleNumber    String
-  customerId    String
-  customerName  String
-  items         ReturnItem[]         // Array of returned items with details
-  totalAmount   Decimal      @db.Decimal(10, 2)
-  reason        ReturnReason
-  status        ReturnStatus @default(PENDING)
-  notes         String?
-  rejectionReason String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  processedAt   DateTime?
+  id           String       @id @default(cuid())
+  returnNumber String       // Unique within an organization
+  saleId       String       // The original sale ID
+  sale         Sale         @relation(fields: [saleId], references: [id], onDelete: Restrict) // Prevent sale deletion if returns exist
+  // Removed redundant fields like saleNumber, customerId, customerName - can be derived via sale relation
+  reason       ReturnReason // Overall reason for the return
+  status       ReturnStatus @default(PENDING)
+  notes        String?
+  processedAt  DateTime?    // When the return was finalized (approved/rejected)
+  memberId     String       // Who processed the return
+  member       Member       @relation(fields: [memberId], references: [id]) // Added relation to Member
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id])
+  // Relations
+  items ReturnItem[] // List of items being returned
 
-  @@index([saleNumber])
-  @@index([customerId])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
+
+  @@unique([organizationId, returnNumber]) // Enforce uniqueness per organization
+  @@index([saleId]) // Index added
   @@index([status])
   @@index([createdAt])
-  @@unique([organizationId, returnNumber]) // Return numbers unique per organization
+  @@index([organizationId])
 }
 
+
 model ReturnItem {
-  id             String          @id @default(cuid())
-  returnId       String
-  return         Return          @relation(fields: [returnId], references: [id])
-  saleItemId     String
-  saleItem       SaleItem        @relation(fields: [saleItemId], references: [id])
-  quantity       Int
-  unitPrice      Decimal         @db.Decimal(10, 2)
-  
-  // Enhancements
-  status         ReturnItemStatus @default(PENDING)
-  reason         ReturnReason?   // Individual reason can override the main return reason
-  stockBatchId   String?         // Which batch was this returned to?
-  stockBatch     StockBatch?     @relation(fields: [stockBatchId], references: [id])
-  notes          String?         // Item-specific notes
+  id           String           @id @default(cuid())
+  returnId     String
+  return       Return           @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  saleItemId   String           // Link to the specific item line from the original sale
+  saleItem     SaleItem         @relation(fields: [saleItemId], references: [id], onDelete: Restrict) // Prevent sale item deletion
+  quantity     Int              // Quantity of this specific item being returned
+  reason       ReturnReason?    // Optional: Item-specific reason, overrides main Return reason if set
+  status       ReturnItemStatus @default(PENDING) // Status for this specific item line
+  unitPrice    Decimal          @db.Decimal(10, 2) // Price at which it was sold (copied from SaleItem for history)
+  notes        String?          // Item-specific notes
+  // Removed stockBatchId relation - handling returned stock often involves inspection
+  // and potentially creating a new 'returned' batch or adjusting via StockAdjustment
+
+  @@index([returnId]) // Index added
+  @@index([saleItemId]) // Index added
 }
 
 enum ReturnStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  PROCESSED
-  REFUNDED
+  PENDING   // Return initiated, awaiting approval
+  APPROVED  // Return request approved, items can be returned/refunded
+  REJECTED  // Return request denied
+  PROCESSING // Items received, processing refund/replacement
+  COMPLETED  // Refund/replacement issued, process finished
 }
 
 enum ReturnItemStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  PROCESSED
+  PENDING     // Waiting for item to be returned/inspected
+  RECEIVED    // Item received by the store
+  ACCEPTED    // Item accepted for refund/replacement
+  REJECTED    // Item rejected (e.g., damaged by customer)
+  RESTOCKED   // Item put back into stock (if applicable)
+  REFUNDED    // Refund processed for this item
+  REPLACED    // Replacement issued for this item
 }
 
 enum ReturnReason {
@@ -402,230 +463,285 @@ enum ReturnReason {
   WRONG_ITEM
   NOT_AS_DESCRIBED
   CHANGE_OF_MIND
-  TOO_LATE
+  SIZE_COLOR_ISSUE
+  ARRIVED_LATE
   DUPLICATE_ORDER
+  DAMAGED_IN_TRANSIT
   OTHER
 }
+
 // --- Inventory & Stock Models ---
+model InventoryLocation {
+  id           String    @id @default(cuid())
+  name         String    // e.g., "Main Warehouse", "Shop Floor", "Shelf A-3"
+  description  String?
+  isActive     Boolean   @default(true)
+  capacity     Float?    // Max capacity value
+  capacityUnit String?   // Unit for capacity (e.g., "items", "pallets", "sq ft", "cu m")
+  customFields Json?     // For extra location-specific details
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  managerId    String?   // Member responsible for this location
+  manager      Member?   @relation("LocationManager", fields: [managerId], references: [id], onDelete: SetNull)
+
+  // Relations
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  stockBatches    StockBatch[] 
+  stockAdjustments StockAdjustment[]
+  variantStocks   ProductVariantStock[] // Aggregated stock levels per variant here
+  outgoingMovements StockMovement[] @relation("FromLocationMovements")
+  incomingMovements StockMovement[] @relation("ToLocationMovements")
+
+  @@unique([organizationId, name]) // Location names unique per org
+  @@index([name])
+  @@index([organizationId])
+  @@index([managerId])
+}
 
 model StockBatch {
   id              String          @id @default(cuid())
   productId       String
-  product         Product         @relation(fields: [productId], references: [id])
+  product         Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
   variantId       String?
-  variant         ProductVariant? @relation(fields: [variantId], references: [id])
-  batchNumber     String?
-  purchaseItemId  String?
-  purchaseItem    PurchaseItem?   @relation(fields: [purchaseItemId], references: [id])
-  initialQuantity Int
-  currentQuantity Int
-  purchasePrice   Decimal         @db.Decimal(10, 2)
-  expiryDate      DateTime?
-  receivedDate    DateTime        @default(now())
+  variant         ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  batchNumber     String?         // Manufacturer or internal batch number
+  purchaseItemId  String?         // Link to the purchase item that created this batch
+  purchaseItem    PurchaseItem?   @relation(fields: [purchaseItemId], references: [id], onDelete: SetNull)
+  locationId      String          // Location where this batch is physically stored
+  location        InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  initialQuantity Int             // Quantity when the batch was created/received
+  currentQuantity Int             // Current available quantity in this batch
+  purchasePrice   Decimal         @db.Decimal(10, 2) // Cost per unit for items in this batch
+  expiryDate      DateTime?       // Expiry date for FEFO tracking
+  receivedDate    DateTime        @default(now()) // Date batch was added to inventory
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
   // Relations
-  saleItems   SaleItem[] // Track which sales depleted this batch
-  adjustments StockAdjustment[] // Adjustments specifically affecting this batch
-  returnItems ReturnItem[] // Track which return items replenished this batch
-  stockMovements StockMovement[] // Track stock movements for this batch
-  locationId      String?
-  location        InventoryLocation? @relation(fields: [locationId], references: [id])
-
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  saleItems      SaleItem[]        // Track which sales depleted this batch
+  adjustments    StockAdjustment[] // Adjustments specifically affecting this batch
+  movements      StockMovement[]   // Track movements involving this batch
 
   @@index([productId, variantId])
   @@index([expiryDate])
   @@index([receivedDate])
   @@index([currentQuantity])
+  @@index([locationId])
   @@index([organizationId])
 }
 
 model ProductVariantStock {
-  id            String         @id @default(cuid())
+  id            String            @id @default(cuid())
   productId     String
-  product       Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product       Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
   variantId     String
-  variant       ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
-  currentStock  Int            @default(0)
-  reservedStock Int            @default(0) // For items in cart but not yet purchased
-  reorderPoint  Int            @default(5)
-  reorderQty    Int            @default(10)
-  lastUpdated   DateTime       @updatedAt
-  
+  variant       ProductVariant    @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  locationId    String
+  location      InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  currentStock  Int               @default(0) // Total available stock
+  reservedStock Int               @default(0) // Stock reserved but not yet deducted
+  availableStock Int              @default(0) // Calculated: currentStock - reservedStock
+  reorderPoint  Int               @default(5)  // Location-specific reorder point
+  reorderQty    Int               @default(10) // Location-specific reorder quantity
+  lastUpdated   DateTime          @updatedAt
+
+  // Relations
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  // Location info
-  locationId String?
-  location   InventoryLocation? @relation(fields: [locationId], references: [id]) // Make this a relation
-  @@unique([variantId, locationId])
-  
-  @@unique([variantId])
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([variantId, locationId]) // Only one stock record per variant per location
   @@index([productId])
+  @@index([locationId])
   @@index([organizationId])
 }
 
 model StockAdjustment {
-  id             String                @id @default(cuid())
-  productId      String // Link to the main product for reporting
-  product        Product               @relation(fields: [productId], references: [id])
-  variantId      String? // Link to variant if adjustment is variant-specific
-  variant        ProductVariant?       @relation(fields: [variantId], references: [id]) // Relation to Variant
-  stockBatchId   String? // Optional: Which batch is being adjusted?
-  stockBatch     StockBatch?           @relation(fields: [stockBatchId], references: [id]) // Relation to Batch
-  userId         String
-  user           Member                  @relation(fields: [userId], references: [id])
-  quantity       Int // Positive for increase, negative for decrease
+  id             String            @id @default(cuid())
+  productId      String
+  product        Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variantId      String?
+  variant        ProductVariant?   @relation(fields: [variantId], references: [id], onDelete: Restrict)
+  stockBatchId   String?
+  stockBatch     StockBatch?       @relation(fields: [stockBatchId], references: [id], onDelete: SetNull)
+  locationId     String
+  location       InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  memberId       String
+  member         Member            @relation(fields: [memberId], references: [id])
+  quantity       Int               // Positive for increase, negative for decrease
   reason         StockAdjustmentReason
   notes          String?
-  adjustmentDate DateTime              @default(now())
-  createdAt      DateTime              @default(now())
-  updatedAt      DateTime?              @updatedAt
+  adjustmentDate DateTime          @default(now())
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
+  // Relations
+  movement     StockMovement? // Link to corresponding movement record
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([productId, variantId])
   @@index([stockBatchId])
   @@index([adjustmentDate])
+  @@index([locationId])
+  @@index([memberId])
   @@index([organizationId])
 }
 
 enum StockAdjustmentReason {
-  INITIAL_STOCK
-  RECEIVED_PURCHASE // Usually handled via PurchaseItem -> StockBatch creation
-  DAMAGED
-  EXPIRED
-  LOST
-  STOLEN
-  FOUND
-  RETURN_TO_SUPPLIER
-  CUSTOMER_RETURN // May create a 'return' batch or adjust existing
-  INVENTORY_COUNT
-  OTHER
+  INITIAL_STOCK       // Setting up initial inventory count
+  RECEIVED_PURCHASE   // Use StockBatch creation directly typically
+  DAMAGED             // Item damaged while in stock
+  EXPIRED             // Item expired while in stock
+  LOST                // Item lost or unaccounted for
+  STOLEN              // Item confirmed stolen
+  FOUND               // Item previously lost/unaccounted for is found
+  RETURN_TO_SUPPLIER // Sending stock back to the supplier
+  CUSTOMER_RETURN     // Receiving stock back from a customer (may create a new batch or adjust existing)
+  INVENTORY_COUNT     // Adjustment due to physical stock count discrepancy
+  TRANSFER_OUT        // Stock moved to another location (use StockMovement)
+  TRANSFER_IN         // Stock received from another location (use StockMovement)
+  OTHER               // Miscellaneous adjustments
 }
 
 model StockMovement {
-  id               String           @id @default(cuid())
-  productId        String
-  product          Product          @relation(fields: [productId], references: [id])
-  variantId        String
-  variant          ProductVariant   @relation(fields: [variantId], references: [id])
-  stockBatchId     String?
-  stockBatch       StockBatch?      @relation(fields: [stockBatchId], references: [id])
-  quantity         Int              // Positive for additions, negative for removals
-  previousStock    Int              // Stock before this movement
-  newStock         Int              // Stock after this movement
-  reference        String?          // Optional reference code
-  referenceType    MovementRefType  // Type of movement
-  referenceId      String?          // ID of related record (sale, purchase, etc.)
-  userId           String
-  user             Member           @relation(fields: [userId], references: [id])
-  notes            String?
-  createdAt        DateTime         @default(now())
-  
-  organizationId   String
-  organization     Organization @relation(fields: [organizationId], references: [id])
+  id              String            @id @default(cuid())
+  productId       String
+  product         Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId       String?
+  variant         ProductVariant?   @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  stockBatchId    String?
+  stockBatch      StockBatch?       @relation(fields: [stockBatchId], references: [id], onDelete: SetNull)
+  quantity        Int               // Always positive: the quantity that moved
+  fromLocationId  String?           // Source Location (null if coming from outside)
+  fromLocation    InventoryLocation? @relation("FromLocationMovements", fields: [fromLocationId], references: [id], onDelete: SetNull)
+  toLocationId    String?           // Destination Location (null if leaving tracked inventory)
+  toLocation      InventoryLocation? @relation("ToLocationMovements", fields: [toLocationId], references: [id], onDelete: SetNull)
+  movementType    MovementType
+  referenceId     String?           // ID of related record (Sale ID, Purchase ID, etc.)
+  referenceType   String?           // Type of reference (e.g., "Sale", "Purchase", "Adjustment")
+  adjustmentId    String?           @unique// Link to adjustment if this was an adjustment
+  adjustment      StockAdjustment?  @relation(fields: [adjustmentId], references: [id], onDelete: SetNull)
+  memberId        String
+  member          Member            @relation(fields: [memberId], references: [id])
+  notes           String?
+  movementDate    DateTime          @default(now())
+  createdAt       DateTime          @default(now())
+
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([productId, variantId])
-  @@index([createdAt])
-  @@index([referenceType, referenceId])
+  @@index([stockBatchId])
+  @@index([fromLocationId])
+  @@index([toLocationId])
+  @@index([movementType, referenceId])
+  @@index([movementDate])
+  @@index([memberId])
   @@index([organizationId])
 }
 
-enum MovementRefType {
-  PURCHASE
-  SALE
-  ADJUSTMENT
-  RETURN
-  TRANSFER
-  INITIAL
-  STOCKTAKE
-  OTHER
+enum MovementType { // Renamed from MovementRefType for clarity
+  PURCHASE_RECEIPT // Stock entering from a supplier purchase
+  SALE             // Stock leaving due to a customer sale
+  ADJUSTMENT_IN    // Stock increased via adjustment (found, count up)
+  ADJUSTMENT_OUT   // Stock decreased via adjustment (damaged, lost, expired, count down)
+  TRANSFER         // Stock moved between internal locations
+  CUSTOMER_RETURN  // Stock returning from a customer
+  SUPPLIER_RETURN  // Stock being sent back to a supplier
+  INITIAL_STOCK    // Initial stock count entry
+  PRODUCTION_IN    // Stock created from internal production (if applicable)
+  PRODUCTION_OUT   // Components used in internal production (if applicable)
 }
 
-model InventoryLocation {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  managerId   String?
-  manager     Member?  @relation(fields: [managerId], references: [id])
-  
-  // Add relations to relevant models
-  stockBatches StockBatch[]
-  variantStock         ProductVariantStock[] // Stock levels stored here
-  
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id])
-
-  @@index([name])
-  @@index([organizationId])
-}
 
 // --- Customer Loyalty ---
 
 model LoyaltyTransaction {
   id              String        @id @default(cuid())
   customerId      String
-  customer        Customer      @relation(fields: [customerId], references: [id])
-  userId          String
-  user            Member          @relation(fields: [userId], references: [id])
-  pointsChange    Int
+  customer        Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade) // Cascade if customer deleted
+  memberId        String        // Changed from userId
+  member          Member        @relation(fields: [memberId], references: [id], onDelete: Restrict) // Prevent member deletion if they issued points
+  pointsChange    Int           // Positive for earned, negative for redeemed
   reason          LoyaltyReason
-  relatedSaleId   String?       @unique // <<< ADDED @unique: Ensures one Sale maps to one primary LoyaltyTransaction
-  relatedSale     Sale?         @relation(fields: [relatedSaleId], references: [id], onDelete: SetNull)
+  relatedSaleId   String?       @unique // Link to the sale that earned/used points
+  relatedSale     Sale?         @relation(fields: [relatedSaleId], references: [id], onDelete: SetNull) // Keep record if sale deleted
   notes           String?
   transactionDate DateTime      @default(now())
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
+  // Added Organization relation for data isolation/querying
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
   @@index([customerId])
   @@index([transactionDate])
+  @@index([memberId]) // Index added
+  @@index([organizationId]) // Index added
 }
 
 enum LoyaltyReason {
-  SALE_EARNED
-  REDEMPTION
-  MANUAL_ADJUSTMENT
-  PROMOTION
-  SIGN_UP_BONUS
-  RETURN_ADJUSTMENT
-  OTHER
+  SALE_EARNED         // Points earned from a purchase
+  REDEMPTION          // Points spent on a purchase or reward
+  MANUAL_ADJUSTMENT   // Admin adjustment (correction, bonus)
+  PROMOTION           // Points awarded from a specific promotion
+  SIGN_UP_BONUS       // Points for new customer registration
+  RETURN_ADJUSTMENT   // Points deducted due to a returned item
+  BIRTHDAY_BONUS      // Points awarded for customer's birthday
+  REFERRAL_BONUS      // Points for referring a new customer
+  OTHER               // Miscellaneous reasons
 }
 
 // --- Utility & Other Models ---
 
 model Attachment {
-  id          String   @id @default(cuid())
-  fileName    String
-  fileUrl     String
-  fileType    String?
-  fileSize    Int?
-  description String?
-  uploadedAt  DateTime @default(now())
+  id           String    @id @default(cuid())
+  fileName     String
+  fileUrl      String    // URL to access the file (e.g., S3 URL)
+  mimeType     String?   // Changed from fileType (e.g., "image/jpeg", "application/pdf")
+  sizeBytes    Int?      // Changed from fileSize
+  description  String?
+  uploadedAt   DateTime  @default(now())
+  memberId     String    // Who uploaded it
+  member       Member    @relation(fields: [memberId], references: [id]) // Added relation to Member
 
-  saleId     String?
-  sale       Sale?     @relation(fields: [saleId], references: [id], onDelete: SetNull)
-  purchaseId String?
-  purchase   Purchase? @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
+  // Polymorphic-like association (can belong to Sale OR Purchase, etc.)
+  relatedTo    String    // Model name (e.g., "Sale", "Purchase")
+  relatedId    String    // ID of the related record
 
-  @@index([saleId])
-  @@index([purchaseId])
+  // Relations (Original relations kept for potential direct linking, but polymorphic is more flexible)
+  saleId       String?
+  sale         Sale?     @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  purchaseId   String?
+  purchase     Purchase? @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
+
+  // Added Organization relation
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([relatedTo, relatedId]) // Index for polymorphic lookup
+  @@index([saleId]) // Keep if direct linking is used
+  @@index([purchaseId]) // Keep if direct linking is used
+  @@index([memberId]) // Index added
+  @@index([organizationId]) // Index added
 }
 
 model CashDrawer {
   id             String       @id @default(cuid())
-  userId         String
-  user           Member         @relation(fields: [userId], references: [id])
+  name           String       // Name for the drawer (e.g., "Till 1", "Main Register")
+  // locationId     String?      // Optional: Link to the physical location/terminal
+  // location       InventoryLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull) // Added location relation
+  memberId       String       // Changed from userId: Who opened/is responsible for this session
+  member         Member       @relation(fields: [memberId], references: [id]) // Changed relation name
   openingAmount  Decimal      @db.Decimal(10, 2)
   closingAmount  Decimal?     @db.Decimal(10, 2)
-  expectedAmount Decimal?     @db.Decimal(10, 2)
-  discrepancy    Decimal?     @db.Decimal(10, 2)
+  expectedAmount Decimal?     @db.Decimal(10, 2) // Calculated based on sales and opening amount
+  discrepancy    Decimal?     @db.Decimal(10, 2) // closingAmount - expectedAmount
   notes          String?
   openedAt       DateTime     @default(now())
   closedAt       DateTime?
@@ -633,62 +749,82 @@ model CashDrawer {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  sales Sale[]
-  
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id])
+  // Relations
+  sales Sale[] // Sales processed during this drawer session
 
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
 
+  @@unique([organizationId, name]) // Drawer names unique per org
   @@index([openedAt])
   @@index([closedAt])
-  @@index([userId])
+  @@index([memberId]) // Changed from userId
+  // @@index([locationId]) 
   @@index([organizationId])
 }
 
 enum DrawerStatus {
-  OPEN
-  CLOSED
-  BALANCED
-  DISCREPANCY
+  OPEN         // Drawer session is active
+  CLOSED       // Drawer session ended, counts entered
+  BALANCED     // Closed and closing amount matches expected amount
+  DISCREPANCY  // Closed and closing amount does not match expected
 }
 
+// --- Audit Log Model --- (Generally good as is)
 enum AuditLogAction {
   CREATE
-  READ
+  READ // Use carefully, can generate massive logs
   UPDATE
   DELETE
+  LOGIN
+  LOGOUT
+  INVITE
+  // Add more specific actions as needed
 }
 
-enum AuditType {
+enum AuditEntityType { // Renamed from AuditType
   USER
+  MEMBER
+  ORGANIZATION
   PRODUCT
+  CATEGORY
+  SUPPLIER
+  CUSTOMER
   SALE
   PURCHASE
-  BATCH
+  RETURN
+  STOCK_BATCH
   STOCK_ADJUSTMENT
+  STOCK_MOVEMENT
+  INVENTORY_LOCATION
   CASH_DRAWER
+  LOYALTY
+  SETTINGS
+  OTHER
 }
 
 model AuditLog {
-  id          String         @id @default(cuid())
-  tenantId    String?
-  userId      String?
-  user        Member?        @relation(fields: [userId], references: [id], onDelete: SetNull)
-  action      AuditLogAction
-  type        AuditType
-  entityId    String?
-  description String
-  metadata    Json? // Additional info about the action
-  ipAddress   String?
-  userAgent   String?
-  performedAt DateTime       @default(now())
+  id           String         @id @default(cuid())
+  organizationId String?        // Changed from tenantId
+  organization Organization?  @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added relation
+  memberId     String?        // Changed from userId (who performed the action)
+  member       Member?        @relation(fields: [memberId], references: [id], onDelete: SetNull) // Keep log if member deleted
+  action       AuditLogAction
+  entityType   AuditEntityType // Changed from type
+  entityId     String?        // ID of the entity that was affected
+  description  String         // Human-readable description of the action
+  details      Json?          // Changed from metadata (e.g., old/new values for UPDATE)
+  ipAddress    String?
+  userAgent    String?
+  performedAt  DateTime       @default(now())
 
-  @@index([tenantId])
-  @@index([userId])
-  @@index([type, entityId])
+  @@index([organizationId])
+  @@index([memberId])
+  @@index([entityType, entityId])
   @@index([performedAt])
   @@map("audit_log")
 }
+
 
 // --- Shared Enums ---
 
@@ -696,35 +832,127 @@ enum PaymentMethod {
   CASH
   CREDIT_CARD
   DEBIT_CARD
-  MOBILE_PAYMENT
+  MOBILE_PAYMENT // e.g., Apple Pay, Google Pay, M-Pesa
   BANK_TRANSFER
   CHEQUE
   STORE_CREDIT
   GIFT_CARD
   LOYALTY_POINTS
+  ON_ACCOUNT // Customer pays later
   OTHER
 }
 
 enum PaymentStatus {
-  PENDING
-  COMPLETED
-  REFUNDED
-  PARTIALLY_REFUNDED
-  FAILED
-  CANCELLED
+  PENDING   // Awaiting payment
+  COMPLETED // Fully paid
+  FAILED    // Payment attempt failed
+  REFUNDED  // Payment fully refunded
+  PARTIALLY_REFUNDED // Payment partially refunded
+  CANCELLED // Payment was cancelled
+  VOIDED    // Payment transaction was voided before settlement
 }
 
 enum PurchaseStatus {
-  DRAFT
-  ORDERED
-  PARTIALLY_RECEIVED
-  RECEIVED
-  BILLED
-  PARTIALLY_PAID
-  PAID
-  COMPLETED // Received and Paid
-  CANCELLED
+  DRAFT              // Purchase order created but not yet sent
+  ORDERED            // PO sent to supplier, awaiting items
+  PARTIALLY_RECEIVED // Some items received, but not all
+  RECEIVED           // All items received
+  BILLED             // Supplier invoice received (may happen before/after receiving)
+  PARTIALLY_PAID     // Partial payment made towards the invoice
+  PAID               // Invoice fully paid
+  COMPLETED          // Order fully received and paid/closed
+  CANCELLED          // Order cancelled before completion
 }
+
+
+
+model Organization {
+  id           String    @id @default(cuid())
+  name         String
+  slug         String    @unique // URL-friendly identifier
+  logo         String?   
+  description  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt @default(now())
+  customFields Json?     // Added for customization
+
+  // Relations
+  members              Member[]
+  invitations          Invitation[]
+  customers            Customer[]
+  categories           Category[]
+  products             Product[]
+  productVariants      ProductVariant[]
+  suppliers            Supplier[]
+  sales                Sale[]
+  purchases            Purchase[]
+  returns              Return[]
+  stockBatches         StockBatch[]
+  inventoryLocations   InventoryLocation[]
+  productVariantStocks ProductVariantStock[]
+  stockAdjustments     StockAdjustment[]
+  stockMovements       StockMovement[]
+  cashDrawers          CashDrawer[]
+  loyaltyTransactions  LoyaltyTransaction[]
+  attachments          Attachment[]
+  auditLogs            AuditLog[]
+  settings             OrganizationSettings? // One-to-one settings
+
+  @@map("organization")
+}
+
+// Added: Specific settings for an organization
+model OrganizationSettings {
+  id                String            @id @default(cuid())
+  organizationId    String            @unique // Enforces one-to-one
+  organization      Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  defaultCurrency   String            @default("USD") // e.g., "USD", "EUR", "GBP"
+  defaultTimezone   String            @default("UTC") // e.g., "Africa/Nairobi"
+  defaultTaxRate    Decimal?          @db.Decimal(5, 4) // Default tax rate for new products/sales
+  inventoryPolicy   InventoryPolicy   @default(FEFO) // Added: FIFO, LIFO, or FEFO preference
+  lowStockThreshold Int               @default(10) // Default threshold for low stock alerts
+  negativeStock     Boolean           @default(false) // Allow selling into negative stock?
+  updatedAt         DateTime          @updatedAt
+
+  @@map("organization_settings")
+}
+
+// Added: Enum for inventory policy setting
+enum InventoryPolicy {
+  FIFO // First-In, First-Out (Based on receivedDate)
+  LIFO // Last-In, First-Out (Based on receivedDate)
+  FEFO // First-Expired, First-Out (Based on expiryDate, fallback to FIFO if no expiry)
+}
+
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+model Invitation {
+  id             String           @id @default(cuid()) // Use cuid
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String           // Email invited
+  role           MemberRole       // Role assigned upon acceptance
+  status         InvitationStatus @default(PENDING) // Changed from String
+  token          String           @unique // Added: Unique token for the invitation link
+  expiresAt      DateTime
+  inviterId      String           // Member who sent the invitation
+  inviter        User           @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+  createdAt      DateTime         @default(now()) 
+  updatedAt      DateTime         @updatedAt  
+
+  @@index([email])
+  @@index([organizationId])
+  @@index([inviterId])
+  @@map("invitation")
+}
+
+// --- Authentication & Authorization Models --- (Mostly standard, added Organization links)
 
 model Account {
   id                    String    @id
@@ -745,6 +973,7 @@ model Account {
   @@map("account")
 }
 
+
 model Verification {
   id         String    @id
   identifier String
@@ -756,96 +985,19 @@ model Verification {
   @@map("verification")
 }
 
-model Organization {
-  id          String       @id @default(cuid())
-  name        String
-  slug        String?
-  logo        String?
-  createdAt   DateTime     @default(now())
-  metadata    String?
-  description String?
-  members     Member[]
-  invitations Invitation[]
-  customers   Customer[]
-  
-  categories           Category[]
-  products             Product[]
-  productVariants      ProductVariant[]
-  suppliers            Supplier[]
-  sales                Sale[]
-  purchases            Purchase[]
-  stockBatches         StockBatch[]
-  inventoryLocations   InventoryLocation[]
-  cashDrawers          CashDrawer[]
-  returns              Return[]
-  stockAdjustments     StockAdjustment[]
-  stockMovements       StockMovement[]
-  productVariantStocks ProductVariantStock[]
-
-  @@unique([slug])
-  @@map("organization")
-}
-
-enum MemberRole {
-  OWNER
-  MANAGER
-  EMPLOYEE
-  CASHIER
-  VIEWER
-}
-
-model Member {
-  id             String       @id
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  userId         String
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role           MemberRole
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  auditLogs      AuditLog[]
-  sales             Sale[]
-  purchases            Purchase[]
-  purchasePayments     PurchasePayment[]
-  stockAdjustments     StockAdjustment[] 
-  stockMovements       StockMovement[]
-  loyaltyTransactions  LoyaltyTransaction[]
-  cashDrawers          CashDrawer[]
-  inventoryManagements InventoryLocation[]
-  createdCustomers Customer[] @relation("CustomerCreatedBy")
-  updatedCustomers Customer[] @relation("CustomerUpdatedBy")
-
-  @@unique([organizationId, userId])
-
-  @@map("member")
-}
-
-model Invitation {
-  id             String       @id
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  email          String
-  role           String?
-  status         String
-  expiresAt      DateTime
-  inviterId      String
-  user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
-
-  @@map("invitation")
-}
 
 model Session {
-  id                   String   @id
-  expiresAt            DateTime
-  token                String   @unique
-  createdAt            DateTime
-  updatedAt            DateTime
-  ipAddress            String?
-  userAgent            String?
-  userId               String
-  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  impersonatedBy       String?
-  apartmentId          String?
+  id             String   @id
+  expiresAt      DateTime
+  token          String   @unique
+  createdAt      DateTime
+  updatedAt      DateTime
+  ipAddress      String?
+  userAgent      String?
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  impersonatedBy String?
+
   activeOrganizationId String?
 
   @@map("session")

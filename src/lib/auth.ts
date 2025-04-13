@@ -1,6 +1,6 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { admin, multiSession, openAPI, organization, username } from "better-auth/plugins";
+import { admin, multiSession, organization, username } from "better-auth/plugins";
 import { db } from "./db";
 import { UserRole } from "@prisma/client";
 import { ac, ADMIN, CASHIER, DEVELOPER } from "./auth/permissions";
@@ -35,32 +35,33 @@ export const auth = betterAuth({
     updateAge: 24 * 60 * 60, // 24 hours
     cookieCache: {
       enabled: true,
-      maxAge: 5 * 60,
+      maxAge: 5 * 60* 60,
     },
     preserveSessionInDatabase: true,
   },
-  // databaseHooks: {
-  //   session: {
-  //     create: {
-  //       before: async (session) => {
-  //         const user = await db.user.findUnique({
-  //           where: { id: session.userId },
-  //         });
-  //         const activeOrganizationId = user?.activeOrganizationId;
-  //         return {
-  //           data: {
-  //             ...session,
-  //             activeOrganizationId,
-  //           },
-  //         };
-  //       },
-  //     },
-  //   },
-  // },
+  databaseHooks: {
+    session: {
+      create: {
+        before: async (session) => {
+          console.log(session);
+          const user = await db.user.findUnique({
+            where: { id: session.userId },
+          });
+          const activeOrganizationId = user?.activeOrganizationId;
+          return {
+            data: {
+              ...session,
+              activeOrganizationId,
+            },
+          };
+        },
+      },
+    },
+  },
   plugins: [
     admin({
       adminRoles: [UserRole.ADMIN],
-      defaultRole: UserRole.EMPLOYEE,
+      defaultRole: UserRole.MEMBER,
       defaultBanReason: "Miss behaving",
       ac,
       roles: {
@@ -70,7 +71,6 @@ export const auth = betterAuth({
       },
     }),
     username(),
-    openAPI(),
     multiSession({
       maximumSessions: 8,
     }),
@@ -84,20 +84,20 @@ export const auth = betterAuth({
     }),
   ],
 
-  // secondaryStorage: {
-  //   get: async (key) => {
-  //     const value = await redis.get(key) as string | null;
-  //     console.log(value);
-  //     return value ? value : null;
-  //   },
-  //   set: async (key, value, ttl) => {
-  //     if (ttl) await redis.set(key, value, { ex: ttl });
-  //     else await redis.set(key, value);
-  //   },
-  //   delete: async (key) => {
-  //     await redis.del(key);
-  //   },
-  // },
+  secondaryStorage: {
+    get: async (key) => {
+      const value = await redis.get(key) as string | null;
+      return value ? value : null;
+    },
+    set: async (key, value, ttl) => {
+      console.log("Session key: ", key, " Value: ", value, " TTL: ", ttl)
+      if (ttl) await redis.setex(key,ttl, value,);
+      else await redis.set(key, value);
+    },
+    delete: async (key) => {
+      await redis.del(key);
+    },
+  },
   rateLimit: {
     window: 60,
     max: 100,

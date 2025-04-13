@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { toast } from "@/components/ui/use-toast"
 import { ArrowLeft, Edit, Trash, BarChart2, Package } from "lucide-react"
 import Link from "next/link"
 import { WarehouseDeleteDialog } from "./warehouse-delete-dialog"
 import { WarehouseEditSheet } from "./warehouse-edit-sheet"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { toast } from "sonner"
 
 interface WarehouseDetailsPageProps {
   id: string
@@ -28,13 +28,15 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
     async function fetchWarehouse() {
       try {
         setLoading(true)
-        const response = await fetch(`/api/warehouse/${id}`)
+        const response = await fetch(`/api/organization/warehouse/${id}`)
         const data = await response.json()
         setWarehouse(data.warehouse)
       } catch (error) {
         console.error("Error fetching warehouse:", error)
-        toast("Error",{
+        toast({
+          title: "Error",
           description: "Failed to load warehouse details. Please try again.",
+          variant: "destructive",
         })
       } finally {
         setLoading(false)
@@ -52,22 +54,25 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
 
       if (!response.ok) throw new Error("Failed to delete warehouse")
 
-      toast("Warehouse deleted",{
+      toast({
+        title: "Warehouse deleted",
         description: "The warehouse has been successfully deleted.",
       })
 
       router.push("/organization/warehouse")
     } catch (error) {
       console.error("Error deleting warehouse:", error)
-      toast("Error",{
+      toast({
+        title: "Error",
         description: "Failed to delete warehouse. Please try again.",
+        variant: "destructive",
       })
     }
   }
 
   const handleUpdate = async (formData: any) => {
     try {
-      const response = await fetch(`/api/warehouse/${id}`, {
+      const response = await fetch(`/api/organization/warehouse/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -80,15 +85,18 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
       const updatedWarehouse = await response.json()
       setWarehouse(updatedWarehouse)
 
-      toast( "Warehouse updated",{
+      toast({
+        title: "Warehouse updated",
         description: "The warehouse details have been successfully updated.",
       })
 
       return true
     } catch (error) {
       console.error("Error updating warehouse:", error)
-      toast("Error",{
+      toast({
+        title: "Error",
         description: "Failed to update warehouse. Please try again.",
+        variant: "destructive",
       })
       return false
     }

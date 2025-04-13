@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2 } from "lucide-react"
-import { toast } from "sonner"
+import { toast } from "@/components/ui/use-toast"
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
@@ -64,18 +64,21 @@ export function WarehouseCreateSheet({ open, onOpenChange, onSuccess }: Warehous
 
       if (!response.ok) throw new Error("Failed to create warehouse")
 
-      toast.success("Warehouse created", {
+      toast({
+        title: "Warehouse created",
         description: "The warehouse has been successfully created.",
-      });
+      })
 
       form.reset()
       onOpenChange(false)
       onSuccess()
     } catch (error) {
       console.error("Error creating warehouse:", error)
-      toast.error("Error", {
+      toast({
+        title: "Error",
         description: "Failed to create warehouse. Please try again.",
-      });
+        variant: "destructive",
+      })
     } finally {
       setIsSubmitting(false)
     }
