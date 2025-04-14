@@ -53,7 +53,7 @@ export function TransactionsPage() {
       params.append("page", page.toString())
       params.append("limit", "10")
 
-      const response = await fetch(`/api/organization/finance/transactions?${params.toString()}`)
+      const response = await fetch(`/api/finance/transactions?${params.toString()}`)
       const data = await response.json()
 
       setTransactions(data.transactions)

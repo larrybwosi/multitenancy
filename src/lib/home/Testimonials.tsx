@@ -1,5 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
+import Image from "next/image";
 
 const Testimonials: React.FC = () => {
   return (
@@ -14,11 +15,11 @@ const Testimonials: React.FC = () => {
             transition={{ duration: 0.6 }}
           >
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Customers Love Drongo
+              Customers Love Dealio
             </h2>
             <p className="text-gray-600 mb-10">
-              We're honored to provide the modern invoicing digitization for
-              some of the most exciting organizations in the world.
+              We&lsquo;re honored to provide the modern invoicing digitization
+              for some of the most exciting organizations in the world.
             </p>
 
             <div className="bg-white rounded-xl p-6 shadow-lg">
@@ -37,23 +38,25 @@ const Testimonials: React.FC = () => {
               </div>
 
               <blockquote className="text-lg md:text-xl font-medium text-gray-900 mb-6">
-                "Drongo has played a crucial role in scaling, building out and
-                evolving our go-to-market model. It allows my team to easily
-                stay on top of everything."
+                &quot;Dealio has played a crucial role in scaling, building out
+                and evolving our go-to-market model. It allows my team to easily
+                stay on top of everything.&quot;
               </blockquote>
 
               <div className="flex items-center">
                 <div className="mr-4">
-                  <img
-                    src="/testimonial-author.jpg"
+                  <Image
+                    src="https://images.pexels.com/photos/1212984/pexels-photo-1212984.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2"
                     alt="Rachel Islam"
+                    width={64}
+                    height={64}
                     className="w-12 h-12 rounded-full object-cover"
                   />
                 </div>
                 <div>
                   <div className="font-medium text-gray-900">Rachel Islam</div>
                   <div className="text-gray-500 text-sm">
-                    Director of Operations, Drongo & App
+                    Director of Operations, Dealio & App
                   </div>
                 </div>
               </div>
@@ -68,22 +71,24 @@ const Testimonials: React.FC = () => {
             transition={{ duration: 0.6, delay: 0.2 }}
           >
             <h3 className="text-2xl font-bold text-gray-900 mb-6">
-              "Drongo has not only simplified my invoicing tasks but has also
-              elevated the professionalism of my business. I highly recommend
-              Drongo to any entrepreneur or business owner looking for an
-              efficient and user-friendly invoicing solution."
+              &quot;Dealio has not only simplified my invoicing tasks but has
+              also elevated the professionalism of my business. I highly
+              recommend Dealio to any entrepreneur or business owner looking for
+              an efficient and user-friendly invoicing solution.&quot;
             </h3>
 
             <div className="flex items-center mt-6">
-              <img
-                src="/testimonial-author.jpg"
+              <Image
+                src="https://images.pexels.com/photos/1212984/pexels-photo-1212984.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2"
                 alt="Rachel Islam"
+                width={64}
+                height={64}
                 className="w-12 h-12 rounded-full object-cover mr-4"
               />
               <div>
                 <div className="font-medium text-gray-900">Rachel Islam</div>
                 <div className="text-gray-500 text-sm">
-                  Director of Operations, Drongo & App
+                  Director of Operations, Dealio & App
                 </div>
               </div>
             </div>

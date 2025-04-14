@@ -90,7 +90,6 @@ export const auth = betterAuth({
       return value ? value : null;
     },
     set: async (key, value, ttl) => {
-      console.log("Session key: ", key, " Value: ", value, " TTL: ", ttl)
       if (ttl) await redis.setex(key,ttl, value,);
       else await redis.set(key, value);
     },

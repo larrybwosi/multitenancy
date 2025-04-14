@@ -4,9 +4,9 @@ import Features from "@/lib/home/Features";
 import Footer from "@/lib/home/footer";
 import Hero from "@/lib/home/Hero";
 import Navbar from "@/lib/home/Navbar";
-import Partners from "@/lib/home/Partners";
 import ResourceLibrary from "@/lib/home/ResourceLibrary";
 import Testimonials from "@/lib/home/Testimonials";
+import FinancialManagementUI from "@/lib/home/WhyUs";
 
 
 const App: React.FC = () => {
@@ -15,8 +15,8 @@ const App: React.FC = () => {
       <Navbar />
       <main>
         <Hero />
-        <Partners />
         <Features />
+        <FinancialManagementUI />
         <Testimonials />
         <ResourceLibrary />
         <CallToAction />

@@ -1,6 +1,7 @@
 // components/Navbar.tsx
-import React, { useState } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
+import Link from "next/link";
 
 const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -14,8 +15,8 @@ const Navbar: React.FC = () => {
     >
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
         <div className="flex items-center">
-          <img src="/drongo-logo.svg" alt="Drongo" className="h-8" />
-          <span className="ml-2 text-xl font-bold text-orange-500">Drongo</span>
+          <img src="/dealio-logo.svg" alt="Dealio" className="h-8" />
+          <span className="ml-2 text-xl font-bold text-orange-500">Dealio</span>
         </div>
 
         <div className="hidden md:flex items-center space-x-6">
@@ -110,17 +111,17 @@ const Navbar: React.FC = () => {
             </a>
             <div className="pt-2 flex flex-col space-y-3">
               <a
-                href="#"
+                href="login"
                 className="text-orange-500 hover:text-orange-600 py-2"
               >
                 Log In
               </a>
-              <a
-                href="#"
+              <Link
+                href="/signup"
                 className="bg-orange-500 text-white py-2 px-4 rounded-md hover:bg-orange-600 transition duration-300 text-center"
               >
                 Get Started
-              </a>
+              </Link>
             </div>
           </div>
         </motion.div>

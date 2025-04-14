@@ -19,6 +19,11 @@ const nextConfig = {
       },
       {
         protocol: "https",
+        hostname: "www.pexels.com",
+        port: "",
+      },
+      {
+        protocol: "https",
         hostname: "cdn.sanity.io",
         port: "",
       },

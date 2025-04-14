@@ -1,6 +1,7 @@
 // components/Features.tsx
 import React from "react";
 import { motion } from "framer-motion";
+import Image from "next/image";
 
 const Features: React.FC = () => {
   return (
@@ -30,10 +31,12 @@ const Features: React.FC = () => {
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
-            <img
-              src="/features-screenshot.png"
-              alt="Drongo Dashboard Features"
-              className="rounded-lg shadow-xl w-full"
+            <Image
+              src="/image2.jpg"
+              alt="Dealio Dashboard Features"
+              width={400}
+              height={300}
+              className="rounded-lg shadow-xl w-[500px]"
             />
           </motion.div>
 

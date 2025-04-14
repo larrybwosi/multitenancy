@@ -1,5 +1,4 @@
-// components/CallToAction.tsx
-import React from "react";
+
 import { motion } from "framer-motion";
 
 const CallToAction: React.FC = () => {
@@ -40,7 +39,7 @@ const CallToAction: React.FC = () => {
           transition={{ duration: 0.6 }}
         >
           <h2 className="text-3xl md:text-4xl font-bold mb-6">
-            Take the leap and adopt Drongo today!
+            Take the leap and adopt Dealio today!
           </h2>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">

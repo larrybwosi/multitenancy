@@ -9,7 +9,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
-import { toast } from "@/components/ui/use-toast"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +20,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { toast } from "sonner"
 
 interface TransactionDetailsPageProps {
   id: string
@@ -36,7 +36,7 @@ export function TransactionDetailsPage({ id }: TransactionDetailsPageProps) {
     const fetchTransaction = async () => {
       setIsLoading(true)
       try {
-        const response = await fetch(`/api/organization/finance/transactions/${id}`)
+        const response = await fetch(`/api/finance/transactions/${id}`)
         if (!response.ok) {
           throw new Error("Failed to fetch transaction")
         }
@@ -44,10 +44,8 @@ export function TransactionDetailsPage({ id }: TransactionDetailsPageProps) {
         setTransaction(data)
       } catch (error) {
         console.error("Error fetching transaction:", error)
-        toast({
-          title: "Error",
+        toast("Error",{
           description: "Failed to fetch transaction details.",
-          variant: "destructive",
         })
       } finally {
         setIsLoading(false)
@@ -60,23 +58,20 @@ export function TransactionDetailsPage({ id }: TransactionDetailsPageProps) {
   const handleDelete = async () => {
     setIsDeleting(true)
     try {
-      const response = await fetch(`/api/organization/finance/transactions/${id}`, {
+      const response = await fetch(`/api/finance/transactions/${id}`, {
         method: "DELETE",
       })
       if (!response.ok) {
         throw new Error("Failed to delete transaction")
       }
-      toast({
-        title: "Transaction deleted",
+      toast.success("Transaction deleted",{
         description: "The transaction has been deleted successfully.",
       })
       router.push("/organization/finance/transactions")
     } catch (error) {
       console.error("Error deleting transaction:", error)
-      toast({
-        title: "Error",
+      toast.error("Error",{
         description: "Failed to delete transaction. Please try again.",
-        variant: "destructive",
       })
     } finally {
       setIsDeleting(false)
@@ -115,9 +110,9 @@ export function TransactionDetailsPage({ id }: TransactionDetailsPageProps) {
   const getStatusBadge = (status: string) => {
     switch (status.toLowerCase()) {
       case "completed":
-        return <Badge variant="success">Completed</Badge>
+        return <Badge variant="default">Completed</Badge>
       case "pending":
-        return <Badge variant="warning">Pending</Badge>
+        return <Badge variant="outline">Pending</Badge>
       case "failed":
         return <Badge variant="destructive">Failed</Badge>
       default:

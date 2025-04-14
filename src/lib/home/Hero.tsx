@@ -1,6 +1,7 @@
 // components/Hero.tsx
 import React from "react";
 import { motion } from "framer-motion";
+import Image from "next/image";
 
 const Hero: React.FC = () => {
   return (
@@ -51,9 +52,11 @@ const Hero: React.FC = () => {
                 ease: "easeInOut",
               }}
             >
-              <img
-                src="/dashboard-mockup.png"
+              <Image
+                src="/image1.webp"
                 alt="Drongo Dashboard"
+                width={500}
+                height={500}
                 className="rounded-md w-full"
               />
               <div className="absolute top-0 right-0 -mr-4 -mt-4 bg-orange-100 text-orange-500 px-3 py-1 rounded-full text-sm font-medium">

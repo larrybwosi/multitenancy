@@ -7,11 +7,11 @@ const Footer: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
           <div>
             <div className="flex items-center mb-6">
-              <img src="/drongo-logo-white.svg" alt="Drongo" className="h-8" />
-              <span className="ml-2 text-xl font-bold text-orange-500">Drongo</span>
+              <img src="/dealio-logo-white.svg" alt="Dealio" className="h-8" />
+              <span className="ml-2 text-xl font-bold text-orange-500">Dealio</span>
             </div>
             <p className="text-gray-400 text-sm mb-6">
-              Drongo is a modern SaaS platform that simplifies financial management, invoicing, and accounting for businesses of all sizes.
+              Dealio is a modern SaaS platform that simplifies financial management, invoicing, and accounting for businesses of all sizes.
             </p>
             <div className="flex space-x-4">
               <a href="#" className="text-gray-400 hover:text-white transition-colors">
@@ -48,7 +48,7 @@ const Footer: React.FC = () => {
             <ul className="space-y-2">
               <li><a href="#" className="text-gray-400 hover:text-white transition-colors">About Us</a></li>
               <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Customer Stories</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition-colors">The Drongo Blog</a></li>
+              <li><a href="#" className="text-gray-400 hover:text-white transition-colors">The Dealio Blog</a></li>
               <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Resources</a></li>
             </ul>
           </div>
@@ -66,7 +66,7 @@ const Footer: React.FC = () => {
         
         <div className="pt-8 border-t border-gray-800 text-center">
           <p className="text-gray-400 text-sm">
-            © 2025 Drongo Inc. All rights reserved.
+            © 2025 Dealio Inc. All rights reserved.
           </p>
         </div>
       </div>

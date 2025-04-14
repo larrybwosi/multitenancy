@@ -1,25 +1,26 @@
-// components/ResourceLibrary.tsx
-import React from "react";
 import { motion } from "framer-motion";
+import Image from "next/image";
 
 const resources = [
   {
     id: 1,
     title: "5 Tips for Converting and Driving Organizational Efficiency",
     category: "Guide",
-    image: "/resources/resource-1.jpg",
+    image:
+      "https://images.pexels.com/photos/8962476/pexels-photo-8962476.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2"
   },
   {
     id: 2,
-    title: "You Can Lead Better Team With Drongo",
+    title: "You Can Lead Better Team With Dealio",
     category: "Article",
-    image: "/resources/resource-2.jpg",
+    image:
+      "/image3.jpg",
   },
   {
     id: 3,
     title: "Round & Beyond: Selling Through Experiences That Sell More",
     category: "Article",
-    image: "/resources/resource-3.jpg",
+    image: "https://images.pexels.com/photos/6962994/pexels-photo-6962994.jpeg?auto=compress&cs=tinysrgb&w=600",
   },
 ];
 
@@ -35,11 +36,11 @@ const ResourceLibrary: React.FC = () => {
           transition={{ duration: 0.5 }}
         >
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            Drongo Resource Library
+            Dealio Resource Library
           </h2>
           <p className="text-gray-600 max-w-xl mx-auto">
-            Unlock your marketing automation prowess with Drongo's helpful vault
-            of resources.
+            Unlock your marketing automation prowess with Dealio&apos;s helpful
+            vault of resources.
           </p>
 
           <div className="flex flex-wrap justify-center gap-4 mt-8">
@@ -66,9 +67,11 @@ const ResourceLibrary: React.FC = () => {
               transition={{ duration: 0.5, delay: 0.1 * index }}
               whileHover={{ y: -5 }}
             >
-              <img
+              <Image
                 src={resource.image}
                 alt={resource.title}
+                width={300}
+                height={200}
                 className="w-full h-48 object-cover"
               />
               <div className="p-6">

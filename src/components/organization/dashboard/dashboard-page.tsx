@@ -18,7 +18,7 @@ export function DashboardPage() {
   useEffect(() => {
     async function fetchDashboardData() {
       try {
-        const response = await fetch("/api/organization/dashboard")
+        const response = await fetch("/api/dashboard")
         const data = await response.json()
         setDashboardData(data)
         setLoading(false)
