@@ -162,9 +162,9 @@ export default function RestockDialog({
       // Prevent closing while submitting
       setIsOpen(open);
       if (!open) {
-        form.reset(); // Reset form when closing manually
+        form.reset();
         setServerError(null);
-        onClose?.(); // Call the onClose callback
+        onClose?.();
       }
     }
   };

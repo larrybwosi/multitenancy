@@ -1,4 +1,4 @@
-// datasource and generator definitions remain the same
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -96,16 +96,19 @@ model Member {
   @@map("member")
 }
 model Organization {
-  id           String    @id @default(cuid())
-  name         String
-  slug         String    @unique
-  logo         String?   
-  description  String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt @default(now())
-  customFields Json?
+  id                 String    @id @default(cuid())
+  name               String
+  slug               String    @unique
+  logo               String?   
+  description        String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt @default(now())
+  customFields       Json?
+  
+  // UPDATED settings
+  defaultLocationId  String?   // Default retail location
+  defaultWarehouseId String?   // Default warehouse location
 
-  // Existing relations
   members              Member[]
   invitations          Invitation[]
   customers            Customer[]
@@ -129,13 +132,19 @@ model Organization {
   assistants           Assistant[]
   automations          Automation[]
   executionLogs        ExecutionLog[]
+  
+  // New relations for storage management
+  storageZones         StorageZone[]
+  storageUnits         StorageUnit[]
+  storagePositions     StoragePosition[]
 
-  // New relations for attendance tracking  
+  // Relations for attendance tracking  
   attendance           Attendance[]
   workSchedules        WorkSchedule[]
 
   @@map("organization")
 }
+
 
 model Category {
   id             String     @id @default(cuid())
@@ -155,6 +164,7 @@ model Category {
   @@index([organizationId])
 }
 
+
 model Product {
   id             String     @id @default(cuid())
   name           String
@@ -170,6 +180,18 @@ model Product {
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
   customFields   Json?      // Added for customization
+  
+  // NEW Physical dimensions for space calculation
+  width          Float?
+  height         Float?
+  depth          Float?
+  dimensionUnit  String?    // e.g., "cm", "inches"
+  weight         Float?
+  weightUnit     String?    // e.g., "kg", "lbs"
+  volumetricWeight Float?   // Calculated dimensional weight
+  // NEW Default storage settings
+  defaultLocationId String? // Default stocking location
+  defaultLocation InventoryLocation? @relation("ProductDefaultLocation", fields: [defaultLocationId], references: [id], onDelete: SetNull)
 
   // Relations
   variants         ProductVariant[]
@@ -179,7 +201,7 @@ model Product {
   stockBatches     StockBatch[]
   stockAdjustments StockAdjustment[]
   stockMovements   StockMovement[]
-  variantStock     ProductVariantStock[] // Renamed from variantStock to avoid conflict
+  variantStock     ProductVariantStock[]
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
@@ -187,6 +209,7 @@ model Product {
   @@index([name])
   @@index([sku])
   @@index([organizationId])
+  @@index([defaultLocationId])
 }
 
 model ProductVariant {
@@ -520,17 +543,25 @@ enum ReturnReason {
 
 // --- Inventory & Stock Models ---
 model InventoryLocation {
-  id           String    @id @default(cuid())
-  name         String
-  description  String?
-  isActive     Boolean   @default(true)
-  capacity     Float?
-  capacityUnit String?
-  customFields Json?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  managerId    String?
-  manager      Member?   @relation("LocationManager", fields: [managerId], references: [id], onDelete: SetNull)
+  id               String       @id @default(cuid())
+  name             String
+  description      String?
+  isActive         Boolean      @default(true)
+  isDefault        Boolean      @default(false)  // Is this the default location for new products?
+  locationType     LocationType @default(RETAIL_SHOP)
+  address          String?      // Physical address for warehouses/stores
+  totalCapacity    Float?       // Total capacity number
+  capacityUnit     MeasurementUnit? // Unit of measurement
+  capacityUsed     Float?       @default(0) // Calculated usage
+  capacityTracking Boolean      @default(false) // Whether to enforce capacity limits
+  parentLocationId String?      // For hierarchical locations - e.g., a zone within a warehouse
+  parentLocation   InventoryLocation? @relation("LocationHierarchy", fields: [parentLocationId], references: [id], onDelete: SetNull)
+  childLocations   InventoryLocation[] @relation("LocationHierarchy")
+  customFields     Json?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  managerId        String?
+  manager          Member?      @relation("LocationManager", fields: [managerId], references: [id], onDelete: SetNull)
 
   // Existing relations
   organizationId     String
@@ -540,17 +571,24 @@ model InventoryLocation {
   variantStocks      ProductVariantStock[]
   outgoingMovements  StockMovement[] @relation("FromLocationMovements")
   incomingMovements  StockMovement[] @relation("ToLocationMovements")
-  location           String?
-
-  // New relations for attendance tracking
+  
+  // New storage management relations
+  zones             StorageZone[]
+  storageUnits      StorageUnit[]   // Direct storage units (not in zones)
+  
+  // Attendance related
   attendanceRecords  Attendance[]
   workSchedules      WorkSchedule[]
-  currentMembers     Member[]     @relation("MemberCurrentLocation") // Members currently at this location
+  currentMembers     Member[]     @relation("MemberCurrentLocation")
+  defaultProducts Product[] @relation("ProductDefaultLocation")
 
   @@unique([organizationId, name])
   @@index([name])
   @@index([organizationId])
   @@index([managerId])
+  @@index([locationType])
+  @@index([isDefault])
+  @@index([parentLocationId])
 }
 
 model StockBatch {
@@ -564,6 +602,13 @@ model StockBatch {
   purchaseItem    PurchaseItem?   @relation(fields: [purchaseItemId], references: [id], onDelete: SetNull)
   locationId      String          // Location where this batch is physically stored
   location        InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  
+  // NEW Storage placement fields
+  storageUnitId   String?         // Which specific storage unit contains this batch
+  storageUnit     StorageUnit?    @relation("UnitStockBatches", fields: [storageUnitId], references: [id], onDelete: SetNull)
+  positionId      String?         // Which specific position within the unit
+  position        StoragePosition? @relation("PositionStockBatches", fields: [positionId], references: [id], onDelete: SetNull)
+  
   initialQuantity Int             // Quantity when the batch was created/received
   currentQuantity Int             // Current available quantity in this batch
   purchasePrice   Decimal         @db.Decimal(10, 2) // Cost per unit for items in this batch
@@ -571,6 +616,10 @@ model StockBatch {
   receivedDate    DateTime        @default(now()) // Date batch was added to inventory
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
+  
+  // The physical space this batch occupies (can be calculated from product dimensions × quantity)
+  spaceOccupied   Float?
+  spaceUnit       MeasurementUnit?
 
   // Relations
   organizationId String
@@ -584,6 +633,97 @@ model StockBatch {
   @@index([receivedDate])
   @@index([currentQuantity])
   @@index([locationId])
+  @@index([organizationId])
+  @@index([storageUnitId])
+  @@index([positionId])
+}
+
+
+model StorageZone {
+  id              String    @id @default(cuid())
+  name            String    // e.g., "Zone A", "Electronics Section"
+  description     String?
+  locationId      String
+  location        InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  capacity        Float?
+  capacityUnit    MeasurementUnit?
+  capacityUsed    Float?    @default(0)
+  isActive        Boolean   @default(true)
+  customFields    Json?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  storageUnits    StorageUnit[]
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([locationId, name])
+  @@index([locationId])
+  @@index([organizationId])
+}
+
+model StorageUnit {
+  id              String         @id @default(cuid())
+  name            String         // e.g., "Rack A1", "Bin B23"
+  reference       String?        // External reference number/barcode
+  unitType        StorageUnitType
+  locationId      String
+  location        InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  zoneId          String?
+  zone            StorageZone?   @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  width           Float?         // Physical dimensions
+  height          Float?
+  depth           Float?
+  dimensionUnit   String?        // e.g., "cm", "inches"
+  maxWeight       Float?         // Maximum weight capacity
+  weightUnit      String?        // e.g., "kg", "lbs"
+  capacity        Float?         // Storage capacity
+  capacityUnit    MeasurementUnit?
+  capacityUsed    Float?         @default(0)
+  isActive        Boolean        @default(true)
+  position        String?        // Physical position reference (e.g., "Aisle 5, Section B")
+  customFields    Json?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  
+  // Relations
+  positions       StoragePosition[]
+  stockBatches    StockBatch[]   @relation("UnitStockBatches") // Direct assignment to unit
+  organizationId  String
+  organization    Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([locationId, zoneId, name])
+  @@index([locationId])
+  @@index([zoneId])
+  @@index([unitType])
+  @@index([organizationId])
+}
+
+model StoragePosition {
+  id              String      @id @default(cuid())
+  identifier      String      // e.g., "A1-B2-C3" (unit-shelf-position)
+  storageUnitId   String
+  storageUnit     StorageUnit @relation(fields: [storageUnitId], references: [id], onDelete: Cascade)
+  width           Float?      // Physical dimensions
+  height          Float?
+  depth           Float?
+  dimensionUnit   String?     // e.g., "cm", "inches"
+  maxWeight       Float?      // Maximum weight capacity
+  weightUnit      String?     // e.g., "kg", "lbs"
+  isOccupied      Boolean     @default(false)
+  customFields    Json?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  // Relations
+  stockBatches    StockBatch[] @relation("PositionStockBatches")
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([storageUnitId, identifier])
+  @@index([storageUnitId])
+  @@index([isOccupied])
   @@index([organizationId])
 }
 
@@ -892,9 +1032,54 @@ model OrganizationSettings {
   inventoryPolicy   InventoryPolicy   @default(FEFO) // Added: FIFO, LIFO, or FEFO preference
   lowStockThreshold Int               @default(10) // Default threshold for low stock alerts
   negativeStock     Boolean           @default(false) // Allow selling into negative stock?
-  updatedAt         DateTime          @updatedAt
+  updatedAt         DateTime          @updatedAt @default(now())
+  
+  enableCapacityTracking        Boolean @default(false) // Enable space management features
+  enforceSpatialConstraints     Boolean @default(false) // Prevent over-capacity situations
+  enableProductDimensions       Boolean @default(false) // Track product dimensions
+  defaultMeasurementUnit        MeasurementUnit? // Default measurement unit for the org
+  defaultDimensionUnit          String? // e.g., "cm", "inches"
+  defaultWeightUnit             String? // e.g., "kg", "lbs"
 
   @@map("organization_settings")
+}
+
+
+enum MeasurementUnit {
+  CUBIC_METER      // m³ - Volume
+  CUBIC_FEET       // ft³ - Volume
+  SQUARE_METER     // m² - Area
+  SQUARE_FEET      // ft² - Area
+  LINEAR_METER     // m - Length (for shelving)
+  LINEAR_FEET      // ft - Length (for shelving)
+  COUNT            // Number of positions/slots
+  WEIGHT_KG        // Weight capacity in kg
+  WEIGHT_LB        // Weight capacity in lbs
+}
+
+enum StorageUnitType {
+  SHELF            // Standard shelf
+  RACK             // Pallet or other racking system
+  BIN              // Smaller container within a shelf/rack
+  DRAWER           // Pull-out storage
+  PALLET           // Standalone pallet
+  SECTION          // Demarcated area within a zone
+  REFRIGERATOR     // Temperature controlled unit
+  FREEZER          // Freezer unit
+  CABINET          // Enclosed cabinet
+  BULK_AREA        // Open area for bulk storage
+  OTHER            // Other storage type
+}
+
+enum LocationType {
+  RETAIL_SHOP      // A store front location where sales occur directly
+  WAREHOUSE        // A storage facility primarily for inventory
+  DISTRIBUTION     // Facility for receiving and distributing stock
+  PRODUCTION       // Manufacturing facility
+  SUPPLIER         // External supplier location (for reference)
+  CUSTOMER         // External customer location (for reference)
+  TEMPORARY        // Temporary or pop-up location
+  OTHER            // Any other location type
 }
 
 // Added: Enum for inventory policy setting
