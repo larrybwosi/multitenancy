@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { addProduct, updateProduct } from "@/actions/stockActions"; // Adjust path
+import { addProduct, updateProduct } from "@/actions/stock.actions"; // Adjust path
 import { Category } from "@prisma/client"; // Assuming Category type from Prisma
 
 import { Button } from "@/components/ui/button";

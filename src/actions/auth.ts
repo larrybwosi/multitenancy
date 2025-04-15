@@ -11,6 +11,7 @@ const AUTHORIZATION_TTL = 3600; // 60 minutes (longer TTL since org membership c
 async function getServerAuthContext(): Promise<{
   userId: string;
   organizationId: string;
+  role?: string; // Added member role to return type
 }> {
   const headersList = await headers();
   const cacheKey = `auth:context`;
@@ -22,29 +23,56 @@ async function getServerAuthContext(): Promise<{
       return cachedAuthContext as {
         userId: string;
         organizationId: string;
+        role?: string;
       };
     }
 
     // If not in cache, fetch from auth service
     const session = await auth.api.getSession({ headers: headersList });
-    
-    if (!session?.user?.id ) {
+
+    if (!session?.user?.id) {
       throw new Error("Unauthorized - No user ID found in session.");
     }
 
-    let activeOrgId = session.session.activeOrganizationId;
-    
-    if(!activeOrgId) {
-      const org = await db.user.findUnique({
+    let activeOrgId = session.session?.activeOrganizationId || '';
+    let role: string | undefined;
+
+    if (!activeOrgId) {
+      // If no active org in session, try to get it from user record
+      const userWithOrg = await db.user.findUnique({
         where: { id: session.user.id },
-        select: { activeOrganizationId: true },
+        select: {
+          activeOrganizationId: true,
+          members: {
+            where: {
+              organizationId: session.session?.activeOrganizationId || '',
+            },
+            select: {
+              role: true,
+            },
+          },
+        },
       });
-      activeOrgId = org?.activeOrganizationId;
+      activeOrgId = userWithOrg?.activeOrganizationId || '';
+      role = userWithOrg?.members[0]?.role;
+    } else {
+      // If we have an active org ID, get the member role
+      const member = await db.member.findFirst({
+        where: {
+          userId: session.user.id,
+          organizationId: activeOrgId,
+        },
+        select: {
+          role: true,
+        },
+      });
+      role = member?.role;
     }
 
     const authContext = {
       userId: session.user.id,
       organizationId: activeOrgId || "",
+      role,
     };
 
     // Cache the result

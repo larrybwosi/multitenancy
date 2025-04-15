@@ -20,9 +20,6 @@ const formSchema = z.object({
   capacity: z.coerce.number().positive({ message: "Capacity must be a positive number" }),
   status: z.enum(["ACTIVE", "MAINTENANCE", "INACTIVE"]),
   description: z.string().optional(),
-  address: z.string().min(5, { message: "Address must be at least 5 characters" }),
-  phone: z.string().min(5, { message: "Phone must be at least 5 characters" }),
-  email: z.string().email({ message: "Please enter a valid email address" }),
 })
 
 type FormValues = z.infer<typeof formSchema>
@@ -36,7 +33,7 @@ interface WarehouseCreateSheetProps {
 export function WarehouseCreateSheet({ open, onOpenChange, onSuccess }: WarehouseCreateSheetProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const form = useForm<FormValues>({
+  const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
@@ -45,9 +42,6 @@ export function WarehouseCreateSheet({ open, onOpenChange, onSuccess }: Warehous
       capacity: 10000,
       status: "ACTIVE",
       description: "",
-      address: "",
-      phone: "",
-      email: "",
     },
   })
 
@@ -173,53 +167,6 @@ export function WarehouseCreateSheet({ open, onOpenChange, onSuccess }: Warehous
                         </SelectContent>
                       </Select>
                       <FormDescription>Current operational status.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={form.control}
-                name="address"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Address</FormLabel>
-                    <FormControl>
-                      <Input placeholder="123 Storage Ave, New York, NY 10001" {...field} />
-                    </FormControl>
-                    <FormDescription>Full street address of the warehouse.</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone</FormLabel>
-                      <FormControl>
-                        <Input placeholder="(212) 555-1234" {...field} />
-                      </FormControl>
-                      <FormDescription>Contact phone number.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input placeholder="warehouse@example.com" {...field} />
-                      </FormControl>
-                      <FormDescription>Contact email address.</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

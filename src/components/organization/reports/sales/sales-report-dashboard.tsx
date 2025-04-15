@@ -3,28 +3,40 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Skeleton } from "@/components/ui/skeleton"
 import { SalesOverviewChart } from "./sales-overview-chart"
 import { TopSellingProductsTable } from "./top-selling-products-table"
 import { SalesByChannelChart } from "./sales-by-channel-chart"
 import { SalesByRegionChart } from "./sales-by-region-chart"
+import { LoadingState } from "../shared/loading-state"
+import type { SalesData } from "@/types/reports"
 
 interface SalesReportDashboardProps {
   dateRange: string
+  startDate: Date
+  endDate: Date
 }
 
-export function SalesReportDashboard({ dateRange }: SalesReportDashboardProps) {
+export function SalesReportDashboard({
+  dateRange,
+  startDate,
+  endDate,
+}: SalesReportDashboardProps) {
   const [activeTab, setActiveTab] = useState("overview")
   const [isLoading, setIsLoading] = useState(true)
-  const [salesData, setSalesData] = useState<any>(null)
+  const [data, setData] = useState<SalesData | null>(null)
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true)
       try {
-        const response = await fetch(`/api/reports/sales?dateRange=${dateRange}&dataType=${activeTab}`)
+        const params = new URLSearchParams({
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          type: activeTab,
+        })
+        const response = await fetch(`/api/reports/sales?${params}`)
         const data = await response.json()
-        setSalesData(data)
+        setData(data)
       } catch (error) {
         console.error("Error fetching sales data:", error)
       } finally {
@@ -33,11 +45,15 @@ export function SalesReportDashboard({ dateRange }: SalesReportDashboardProps) {
     }
 
     fetchData()
-  }, [dateRange, activeTab])
+  }, [startDate, endDate, activeTab])
+
+  if (isLoading) {
+    return <LoadingState type={activeTab === "products" ? "table" : "chart"} />
+  }
 
   return (
     <div className="space-y-4">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      <Tabs defaultValue="overview" className="space-y-4" onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="products">Products</TabsTrigger>
@@ -46,71 +62,97 @@ export function SalesReportDashboard({ dateRange }: SalesReportDashboardProps) {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Sales Overview</CardTitle>
+                <CardDescription>
+                  Sales performance and trends over time
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {data && <SalesOverviewChart data={data.overview.salesData} />}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Key Metrics</CardTitle>
+                <CardDescription>
+                  Summary of important sales metrics
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-2">
+                {data && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">Total Revenue</p>
+                      <p className="text-2xl font-bold">
+                        ${data.overview.summary.totalRevenue.toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">Total Orders</p>
+                      <p className="text-2xl font-bold">
+                        {data.overview.summary.totalOrders.toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">Average Order Value</p>
+                      <p className="text-2xl font-bold">
+                        ${data.overview.summary.averageOrderValue.toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">Conversion Rate</p>
+                      <p className="text-2xl font-bold">
+                        {data.overview.summary.conversionRate}%
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="products">
           <Card>
             <CardHeader>
-              <CardTitle>Sales Overview</CardTitle>
+              <CardTitle>Product Performance</CardTitle>
               <CardDescription>
-                View your organization's sales performance over time. Track revenue, orders, and growth.
+                Analysis of top-selling products and their performance
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <Skeleton className="w-full h-[400px]" />
-              ) : (
-                <SalesOverviewChart data={salesData?.salesData || []} summary={salesData?.summary || {}} />
-              )}
+              {data && <TopSellingProductsTable products={data.products} />}
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="products" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Top Selling Products</CardTitle>
-              <CardDescription>
-                Analyze your best performing products by sales volume, revenue, and growth.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <Skeleton className="w-full h-[400px]" />
-              ) : (
-                <TopSellingProductsTable products={salesData?.topSellingProducts || []} />
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="channels" className="space-y-4">
+        <TabsContent value="channels">
           <Card>
             <CardHeader>
               <CardTitle>Sales by Channel</CardTitle>
               <CardDescription>
-                Analyze sales performance across different sales channels and platforms.
+                Distribution of sales across different channels
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <Skeleton className="w-full h-[400px]" />
-              ) : (
-                <SalesByChannelChart data={salesData?.salesByChannel || []} />
-              )}
+              {data && <SalesByChannelChart data={data.channels} />}
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="regions" className="space-y-4">
+        <TabsContent value="regions">
           <Card>
             <CardHeader>
               <CardTitle>Sales by Region</CardTitle>
-              <CardDescription>Analyze sales performance across different geographic regions.</CardDescription>
+              <CardDescription>
+                Geographic distribution of sales
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <Skeleton className="w-full h-[400px]" />
-              ) : (
-                <SalesByRegionChart data={salesData?.salesByRegion || []} />
-              )}
+              {data && <SalesByRegionChart data={data.regions} />}
             </CardContent>
           </Card>
         </TabsContent>

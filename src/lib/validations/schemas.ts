@@ -96,6 +96,7 @@ export const CreateStockAdjustmentSchema = z.object({
     errorMap: () => ({ message: "Invalid adjustment reason" }),
   }),
   notes: z.string().optional(),
+  locationId: z.string().cuid({ message: "Invalid Location ID" }).optional(),
   adjustmentDate: z
     .string()
     .datetime({ message: "Invalid date format" })

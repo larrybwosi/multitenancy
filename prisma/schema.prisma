@@ -53,37 +53,88 @@ enum MemberRole {
   CASHIER   // Limited role, primarily for making sales
   REPORTER  // View-only access to reports
 }
-
 model Member {
-  id             String       @id @default(cuid()) // Use cuid for consistency
+  id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   userId         String
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   role           MemberRole
-  isActive       Boolean      @default(true) // Added: Is the member currently active in the org?
+  isActive       Boolean      @default(true)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  // Relations showing actions performed by this member
+  // Existing relations
   auditLogs           AuditLog[]
-  sales               Sale[]               // Sales made by this member
-  purchases           Purchase[]           // Purchases created by this member
-  purchasePayments    PurchasePayment[]    // Purchase payments recorded by this member
-  stockAdjustments    StockAdjustment[]    // Adjustments performed by this member
-  stockMovements      StockMovement[]      // Movements initiated by this member
-  loyaltyTransactions LoyaltyTransaction[] // Loyalty points adjustments by this member
-  cashDrawers         CashDrawer[]         // Cash drawer sessions managed by this member
-  inventoryManagements InventoryLocation[] @relation("LocationManager") // Locations managed by this member
+  sales               Sale[]
+  purchases           Purchase[]
+  purchasePayments    PurchasePayment[]
+  stockAdjustments    StockAdjustment[]
+  stockMovements      StockMovement[]
+  loyaltyTransactions LoyaltyTransaction[]
+  cashDrawers         CashDrawer[]
+  inventoryManagements InventoryLocation[] @relation("LocationManager")
   createdCustomers    Customer[]           @relation("CustomerCreatedBy")
   updatedCustomers    Customer[]           @relation("CustomerUpdatedBy")
-  uploadedAttachments Attachment[]         // Attachments uploaded by this member
-  processedReturns    Return[]             // Returns processed by this member
+  uploadedAttachments Attachment[]
+  processedReturns    Return[]
 
-  @@unique([organizationId, userId]) // User can only be a member of an org once
-  @@index([userId]) // Index added
-  @@index([organizationId]) // Index added
+  // New relations for attendance tracking
+  attendanceRecords   Attendance[]
+  workSchedules       WorkSchedule[]
+  
+  // Optional: Track current status
+  isCheckedIn         Boolean      @default(false)
+  lastCheckInTime     DateTime?
+  currentLocationId   String?
+  currentLocation     InventoryLocation? @relation("MemberCurrentLocation", fields: [currentLocationId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@index([organizationId])
+  @@index([isCheckedIn]) // New index to quickly find active members
   @@map("member")
+}
+model Organization {
+  id           String    @id @default(cuid())
+  name         String
+  slug         String    @unique
+  logo         String?   
+  description  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt @default(now())
+  customFields Json?
+
+  // Existing relations
+  members              Member[]
+  invitations          Invitation[]
+  customers            Customer[]
+  categories           Category[]
+  products             Product[]
+  productVariants      ProductVariant[]
+  suppliers            Supplier[]
+  sales                Sale[]
+  purchases            Purchase[]
+  returns              Return[]
+  stockBatches         StockBatch[]
+  inventoryLocations   InventoryLocation[]
+  productVariantStocks ProductVariantStock[]
+  stockAdjustments     StockAdjustment[]
+  stockMovements       StockMovement[]
+  cashDrawers          CashDrawer[]
+  loyaltyTransactions  LoyaltyTransaction[]
+  attachments          Attachment[]
+  auditLogs            AuditLog[]
+  settings             OrganizationSettings?
+  assistants           Assistant[]
+  automations          Automation[]
+  executionLogs        ExecutionLog[]
+
+  // New relations for attendance tracking  
+  attendance           Attendance[]
+  workSchedules        WorkSchedule[]
+
+  @@map("organization")
 }
 
 model Category {
@@ -397,7 +448,6 @@ model Return {
   returnNumber String       // Unique within an organization
   saleId       String       // The original sale ID
   sale         Sale         @relation(fields: [saleId], references: [id], onDelete: Restrict) // Prevent sale deletion if returns exist
-  // Removed redundant fields like saleNumber, customerId, customerName - can be derived via sale relation
   reason       ReturnReason // Overall reason for the return
   status       ReturnStatus @default(PENDING)
   notes        String?
@@ -414,7 +464,7 @@ model Return {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
 
   @@unique([organizationId, returnNumber]) // Enforce uniqueness per organization
-  @@index([saleId]) // Index added
+  @@index([saleId])
   @@index([status])
   @@index([createdAt])
   @@index([organizationId])
@@ -432,7 +482,6 @@ model ReturnItem {
   status       ReturnItemStatus @default(PENDING) // Status for this specific item line
   unitPrice    Decimal          @db.Decimal(10, 2) // Price at which it was sold (copied from SaleItem for history)
   notes        String?          // Item-specific notes
-  // Removed stockBatchId relation - handling returned stock often involves inspection
   // and potentially creating a new 'returned' batch or adjusting via StockAdjustment
 
   @@index([returnId]) // Index added
@@ -472,28 +521,33 @@ enum ReturnReason {
 // --- Inventory & Stock Models ---
 model InventoryLocation {
   id           String    @id @default(cuid())
-  name         String    // e.g., "Main Warehouse", "Shop Floor", "Shelf A-3"
+  name         String
   description  String?
   isActive     Boolean   @default(true)
-  capacity     Float?    // Max capacity value
-  capacityUnit String?   // Unit for capacity (e.g., "items", "pallets", "sq ft", "cu m")
-  customFields Json?     // For extra location-specific details
+  capacity     Float?
+  capacityUnit String?
+  customFields Json?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
-  managerId    String?   // Member responsible for this location
+  managerId    String?
   manager      Member?   @relation("LocationManager", fields: [managerId], references: [id], onDelete: SetNull)
 
-  // Relations
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  stockBatches    StockBatch[] 
-  stockAdjustments StockAdjustment[]
-  variantStocks   ProductVariantStock[] // Aggregated stock levels per variant here
-  outgoingMovements StockMovement[] @relation("FromLocationMovements")
-  incomingMovements StockMovement[] @relation("ToLocationMovements")
-  location          String?
+  // Existing relations
+  organizationId     String
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  stockBatches       StockBatch[] 
+  stockAdjustments   StockAdjustment[]
+  variantStocks      ProductVariantStock[]
+  outgoingMovements  StockMovement[] @relation("FromLocationMovements")
+  incomingMovements  StockMovement[] @relation("ToLocationMovements")
+  location           String?
 
-  @@unique([organizationId, name]) // Location names unique per org
+  // New relations for attendance tracking
+  attendanceRecords  Attendance[]
+  workSchedules      WorkSchedule[]
+  currentMembers     Member[]     @relation("MemberCurrentLocation") // Members currently at this location
+
+  @@unique([organizationId, name])
   @@index([name])
   @@index([organizationId])
   @@index([managerId])
@@ -658,44 +712,6 @@ enum MovementType { // Renamed from MovementRefType for clarity
 }
 
 
-// --- Customer Loyalty ---
-
-model LoyaltyTransaction {
-  id              String        @id @default(cuid())
-  customerId      String
-  customer        Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade) // Cascade if customer deleted
-  memberId        String        // Changed from userId
-  member          Member        @relation(fields: [memberId], references: [id], onDelete: Restrict) // Prevent member deletion if they issued points
-  pointsChange    Int           // Positive for earned, negative for redeemed
-  reason          LoyaltyReason
-  relatedSaleId   String?       @unique // Link to the sale that earned/used points
-  relatedSale     Sale?         @relation(fields: [relatedSaleId], references: [id], onDelete: SetNull) // Keep record if sale deleted
-  notes           String?
-  transactionDate DateTime      @default(now())
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-
-  // Added Organization relation for data isolation/querying
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@index([customerId])
-  @@index([transactionDate])
-  @@index([memberId]) // Index added
-  @@index([organizationId]) // Index added
-}
-
-enum LoyaltyReason {
-  SALE_EARNED         // Points earned from a purchase
-  REDEMPTION          // Points spent on a purchase or reward
-  MANUAL_ADJUSTMENT   // Admin adjustment (correction, bonus)
-  PROMOTION           // Points awarded from a specific promotion
-  SIGN_UP_BONUS       // Points for new customer registration
-  RETURN_ADJUSTMENT   // Points deducted due to a returned item
-  BIRTHDAY_BONUS      // Points awarded for customer's birthday
-  REFERRAL_BONUS      // Points for referring a new customer
-  OTHER               // Miscellaneous reasons
-}
 
 // --- Utility & Other Models ---
 
@@ -773,7 +789,6 @@ enum DrawerStatus {
 // --- Audit Log Model --- (Generally good as is)
 enum AuditLogAction {
   CREATE
-  READ // Use carefully, can generate massive logs
   UPDATE
   DELETE
   LOGIN
@@ -782,7 +797,7 @@ enum AuditLogAction {
   // Add more specific actions as needed
 }
 
-enum AuditEntityType { // Renamed from AuditType
+enum AuditEntityType {
   USER
   MEMBER
   ORGANIZATION
@@ -865,43 +880,6 @@ enum PurchaseStatus {
 }
 
 
-model Organization {
-  id           String    @id @default(cuid())
-  name         String
-  slug         String    @unique // URL-friendly identifier
-  logo         String?   
-  description  String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt @default(now())
-  customFields Json?     // Added for customization
-
-  // Relations
-  members              Member[]
-  invitations          Invitation[]
-  customers            Customer[]
-  categories           Category[]
-  products             Product[]
-  productVariants      ProductVariant[]
-  suppliers            Supplier[]
-  sales                Sale[]
-  purchases            Purchase[]
-  returns              Return[]
-  stockBatches         StockBatch[]
-  inventoryLocations   InventoryLocation[]
-  productVariantStocks ProductVariantStock[]
-  stockAdjustments     StockAdjustment[]
-  stockMovements       StockMovement[]
-  cashDrawers          CashDrawer[]
-  loyaltyTransactions  LoyaltyTransaction[]
-  attachments          Attachment[]
-  auditLogs            AuditLog[]
-  settings             OrganizationSettings? // One-to-one settings
-  assistants           Assistant[]           // NEW: Organization can have multiple assistants
-  automations          Automation[]          // NEW: Organization can have multiple automations
-  executionLogs        ExecutionLog[]
-
-  @@map("organization")
-}
 
 // Added: Specific settings for an organization
 model OrganizationSettings {
@@ -954,6 +932,102 @@ model Invitation {
   @@map("invitation")
 }
 
+// Add these models to your existing schema.prisma file
+
+model Attendance {
+  id             String           @id @default(cuid())
+  memberId       String
+  member         Member           @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  locationId     String?
+  location       InventoryLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  checkInTime    DateTime         @default(now())
+  checkOutTime   DateTime?
+  hoursWorked    Decimal?         @db.Decimal(10, 2) // Calculated field, null until checked out
+  status         AttendanceStatus @default(CHECKED_IN)
+  notes          String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([memberId])
+  @@index([checkInTime])
+  @@index([organizationId])
+  @@index([locationId])
+  @@index([status])
+}
+
+enum AttendanceStatus {
+  CHECKED_IN      // Member is currently checked in
+  CHECKED_OUT     // Member has properly checked out
+  AUTO_CHECKOUT   // System forced checkout (e.g., forgot to checkout)
+  ABSENT          // Member was scheduled but didn't show up
+  LATE            // Member checked in late
+  LEFT_EARLY      // Member checked out before scheduled time
+}
+
+// Optional: Add a schedule model if you want to track expected working hours
+model WorkSchedule {
+  id             String         @id @default(cuid())
+  memberId       String
+  member         Member         @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  locationId     String?
+  location       InventoryLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  startTime      DateTime
+  endTime        DateTime
+  isRecurring    Boolean        @default(false)
+  recurringDays  Int[]          // 0=Sunday, 1=Monday, etc. (for recurring schedules)
+  notes          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([memberId])
+  @@index([startTime])
+  @@index([organizationId])
+}
+
+// --- Customer Loyalty ---
+
+model LoyaltyTransaction {
+  id              String        @id @default(cuid())
+  customerId      String
+  customer        Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade) // Cascade if customer deleted
+  memberId        String        // Changed from userId
+  member          Member        @relation(fields: [memberId], references: [id], onDelete: Restrict) // Prevent member deletion if they issued points
+  pointsChange    Int           // Positive for earned, negative for redeemed
+  reason          LoyaltyReason
+  relatedSaleId   String?       @unique // Link to the sale that earned/used points
+  relatedSale     Sale?         @relation(fields: [relatedSaleId], references: [id], onDelete: SetNull) // Keep record if sale deleted
+  notes           String?
+  transactionDate DateTime      @default(now())
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Added Organization relation for data isolation/querying
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([transactionDate])
+  @@index([memberId]) // Index added
+  @@index([organizationId]) // Index added
+}
+
+enum LoyaltyReason {
+  SALE_EARNED         // Points earned from a purchase
+  REDEMPTION          // Points spent on a purchase or reward
+  MANUAL_ADJUSTMENT   // Admin adjustment (correction, bonus)
+  PROMOTION           // Points awarded from a specific promotion
+  SIGN_UP_BONUS       // Points for new customer registration
+  RETURN_ADJUSTMENT   // Points deducted due to a returned item
+  BIRTHDAY_BONUS      // Points awarded for customer's birthday
+  REFERRAL_BONUS      // Points for referring a new customer
+  OTHER               // Miscellaneous reasons
+}
 // Assistant Model Definition
 model Assistant {
   id             String            @id @default(cuid())

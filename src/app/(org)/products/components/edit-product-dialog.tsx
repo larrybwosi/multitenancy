@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Category } from "@prisma/client";
-import { updateProduct } from "@/actions/stockActions"; // Import server action
+import { updateProduct } from "@/actions/stock.actions"; // Import server action
 import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -53,7 +53,7 @@ const EditProductFormSchema = z.object({
     .int()
     .min(0, "Reorder point must be non-negative"),
   isActive: z.boolean().default(true),
-  // imageUrls: z.array(z.string().url()).optional(), // Add later if needed
+  imageUrls: z.array(z.string().url()).optional(),
 });
 
 type EditProductFormData = z.infer<typeof EditProductFormSchema>;

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Download, Filter, Calendar, ChevronDown } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -19,6 +19,61 @@ export function ReportsPage() {
   const [dateRange, setDateRange] = useState("last-30-days")
   const [date, setDate] = useState<Date | undefined>(new Date())
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
+  const [startDate, setStartDate] = useState(new Date(new Date().setDate(new Date().getDate() - 30)))
+  const [endDate, setEndDate] = useState(new Date())
+
+  useEffect(() => {
+    // Update date range when selection changes
+    switch (dateRange) {
+      case "today":
+        setStartDate(new Date())
+        setEndDate(new Date())
+        break
+      case "yesterday":
+        const yesterday = new Date()
+        yesterday.setDate(yesterday.getDate() - 1)
+        setStartDate(yesterday)
+        setEndDate(yesterday)
+        break
+      case "last-7-days":
+        setStartDate(new Date(new Date().setDate(new Date().getDate() - 7)))
+        setEndDate(new Date())
+        break
+      case "last-30-days":
+        setStartDate(new Date(new Date().setDate(new Date().getDate() - 30)))
+        setEndDate(new Date())
+        break
+      case "this-month":
+        setStartDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
+        setEndDate(new Date())
+        break
+      case "last-month":
+        const lastMonth = new Date()
+        lastMonth.setMonth(lastMonth.getMonth() - 1)
+        setStartDate(new Date(lastMonth.getFullYear(), lastMonth.getMonth(), 1))
+        setEndDate(new Date(lastMonth.getFullYear(), lastMonth.getMonth() + 1, 0))
+        break
+      case "this-quarter":
+        const quarter = Math.floor(new Date().getMonth() / 3)
+        setStartDate(new Date(new Date().getFullYear(), quarter * 3, 1))
+        setEndDate(new Date())
+        break
+      case "year-to-date":
+        setStartDate(new Date(new Date().getFullYear(), 0, 1))
+        setEndDate(new Date())
+        break
+      case "last-year":
+        setStartDate(new Date(new Date().getFullYear() - 1, 0, 1))
+        setEndDate(new Date(new Date().getFullYear() - 1, 11, 31))
+        break
+      case "custom":
+        if (date) {
+          setStartDate(date)
+          setEndDate(date)
+        }
+        break
+    }
+  }, [dateRange, date])
 
   return (
     <div className="space-y-6">
@@ -85,19 +140,19 @@ export function ReportsPage() {
         </TabsList>
 
         <TabsContent value="sales" className="space-y-4">
-          <SalesReportDashboard dateRange={dateRange} />
+          <SalesReportDashboard dateRange={dateRange} startDate={startDate} endDate={endDate} />
         </TabsContent>
 
         <TabsContent value="inventory" className="space-y-4">
-          <InventoryReportDashboard dateRange={dateRange} />
+          <InventoryReportDashboard dateRange={dateRange} startDate={startDate} endDate={endDate} />
         </TabsContent>
 
         <TabsContent value="financial" className="space-y-4">
-          <FinancialReportDashboard dateRange={dateRange} />
+          <FinancialReportDashboard dateRange={dateRange} startDate={startDate} endDate={endDate} />
         </TabsContent>
 
         <TabsContent value="customer" className="space-y-4">
-          <CustomerReportDashboard dateRange={dateRange} />
+          <CustomerReportDashboard dateRange={dateRange} startDate={startDate} endDate={endDate} />
         </TabsContent>
       </Tabs>
     </div>

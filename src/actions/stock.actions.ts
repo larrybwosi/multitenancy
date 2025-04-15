@@ -1,1502 +1,485 @@
 "use server";
 
-import {
-  Prisma,
-  Stock,
-  StockTransaction,
-  StockTransactionType,
-} from "@prisma/client";
-import { db as prisma } from "@/lib/db";
+import { z } from "zod";
+import prisma from "@/lib/db";
+import { revalidatePath } from "next/cache";
+import { Prisma, StockAdjustmentReason } from "@prisma/client";
+import { getServerAuthContext } from "./auth";
+import { handleApiError } from "@/lib/api-utils";
+import { CreateStockAdjustmentSchema } from "@/lib/validations/schemas";
+
+const RestockSchema = z.object({
+  productId: z.string().cuid(),
+  variantId: z.string().cuid().optional().nullable(), // Assuming variants might exist later
+  batchNumber: z.string().optional().nullable(),
+  initialQuantity: z.coerce
+    .number()
+    .int()
+    .positive("Quantity must be positive"),
+  purchasePrice: z.coerce
+    .number()
+    .min(0, "Purchase price must be non-negative"),
+  expiryDate: z.coerce.date().optional().nullable(),
+  location: z.string().optional().nullable(),
+  purchaseItemId: z.string().cuid().optional().nullable(), // Optional link to purchase
+});
 
 
-// --- Helper Types ---
+// --- Server Actions ---
 
-interface ActionResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  validationErrors?: Record<string, string>; // For specific field errors
-}
-
-interface StockOverviewData {
-  organizationId: string;
-  totalStockQuantity: Prisma.Decimal;
-  totalStockValue: Prisma.Decimal;
-  numberOfProducts: number;
-  numberOfProductsWithStock: number; // Number of distinct products that currently have stock > 0
-  potentialProfitOnCurrentStock: Prisma.Decimal;
-  mostSoldProduct?: {
-    productId: string;
-    name: string | null;
-    totalSold: Prisma.Decimal;
-  };
-  highestRevenueProduct?: {
-    productId: string;
-    name: string | null;
-    totalRevenue: Prisma.Decimal;
-  };
-  productWithHighestPotentialProfit?: {
-    productId: string;
-    name: string | null;
-    potentialProfit: Prisma.Decimal;
-  };
-  lowStockProducts: {
-    productId: string;
-    name: string | null;
-    quantity: Prisma.Decimal;
-  }[];
-  expiringSoonStock: {
-    stockId: string;
-    productId: string;
-    productName: string | null;
-    batchNumber: string | null;
-    quantity: Prisma.Decimal;
-    expiryDate: Date;
-  }[];
-  totalSpoiledValueEstimate: Prisma.Decimal; // Estimate based on available stock costs
-}
-
-// --- Authorization Placeholder ---
-// Replace this with your actual authorization logic
-async function checkUserAuthorization(
-  userId: string,
-  organizationId: string
-): Promise<boolean> {
-  // Example: Check if user is a member of the organization
-  const member = await prisma.member.findUnique({
-    where: {
-      userId_organizationId: {
-        userId: userId,
-        organizationId: organizationId,
-      },
-    },
-  });
-  // Add role checks if needed (e.g., allow only admin/staff)
-  return !!member;
-  // return true; // Placeholder - REMOVE IN PRODUCTION
-}
-
-// --- Overview Function ---
 
 /**
- * Provides a comprehensive overview of the stock for a given organization.
- * @param organizationId - The ID of the organization.
- * @param userId - The ID of the user performing the action (for authorization).
- * @param lowStockThreshold - The quantity threshold below which a product is considered low stock (default: 10).
- * @param expiringSoonDays - The number of days within which stock is considered expiring soon (default: 30).
+ * Fetches products considered "low stock" based on their reorder points.
  */
-export async function getStockOverview(
-  organizationId: string,
-  userId: string, // Needed for authorization check
-  lowStockThreshold: number = 10,
-  expiringSoonDays: number = 30
-): Promise<ActionResponse<StockOverviewData>> {
-  // TODO: Implement proper authorization check
-  if (!(await checkUserAuthorization(userId, organizationId))) {
-    return { success: false, error: "Unauthorized" };
-  }
-
+export async function getLowStockProducts() {
+  // TODO: Auth checks
   try {
-    // --- Calculate Core Metrics ---
-    const stockAggregations = await prisma.stock.aggregate({
-      _sum: {
-        quantityAvailable: true,
-      },
+    // Fetch all active products (potentially filter by org)
+    const products = await prisma.product.findMany({
       where: {
-        organizationId: organizationId,
-        quantityAvailable: { gt: 0 }, // Only consider stock with quantity > 0 for value/profit
-      },
-    });
-
-    const allStockEntries = await prisma.stock.findMany({
-      where: {
-        organizationId: organizationId,
-        quantityAvailable: { gt: 0 },
-      },
-      include: { product: true }, // Include product for selling price
-    });
-
-    const totalStockQuantity =
-      stockAggregations._sum.quantityAvailable ?? new Prisma.Decimal(0);
-    const totalStockValue = allStockEntries.reduce((sum, stock) => {
-      return sum.add(stock.quantityAvailable.mul(stock.buyingPricePerUnit));
-    }, new Prisma.Decimal(0));
-
-    const potentialProfitOnCurrentStock = allStockEntries.reduce(
-      (sum, stock) => {
-        const profitPerUnit = stock.product.currentSellingPrice.sub(
-          stock.buyingPricePerUnit
-        );
-        // Only add if selling price is higher than buying price
-        if (profitPerUnit.gt(0)) {
-          return sum.add(stock.quantityAvailable.mul(profitPerUnit));
-        }
-        return sum;
-      },
-      new Prisma.Decimal(0)
-    );
-
-    const productCount = await prisma.product.count({
-      where: { organizationId: organizationId, isActive: true },
-    });
-
-    const productsWithStockCount = await prisma.stock.groupBy({
-      by: ["productId"],
-      where: { organizationId: organizationId, quantityAvailable: { gt: 0 } },
-      _sum: { quantityAvailable: true },
-    });
-    const numberOfProductsWithStock = productsWithStockCount.length;
-
-    // --- Calculate Most Sold Product ---
-    // Note: Sums absolute value of quantityChange for SALES
-    const salesTransactions = await prisma.stockTransaction.groupBy({
-      by: ["productId"],
-      _sum: {
-        quantityChange: true, // Sums the negative changes
-      },
-      where: {
-        organizationId: organizationId,
-        type: StockTransactionType.SALE,
-      },
-      orderBy: {
-        _sum: {
-          quantityChange: "asc", // Most negative sum means most sold
-        },
-      },
-      take: 1,
-    });
-
-    let mostSoldProductData: StockOverviewData["mostSoldProduct"] = undefined;
-    if (
-      salesTransactions.length > 0 &&
-      salesTransactions[0]._sum.quantityChange
-    ) {
-      const topProductId = salesTransactions[0].productId;
-      const productInfo = await prisma.product.findUnique({
-        where: { id: topProductId },
-        select: { name: true },
-      });
-      mostSoldProductData = {
-        productId: topProductId,
-        name: productInfo?.name ?? "Unknown Product",
-        totalSold: salesTransactions[0]._sum.quantityChange.abs(), // Absolute value
-      };
-    }
-
-    // --- Calculate Highest Revenue Generating Product ---
-    const revenueData = await prisma.orderItem.groupBy({
-      by: ["productId"],
-      _sum: {
-        totalPrice: true, // Sum of (quantity * unitPriceAtSale)
-      },
-      where: {
-        order: {
-          organizationId: organizationId,
-          // Optionally filter by completed/paid orders
-          // status: { in: [OrderStatus.COMPLETED, OrderStatus.PAID, OrderStatus.DELIVERED, OrderStatus.SHIPPED]}
-        },
-      },
-      orderBy: {
-        _sum: {
-          totalPrice: "desc",
-        },
-      },
-      take: 1,
-    });
-
-    let highestRevenueProductData: StockOverviewData["highestRevenueProduct"] =
-      undefined;
-    if (revenueData.length > 0 && revenueData[0]._sum.totalPrice) {
-      const topRevenueProductId = revenueData[0].productId;
-      const productInfo = await prisma.product.findUnique({
-        where: { id: topRevenueProductId },
-        select: { name: true },
-      });
-      highestRevenueProductData = {
-        productId: topRevenueProductId,
-        name: productInfo?.name ?? "Unknown Product",
-        totalRevenue: revenueData[0]._sum.totalPrice,
-      };
-    }
-
-    // --- Calculate Product with Highest Potential Profit ---
-    let highestPotentialProfitProductData: StockOverviewData["productWithHighestPotentialProfit"] =
-      undefined;
-    if (allStockEntries.length > 0) {
-      const profitByProduct = allStockEntries.reduce((acc, stock) => {
-        const profitPerUnit = stock.product.currentSellingPrice.sub(
-          stock.buyingPricePerUnit
-        );
-        if (profitPerUnit.gt(0)) {
-          const potentialProfit = stock.quantityAvailable.mul(profitPerUnit);
-          const current = acc.get(stock.productId) ?? {
-            name: stock.product.name,
-            profit: new Prisma.Decimal(0),
-          };
-          current.profit = current.profit.add(potentialProfit);
-          acc.set(stock.productId, current);
-        }
-        return acc;
-      }, new Map<string, { name: string | null; profit: Prisma.Decimal }>());
-
-      let maxProfit = new Prisma.Decimal(-Infinity);
-      let maxProductId = "";
-      let maxProductName: string | null = null;
-
-      profitByProduct.forEach((data, productId) => {
-        if (data.profit.gt(maxProfit)) {
-          maxProfit = data.profit;
-          maxProductId = productId;
-          maxProductName = data.name;
-        }
-      });
-
-      if (maxProductId) {
-        highestPotentialProfitProductData = {
-          productId: maxProductId,
-          name: maxProductName ?? "Unknown Product",
-          potentialProfit: maxProfit,
-        };
-      }
-    }
-
-    // --- Find Low Stock Products ---
-    const productStockLevels = await prisma.stock.groupBy({
-      by: ["productId"],
-      _sum: {
-        quantityAvailable: true,
-      },
-      where: {
-        organizationId: organizationId,
-      },
-    });
-
-    const lowStockProductIds = productStockLevels
-      .filter((p) =>
-        (p._sum.quantityAvailable ?? new Prisma.Decimal(0)).lte(lowStockThreshold)
-      )
-      .map((p) => p.productId);
-
-    const lowStockProductsDetails = await prisma.product.findMany({
-      where: {
-        id: { in: lowStockProductIds },
-        organizationId: organizationId, // Ensure correct org
-      },
-      select: { id: true, name: true },
-    });
-
-    const lowStockProductsResult = lowStockProductsDetails.map((p) => {
-      const stockLevel = productStockLevels.find(
-        (psl) => psl.productId === p.id
-      );
-      return {
-        productId: p.id,
-        name: p.name,
-        quantity: stockLevel?._sum.quantityAvailable ?? new Prisma.Decimal(0),
-      };
-    });
-
-    // --- Find Expiring Soon Stock ---
-    const soonExpiryDate = new Date();
-    soonExpiryDate.setDate(soonExpiryDate.getDate() + expiringSoonDays);
-
-    const expiringStock = await prisma.stock.findMany({
-      where: {
-        organizationId: organizationId,
-        expiryDate: {
-          lte: soonExpiryDate, // Less than or equal to the future date
-          gte: new Date(), // Greater than or equal to today (not already expired)
-        },
-        quantityAvailable: { gt: 0 },
+        isActive: true,
+        // organizationId: organizationId // Add if products linked to org
       },
       include: {
-        product: { select: { name: true } },
-      },
-      orderBy: {
-        expiryDate: "asc",
+        // Include base product batches (no variant link)
+        stockBatches: {
+          select: { currentQuantity: true },
+          where: { variantId: null, currentQuantity: { gt: 0 } },
+        },
+        // Include variants and their batches
+        variants: {
+          where: { isActive: true },
+          include: {
+            stockBatches: {
+              select: { currentQuantity: true },
+              where: { currentQuantity: { gt: 0 } },
+            },
+          },
+        },
       },
     });
 
-    const expiringSoonStockResult = expiringStock.map((s) => ({
-      stockId: s.id,
-      productId: s.productId,
-      productName: s.product.name,
-      batchNumber: s.batchNumber,
-      quantity: s.quantityAvailable,
-      expiryDate: s.expiryDate!, // We know it's not null from the query
+    const lowStockItems: Array<{
+      type: "product" | "variant";
+      id: string;
+      name: string;
+      sku: string;
+      currentStock: number;
+      reorderPoint: number;
+      productId: string;
+      productName: string;
+    }> = [];
+
+    products.forEach((p) => {
+      // Calculate base product stock
+      const baseStock = p.stockBatches.reduce(
+        (sum, batch) => sum + batch.currentQuantity,
+        0
+      );
+
+      // Check if base product itself is low stock (only if no variants or if base product tracked separately)
+      // This logic depends on whether base product SKU can be sold if variants exist.
+      // Assuming base product stock matters if variants *don't* exist OR if explicitly tracked.
+      // Let's simplify: check base product stock *if* it has a reorder point defined (implicitly meaning it's tracked).
+      if (p.reorderPoint !== null && baseStock <= p.reorderPoint) {
+        // Check if variants exist - if they do, maybe only variants matter? Depends on business logic.
+        // For now, report base product low stock if below its reorder point.
+        if (p.variants.length === 0) {
+          // Only report base product if no variants exist
+          lowStockItems.push({
+            type: "product",
+            id: p.id,
+            name: p.name,
+            sku: p.sku,
+            currentStock: baseStock,
+            reorderPoint: p.reorderPoint,
+            productId: p.id,
+            productName: p.name,
+          });
+        }
+      }
+
+      // Check each active variant for low stock
+      p.variants.forEach((v) => {
+        const variantStock = v.stockBatches.reduce(
+          (sum, batch) => sum + batch.currentQuantity,
+          0
+        );
+        if (v.reorderPoint !== null && variantStock <= v.reorderPoint) {
+          lowStockItems.push({
+            type: "variant",
+            id: v.id,
+            name: v.name,
+            sku: v.sku,
+            currentStock: variantStock,
+            reorderPoint: v.reorderPoint,
+            productId: p.id,
+            productName: p.name,
+          });
+        }
+      });
+    });
+
+    return { data: lowStockItems };
+  } catch (error) {
+    console.error("Error fetching low stock products:", error);
+    return { error: "Failed to fetch low stock products." };
+  }
+}
+
+/**
+ * Adds a new stock batch for a product or variant.
+ */
+export async function addStockBatch(formData: FormData) {
+  // const context = await getServerAuthContext();
+  // const { organizationId, userId } = context;
+
+  const rawData = Object.fromEntries(formData.entries());
+
+  // Prepare data for validation
+  const dataToValidate = {
+    ...rawData,
+    // Ensure numeric types are handled correctly by coerce
+    initialQuantity: rawData.initialQuantity,
+    purchasePrice: rawData.purchasePrice,
+    // Parse date string if present
+    expiryDate:
+      rawData.expiryDate && rawData.expiryDate !== ""
+        ? new Date(rawData.expiryDate as string)
+        : null,
+  };
+
+  const validatedFields = RestockSchema.safeParse(dataToValidate);
+
+  if (!validatedFields.success) {
+    console.error(
+      "Validation Errors (addStockBatch):",
+      validatedFields.error.flatten().fieldErrors
+    );
+    return {
+      error: "Validation failed.",
+      fieldErrors: validatedFields.error.flatten().fieldErrors,
+    };
+  }
+
+  const data = validatedFields.data;
+
+  try {
+    const newBatch = await prisma.stockBatch.create({
+      //@ts-expect-error This is fine
+      data: {
+        productId: data.productId,
+        variantId: data.variantId || undefined, // Use undefined if null/empty
+        batchNumber: data.batchNumber || undefined,
+        initialQuantity: data.initialQuantity,
+        currentQuantity: data.initialQuantity, // Current quantity starts same as initial
+        purchasePrice: new Prisma.Decimal(data.purchasePrice),
+        expiryDate: data.expiryDate || undefined,
+        // Connect to location using locationId
+        location: data.location
+          ? { connect: { id: data.location } }
+          : undefined,
+        // Connect to purchase item if ID is provided
+        purchaseItem: data.purchaseItemId
+          ? { connect: { id: data.purchaseItemId } }
+          : undefined,
+        // Add user/member relation if batch needs tracking
+        // createdBy: { connect: { id: userId } },
+      },
+    });
+
+    revalidatePath("/inventory"); // Or wherever stock is displayed
+    revalidatePath(`/products/${data.productId}`);
+    return { success: true, data: newBatch };
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+
+/**
+ * Fetches stock batches with filtering and pagination.
+ */
+export async function getStockBatches(
+  options: {
+    productId?: string;
+    variantId?: string | null; // Allow explicitly querying for base product batches (null)
+    locationId?: string;
+    includeProduct?: boolean;
+    includeVariant?: boolean;
+    activeOnly?: boolean; // Only batches with currentQuantity > 0
+    expired?: boolean; // Filter by expiry date
+    page?: number;
+    limit?: number;
+    organizationId?: string; // If batches are org-specific
+  } = {}
+) {
+  const {
+    productId,
+    variantId, // If undefined, fetches all for product; if null, fetches base only; if string, fetches specific variant
+    locationId,
+    includeProduct = true,
+    includeVariant = true,
+    activeOnly = true,
+    expired, // undefined = don't filter, true = expired, false = not expired
+    page = 1,
+    limit = 20,
+  } = options;
+
+  const skip = (page - 1) * limit;
+  const now = new Date();
+
+  const where: Prisma.StockBatchWhereInput = {
+    ...(productId && { productId }),
+    // Handle variantId filtering: undefined = no filter, null = base product, string = specific variant
+    ...(variantId !== undefined && { variantId: variantId }),
+    ...(locationId && { locationId }),
+    ...(activeOnly && { currentQuantity: { gt: 0 } }),
+    ...(expired === true && { expiryDate: { not: null, lt: now } }),
+    ...(expired === false && {
+      OR: [{ expiryDate: null }, { expiryDate: { gte: now } }],
+    }),
+    // product: { organizationId: organizationId } // Add org filtering if applicable
+  };
+
+  try {
+    const [batches, totalBatches] = await prisma.$transaction([
+      prisma.stockBatch.findMany({
+        where,
+        include: {
+          product: includeProduct
+            ? { select: { id: true, name: true, sku: true, basePrice: true } }
+            : false,
+          variant: includeVariant
+            ? {
+                select: {
+                  id: true,
+                  name: true,
+                  sku: true,
+                  priceModifier: true,
+                },
+              }
+            : false,
+          purchaseItem: { select: { id: true, purchaseId: true } }, // Include link to purchase if needed
+          location: { select: { id: true, name: true } }, // Include location info
+        },
+        orderBy: {
+          // Order by expiry date (soonest first), then received date
+          expiryDate: "asc",
+          receivedDate: "asc",
+        },
+        skip,
+        take: limit,
+      }),
+      prisma.stockBatch.count({ where }),
+    ]);
+
+    // Clean data for client, convert Decimals
+    const cleanBatches = batches.map((batch) => ({
+      ...batch,
+      purchasePrice: batch.purchasePrice.toString(),
+      product: batch.product
+        ? { ...batch.product, basePrice: batch.product.basePrice.toString() }
+        : null,
+      variant: batch.variant
+        ? {
+            ...batch.variant,
+            priceModifier: batch.variant.priceModifier.toString(),
+          }
+        : null,
+      // Ensure nested objects are serializable if needed elsewhere
+      purchaseItem: batch.purchaseItem ? { ...batch.purchaseItem } : null,
+      location: batch.location ? { ...batch.location } : null,
     }));
 
-    // --- Estimate Total Spoiled Value ---
-    // This requires knowing the buying price of the *specific* stock that was spoiled.
-    // We look for SPOILAGE transactions WITH a stockId link.
-    const spoilageTransactions = await prisma.stockTransaction.findMany({
-      where: {
-        organizationId: organizationId,
-        type: StockTransactionType.SPOILAGE,
-        stockId: { not: null }, // Crucial: Need the link to get cost
-      },
-      include: {
-        stock: {
-          // Include the related stock batch (even if quantity is now 0)
-          select: { buyingPricePerUnit: true },
-        },
-      },
-    });
-
-    const totalSpoiledValueEstimate = spoilageTransactions.reduce((sum, tx) => {
-      // If the linked stock entry was deleted or somehow unavailable, skip
-      if (tx.stock) {
-        const quantitySpoiled = tx.quantityChange.abs(); // Quantity is negative in tx
-        const value = quantitySpoiled.mul(tx.stock.buyingPricePerUnit);
-        return sum.add(value);
-      }
-      // Add a note in real logs if tx.stock is null - data integrity issue
-      console.warn(
-        `Could not calculate spoiled value for StockTransaction ${tx.id} due to missing linked Stock data.`
-      );
-      return sum;
-    }, new Prisma.Decimal(0));
-
-    // --- Assemble Overview Data ---
-    const overviewData: StockOverviewData = {
-      organizationId,
-      totalStockQuantity,
-      totalStockValue,
-      numberOfProducts: productCount,
-      numberOfProductsWithStock,
-      potentialProfitOnCurrentStock,
-      mostSoldProduct: mostSoldProductData,
-      highestRevenueProduct: highestRevenueProductData,
-      productWithHighestPotentialProfit: highestPotentialProfitProductData,
-      lowStockProducts: lowStockProductsResult,
-      expiringSoonStock: expiringSoonStockResult,
-      totalSpoiledValueEstimate,
-    };
-
-    return { success: true, data: overviewData };
-  } catch (error) {
-    console.error("Error generating stock overview:", error);
-    // Consider more specific error handling or logging
-    return { success: false, error: "Failed to generate stock overview." };
-  }
-}
-
-// --- Stock CRUD Actions ---
-
-interface AddStockBatchInput {
-  organizationId: string;
-  productId: string;
-  quantity: string | number | Prisma.Decimal; // Allow string/number for flexibility, convert to Prisma.Decimal
-  buyingPricePerUnit: string | number | Prisma.Decimal;
-  unit: string; // Should ideally validate against Product.unit
-  supplierId?: string;
-  batchNumber?: string;
-  purchaseDate?: Date | string; // Allow string for flexibility
-  expiryDate?: Date | string | null;
-  notes?: string;
-  userId: string; // User performing the action
-}
-
-/**
- * Adds a new batch of stock and creates a corresponding PURCHASE transaction.
- * Uses Prisma transaction for atomicity.
- */
-export async function addStockBatch(
-  input: AddStockBatchInput
-): Promise<ActionResponse<{ stock: Stock; transaction: StockTransaction }>> {
-  // TODO: Implement proper authorization check
-  // if (!(await checkUserAuthorization(input.userId, input.organizationId))) {
-  //   return { success: false, error: "Unauthorized" };
-  // }
-
-  try {
-    const quantityDecimal = new Prisma.Decimal(input.quantity);
-    const buyingPriceDecimal = new Prisma.Decimal(input.buyingPricePerUnit);
-
-    if (quantityDecimal.lte(0)) {
-      return { success: false, error: "Quantity must be positive." };
-    }
-    if (buyingPriceDecimal.lt(0)) {
-      return { success: false, error: "Buying price cannot be negative." };
-    }
-
-    // Validate product exists and belongs to the organization
-    const product = await prisma.product.findUnique({
-      where: { id: input.productId, organizationId: input.organizationId },
-    });
-    if (!product) {
-      return {
-        success: false,
-        error: `Product with ID ${input.productId} not found in this organization.`,
-      };
-    }
-    // Optional: Validate input.unit matches product.unit
-    if (input.unit !== product.unit) {
-      console.warn(
-        `Stock batch unit '${input.unit}' differs from product unit '${product.unit}' for product ${input.productId}`
-      );
-      // Decide whether to return error or just warn based on requirements
-      // return { success: false, error: `Unit mismatch: Expected '${product.unit}', got '${input.unit}'.` };
-    }
-
-    // Validate supplier if provided
-    if (input.supplierId) {
-      const supplier = await prisma.supplier.findUnique({
-        where: { id: input.supplierId, organizationId: input.organizationId },
-      });
-      if (!supplier) {
-        return {
-          success: false,
-          error: `Supplier with ID ${input.supplierId} not found in this organization.`,
-        };
-      }
-    }
-
-    const result = await prisma.$transaction(async (tx) => {
-      const newStock = await tx.stock.create({
-        data: {
-          organizationId: input.organizationId,
-          productId: input.productId,
-          quantityAvailable: quantityDecimal,
-          buyingPricePerUnit: buyingPriceDecimal,
-          unit: input.unit, // Store the unit provided for the batch
-          supplierId: input.supplierId,
-          batchNumber: input.batchNumber,
-          purchaseDate: input.purchaseDate
-            ? new Date(input.purchaseDate)
-            : new Date(),
-          expiryDate: input.expiryDate ? new Date(input.expiryDate) : null,
-          notes: input.notes,
-        },
-      });
-
-      const newTransaction = await tx.stockTransaction.create({
-        data: {
-          organizationId: input.organizationId,
-          productId: input.productId,
-          stockId: newStock.id, // Link to the specific batch created
-          type: StockTransactionType.PURCHASE,
-          quantityChange: quantityDecimal, // Positive for purchase
-          createdById: input.userId,
-          transactionDate: new Date(),
-          reason: "Initial batch purchase/restock", // Default reason
-        },
-      });
-
-      return { stock: newStock, transaction: newTransaction };
-    });
-
-    return { success: true, data: result };
-  } catch (error) {
-    console.error("Error adding stock batch:", error);
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      // Handle specific Prisma errors if needed (e.g., unique constraint violation)
-      return { success: false, error: `Database error: ${error.code}` };
-    }
-    return { success: false, error: "Failed to add stock batch." };
-  }
-}
-
-interface UpdateStockBatchInput {
-  stockId: string;
-  organizationId: string;
-  userId: string; // User performing action
-  // Fields allowed to update directly (Quantity is updated via transactions)
-  buyingPricePerUnit?: string | number | Prisma.Decimal;
-  batchNumber?: string | null;
-  purchaseDate?: Date | string | null;
-  expiryDate?: Date | string | null;
-  notes?: string | null;
-  supplierId?: string | null; // Allow updating/removing supplier link
-}
-
-/**
- * Updates non-quantity details of a specific stock batch.
- * Quantity updates MUST go through transaction actions (adjustment, sale, etc.).
- */
-export async function updateStockBatchDetails(
-  input: UpdateStockBatchInput
-): Promise<ActionResponse<Stock>> {
-  // TODO: Implement proper authorization check
-  // if (!(await checkUserAuthorization(input.userId, input.organizationId))) {
-  //   return { success: false, error: "Unauthorized" };
-  // }
-
-  try {
-    // Ensure the stock batch exists and belongs to the organization
-    const existingStock = await prisma.stock.findUnique({
-      where: { id: input.stockId, organizationId: input.organizationId },
-    });
-    if (!existingStock) {
-      return {
-        success: false,
-        error: `Stock batch with ID ${input.stockId} not found.`,
-      };
-    }
-
-    // Prepare update data, converting types as needed
-    const updateData: Prisma.StockUpdateInput = {};
-    if (input.buyingPricePerUnit !== undefined) {
-      const price = new Prisma.Decimal(input.buyingPricePerUnit);
-      if (price.lt(0)) {
-        return { success: false, error: "Buying price cannot be negative." };
-      }
-      updateData.buyingPricePerUnit = price;
-    }
-    if (input.batchNumber !== undefined)
-      updateData.batchNumber = input.batchNumber;
-    if (input.purchaseDate !== undefined)
-      updateData.purchaseDate = input.purchaseDate
-        ? new Date(input.purchaseDate)
-        : null;
-    if (input.expiryDate !== undefined)
-      updateData.expiryDate = input.expiryDate
-        ? new Date(input.expiryDate)
-        : null;
-    if (input.notes !== undefined) updateData.notes = input.notes;
-    if (input.supplierId !== undefined) {
-      // If setting a supplier, validate it exists in the org
-      if (input.supplierId) {
-        const supplier = await prisma.supplier.findUnique({
-          where: { id: input.supplierId, organizationId: input.organizationId },
-        });
-        if (!supplier) {
-          return {
-            success: false,
-            error: `Supplier with ID ${input.supplierId} not found.`,
-          };
-        }
-      }
-      updateData.supplier = input.supplierId
-        ? { connect: { id: input.supplierId } }
-        : { disconnect: true };
-    }
-
-    if (Object.keys(updateData).length === 0) {
-      return { success: false, error: "No valid fields provided for update." };
-    }
-
-    const updatedStock = await prisma.stock.update({
-      where: { id: input.stockId },
-      data: updateData,
-    });
-
-    return { success: true, data: updatedStock };
-  } catch (error) {
-    console.error("Error updating stock batch details:", error);
-    return { success: false, error: "Failed to update stock batch details." };
-  }
-}
-
-/**
- * Retrieves details for a specific stock batch.
- */
-export async function getStockBatch(
-  organizationId: string,
-  stockId: string,
-): Promise<ActionResponse<Stock>> {
-  // TODO: Implement proper authorization check
-  // if (!(await checkUserAuthorization(userId, organizationId))) {
-  //   return { success: false, error: "Unauthorized" };
-  // }
-  try {
-    const stock = await prisma.stock.findUnique({
-      where: { id: stockId, organizationId: organizationId },
-      include: { product: true, supplier: true }, // Include related data
-    });
-    if (!stock) {
-      return { success: false, error: "Stock batch not found." };
-    }
-    return { success: true, data: stock };
-  } catch (error) {
-    console.error("Error getting stock batch:", error);
-    return { success: false, error: "Failed to retrieve stock batch." };
-  }
-}
-
-interface ListStockBatchesInput {
-  organizationId: string;
-  userId: string;
-  productId?: string;
-  supplierId?: string;
-  expiringBefore?: Date | string;
-  hasQuantity?: boolean; // Filter for batches with quantity > 0
-  includeProduct?: boolean;
-  includeSupplier?: boolean;
-  page?: number;
-  pageSize?: number;
-}
-
-/**
- * Lists stock batches with optional filtering and pagination.
- */
-export async function listStockBatches(
-  input: ListStockBatchesInput
-): Promise<ActionResponse<{ stockBatches: Stock[]; totalCount: number }>> {
-  // TODO: Implement proper authorization check
-  // if (!(await checkUserAuthorization(input.userId, input.organizationId))) {
-  //   return { success: false, error: "Unauthorized" };
-  // }
-  try {
-    const {
-      organizationId,
-      page = 1,
-      pageSize = 20,
-      includeProduct,
-      includeSupplier,
-      ...filters
-    } = input;
-    const skip = (page - 1) * pageSize;
-
-    const where: Prisma.StockWhereInput = {
-      organizationId: organizationId,
-    };
-    if (filters.productId) where.productId = filters.productId;
-    if (filters.supplierId) where.supplierId = filters.supplierId;
-    if (filters.expiringBefore)
-      where.expiryDate = { lte: new Date(filters.expiringBefore) };
-    if (filters.hasQuantity) where.quantityAvailable = { gt: 0 };
-
-    const [stockBatches, totalCount] = await prisma.$transaction([
-      prisma.stock.findMany({
-        where,
-        include: {
-          product: includeProduct ?? false,
-          supplier: includeSupplier ?? false,
-        },
-        orderBy: { createdAt: "desc" }, // Or purchaseDate, expiryDate etc.
-        skip: skip,
-        take: pageSize,
-      }),
-      prisma.stock.count({ where }),
-    ]);
-
-    return { success: true, data: { stockBatches, totalCount } };
-  } catch (error) {
-    console.error("Error listing stock batches:", error);
-    return { success: false, error: "Failed to list stock batches." };
-  }
-}
-
-// --- Stock Transaction Actions ---
-
-interface RecordAdjustmentInput {
-  organizationId: string;
-  userId: string;
-  stockId: string; // Mandatory: Must adjust a specific batch
-  quantityChange: string | number | Prisma.Decimal; // Positive for increase, Negative for decrease
-  reason: string;
-  transactionDate?: Date | string;
-}
-
-/**
- * Records a manual stock adjustment for a SPECIFIC batch and updates its quantity.
- * Uses Prisma transaction for atomicity.
- */
-export async function recordStockAdjustment(
-  input: RecordAdjustmentInput
-): Promise<ActionResponse<{ stock: Stock; transaction: StockTransaction }>> {
-  // TODO: Implement proper authorization check
-  // if (!(await checkUserAuthorization(input.userId, input.organizationId))) {
-  //   return { success: false, error: "Unauthorized" };
-  // }
-
-  try {
-    const quantityChange = new Prisma.Decimal(input.quantityChange);
-
-    if (quantityChange.isZero()) {
-      return {
-        success: false,
-        error: "Quantity change cannot be zero for an adjustment.",
-      };
-    }
-
-    const result = await prisma.$transaction(async (tx) => {
-      // 1. Find the stock batch to ensure it exists and belongs to the org
-      const stock = await tx.stock.findUnique({
-        where: { id: input.stockId, organizationId: input.organizationId },
-        select: { id: true, productId: true, quantityAvailable: true }, // Select needed fields
-      });
-
-      if (!stock) {
-        throw new Error(
-          `Stock batch with ID ${input.stockId} not found in organization ${input.organizationId}.`
-        );
-      }
-
-      // 2. Calculate the new quantity
-      const newQuantity = stock.quantityAvailable.add(quantityChange);
-
-      // 3. Check for negative stock (optional, based on business rules)
-      if (newQuantity.isNegative()) {
-        throw new Error(
-          `Adjustment results in negative stock quantity (${newQuantity}) for batch ${input.stockId}.`
-        );
-      }
-
-      // 4. Update the stock batch quantity
-      const updatedStock = await tx.stock.update({
-        where: { id: input.stockId },
-        data: { quantityAvailable: newQuantity },
-      });
-
-      // 5. Create the stock transaction record
-      const transaction = await tx.stockTransaction.create({
-        data: {
-          organizationId: input.organizationId,
-          productId: stock.productId, // Get productId from the fetched stock
-          stockId: input.stockId,
-          type: StockTransactionType.ADJUSTMENT,
-          quantityChange: quantityChange,
-          reason: input.reason,
-          createdById: input.userId,
-          transactionDate: input.transactionDate
-            ? new Date(input.transactionDate)
-            : new Date(),
-        },
-      });
-
-      return { stock: updatedStock, transaction };
-    });
-
-    return { success: true, data: result };
-  } catch (error: any) {
-    console.error("Error recording stock adjustment:", error);
     return {
-      success: false,
-      error: error.message || "Failed to record stock adjustment.",
-    };
-  }
-}
-
-interface RecordSpoilageInput {
-  organizationId: string;
-  userId: string;
-  stockId: string; // Mandatory: Must spoil a specific batch to know cost/details
-  quantitySpoiled: string | number | Prisma.Decimal; // Positive number representing amount spoiled
-  reason: string;
-  transactionDate?: Date | string;
-}
-
-/**
- * Records stock spoilage for a SPECIFIC batch and updates its quantity.
- * Uses Prisma transaction for atomicity.
- */
-export async function recordSpoilage(
-  input: RecordSpoilageInput
-): Promise<ActionResponse<{ stock: Stock; transaction: StockTransaction }>> {
-  // TODO: Implement proper authorization check
-  // if (!(await checkUserAuthorization(input.userId, input.organizationId))) {
-  //   return { success: false, error: "Unauthorized" };
-  // }
-  try {
-    const quantitySpoiledDecimal = new Prisma.Decimal(input.quantitySpoiled);
-    if (quantitySpoiledDecimal.lte(0)) {
-      return {
-        success: false,
-        error: "Quantity spoiled must be a positive value.",
-      };
-    }
-
-    // Quantity change for the transaction is negative
-    const quantityChange = quantitySpoiledDecimal.negated();
-
-    // Delegate to the adjustment function with the correct type
-    const adjustmentResult = await recordStockAdjustment({
-      organizationId: input.organizationId,
-      userId: input.userId,
-      stockId: input.stockId,
-      quantityChange: quantityChange, // Pass the negative value
-      reason: `Spoilage: ${input.reason}`, // Prepend context
-      transactionDate: input.transactionDate,
-    });
-
-    if (!adjustmentResult.success || !adjustmentResult.data) {
-      // Propagate the error from the adjustment function
-      return {
-        success: false,
-        error:
-          adjustmentResult.error ??
-          "Failed to process spoilage via adjustment.",
-      };
-    }
-
-    // If adjustment was successful, update the transaction type to SPOILAGE
-    const updatedTransaction = await prisma.stockTransaction.update({
-      where: { id: adjustmentResult.data.transaction.id },
-      data: { type: StockTransactionType.SPOILAGE },
-    });
-
-    return {
-      success: true,
-      data: {
-        stock: adjustmentResult.data.stock,
-        transaction: updatedTransaction,
+      data: cleanBatches,
+      meta: {
+        totalBatches,
+        totalPages: Math.ceil(totalBatches / limit),
+        currentPage: page,
+        pageSize: limit,
       },
     };
-  } catch (error: any) {
-    console.error("Error recording spoilage:", error);
-    return {
-      success: false,
-      error: error.message || "Failed to record spoilage.",
-    };
-  }
-}
-
-interface RecordReturnInput {
-  organizationId: string;
-  userId: string;
-  productId: string; // Which product is being returned
-  quantityReturned: string | number | Prisma.Decimal; // Positive value
-  reason: string;
-  relatedOrderId?: string; // Optional link to original sale
-  transactionDate?: Date | string;
-  // Option 1: Add to existing batch
-  targetStockId?: string;
-  // Option 2: Create a new batch for the return (requires cost info)
-  createAsNewBatch?: boolean;
-  buyingPriceForNewBatch?: string | number | Prisma.Decimal; // Required if createAsNewBatch=true
-  unitForNewBatch?: string; // Required if createAsNewBatch=true
-}
-
-/**
- * Records a customer return. This is complex due to deciding where the stock goes.
- * Option 1: Adds quantity to an existing specified batch (targetStockId).
- * Option 2: Creates a new stock batch for the returned items (createAsNewBatch=true).
- * Uses Prisma transaction for atomicity.
- */
-export async function recordStockReturn(
-  input: RecordReturnInput
-): Promise<ActionResponse<{ stock?: Stock; transaction: StockTransaction }>> {
-  // TODO: Implement proper authorization check
-  // if (!(await checkUserAuthorization(input.userId, input.organizationId))) {
-  //   return { success: false, error: "Unauthorized" };
-  // }
-
-  try {
-    const quantityReturnedDecimal = new Prisma.Decimal(input.quantityReturned);
-    if (quantityReturnedDecimal.lte(0)) {
-      return { success: false, error: "Quantity returned must be positive." };
-    }
-
-    // Validate targetStockId XOR createAsNewBatch is specified
-    if (input.targetStockId && input.createAsNewBatch) {
-      return {
-        success: false,
-        error:
-          "Specify either 'targetStockId' OR 'createAsNewBatch', not both.",
-      };
-    }
-    if (!input.targetStockId && !input.createAsNewBatch) {
-      return {
-        success: false,
-        error:
-          "Must specify either 'targetStockId' to add to, or 'createAsNewBatch=true' for returns.",
-      };
-    }
-
-    // Validate product exists
-    const product = await prisma.product.findUnique({
-      where: { id: input.productId, organizationId: input.organizationId },
-    });
-    if (!product) {
-      return {
-        success: false,
-        error: `Product with ID ${input.productId} not found.`,
-      };
-    }
-
-    let updatedStock: Stock | undefined = undefined;
-    let returnedStockId: string | undefined = input.targetStockId; // Will be set if new batch created
-
-    const transactionResult = await prisma.$transaction(async (tx) => {
-      if (input.targetStockId) {
-        // --- Option 1: Add to existing batch ---
-        const stockToUpdate = await tx.stock.findUnique({
-          where: {
-            id: input.targetStockId,
-            organizationId: input.organizationId,
-            productId: input.productId,
-          },
-        });
-        if (!stockToUpdate) {
-          throw new Error(
-            `Target stock batch ${input.targetStockId} not found or doesn't match product ${input.productId}.`
-          );
-        }
-        updatedStock = await tx.stock.update({
-          where: { id: input.targetStockId },
-          data: {
-            quantityAvailable: { increment: quantityReturnedDecimal },
-          },
-        });
-      } else if (input.createAsNewBatch) {
-        // --- Option 2: Create new batch ---
-        if (
-          input.buyingPriceForNewBatch === undefined ||
-          input.unitForNewBatch === undefined
-        ) {
-          throw new Error(
-            "`buyingPriceForNewBatch` and `unitForNewBatch` are required when `createAsNewBatch` is true."
-          );
-        }
-        const buyingPriceDecimal = new Prisma.Decimal(input.buyingPriceForNewBatch);
-        if (buyingPriceDecimal.lt(0)) {
-          throw new Error("Buying price for new batch cannot be negative.");
-        }
-        // Optional: Validate unitForNewBatch matches product.unit
-        if (input.unitForNewBatch !== product.unit) {
-          console.warn(
-            `Return batch unit '${input.unitForNewBatch}' differs from product unit '${product.unit}' for product ${input.productId}`
-          );
-        }
-
-        updatedStock = await tx.stock.create({
-          data: {
-            organizationId: input.organizationId,
-            productId: input.productId,
-            quantityAvailable: quantityReturnedDecimal,
-            buyingPricePerUnit: buyingPriceDecimal,
-            unit: input.unitForNewBatch,
-            batchNumber: `RETURN-${input.relatedOrderId ?? Date.now()}`, // Example batch number
-            purchaseDate: new Date(), // Treat return date as purchase date
-            notes: `Customer return. Original Order: ${input.relatedOrderId ?? "N/A"}. Reason: ${input.reason}`,
-            // expiryDate: null, // Usually returns don't have expiry unless reassessed
-          },
-        });
-        returnedStockId = updatedStock.id; // Set the ID for the transaction
-      }
-
-      // Create the RETURN transaction, linking to the affected/created stock batch
-      const transaction = await tx.stockTransaction.create({
-        data: {
-          organizationId: input.organizationId,
-          productId: input.productId,
-          stockId: returnedStockId, // Link to the specific batch affected/created
-          type: StockTransactionType.RETURN,
-          quantityChange: quantityReturnedDecimal, // Positive for return
-          reason: input.reason,
-          relatedOrderId: input.relatedOrderId,
-          createdById: input.userId,
-          transactionDate: input.transactionDate
-            ? new Date(input.transactionDate)
-            : new Date(),
-        },
-      });
-
-      return { stock: updatedStock, transaction }; // Return both
-    });
-
-    return { success: true, data: transactionResult };
-  } catch (error: any) {
-    console.error("Error recording stock return:", error);
-    return {
-      success: false,
-      error: error.message || "Failed to record stock return.",
-    };
-  }
-}
-
-interface ListStockTransactionsInput {
-  organizationId: string;
-  userId: string;
-  productId?: string;
-  stockId?: string; // Filter by specific batch
-  type?: StockTransactionType;
-  relatedOrderId?: string;
-  createdById?: string; // Filter by user who performed action
-  startDate?: Date | string;
-  endDate?: Date | string;
-  page?: number;
-  pageSize?: number;
-}
-
-/**
- * Lists stock transactions with optional filtering and pagination.
- */
-export async function listStockTransactions(
-  input: ListStockTransactionsInput
-): Promise<
-  ActionResponse<{ transactions: StockTransaction[]; totalCount: number }>
-> {
-  // TODO: Implement proper authorization check
-  // if (!(await checkUserAuthorization(input.userId, input.organizationId))) {
-  //   return { success: false, error: "Unauthorized" };
-  // }
-  try {
-    const { organizationId, page = 1, pageSize = 50, ...filters } = input;
-    const skip = (page - 1) * pageSize;
-
-    const where: Prisma.StockTransactionWhereInput = {
-      organizationId: organizationId,
-    };
-    if (filters.productId) where.productId = filters.productId;
-    if (filters.stockId) where.stockId = filters.stockId;
-    if (filters.type) where.type = filters.type;
-    if (filters.relatedOrderId) where.relatedOrderId = filters.relatedOrderId;
-    if (filters.createdById) where.createdById = filters.createdById;
-    if (filters.startDate || filters.endDate) {
-      where.transactionDate = {};
-      if (filters.startDate)
-        where.transactionDate.gte = new Date(filters.startDate);
-      if (filters.endDate)
-        where.transactionDate.lte = new Date(filters.endDate);
-    }
-
-    const [transactions, totalCount] = await prisma.$transaction([
-      prisma.stockTransaction.findMany({
-        where,
-        include: {
-          product: { select: { name: true } }, // Include product name
-          stock: { select: { batchNumber: true } }, // Include batch number if available
-          createdBy: { select: { name: true, email: true } }, // Include user details
-          relatedOrder: { select: { orderNumber: true } }, // Include order number
-        },
-        orderBy: { transactionDate: "desc" },
-        skip: skip,
-        take: pageSize,
-      }),
-      prisma.stockTransaction.count({ where }),
-    ]);
-
-    return { success: true, data: { transactions, totalCount } };
   } catch (error) {
-    console.error("Error listing stock transactions:", error);
-    return { success: false, error: "Failed to list stock transactions." };
+    console.error("Error fetching stock batches:", error);
+    return { error: "Failed to fetch stock batches." };
   }
 }
 
-// --- Creative / Advanced Actions ---
-
-interface ProcessSaleStockUpdateInput {
-  organizationId: string;
-  userId: string; // User processing the sale
-  orderId: string; // The order being fulfilled
-  items: { productId: string; quantity: string | number | Prisma.Decimal }[];
-  // Strategy for picking stock: 'FIFO' (purchaseDate), 'LIFO' (purchaseDate), 'FEFO' (expiryDate)
-  deductionStrategy?: "FIFO" | "LIFO" | "FEFO";
-}
-
 /**
- * Updates stock levels based on items sold in an order.
- * Finds appropriate stock batches based on the chosen strategy (default FIFO)
- * and creates SALE transactions for each deduction.
- * Uses Prisma transaction for atomicity.
- * IMPORTANT: This should typically be called AFTER an order is confirmed/paid.
+ * Adjusts stock for a SPECIFIC batch.
  */
-export async function processSaleStockUpdate(
-  input: ProcessSaleStockUpdateInput
-): Promise<ActionResponse<{ transactions: StockTransaction[] }>> {
-  // TODO: Implement proper authorization check
-  // if (!(await checkUserAuthorization(input.userId, input.organizationId))) {
-  //   return { success: false, error: "Unauthorized" };
-  // }
+export async function adjustStock(formData: FormData) {
+  const { userId, organizationId } = await getServerAuthContext();
 
-  const {
-    organizationId,
-    userId,
-    orderId,
-    items,
-    deductionStrategy = "FIFO",
-  } = input;
+  const rawData = Object.fromEntries(formData.entries());
 
-  try {
-    // Validate order exists and is in a state ready for stock deduction (e.g., PAID, PROCESSING)
-    const order = await prisma.order.findUnique({
-      where: { id: orderId, organizationId: organizationId },
-      select: { status: true },
-    });
-    if (!order) {
-      return { success: false, error: `Order ${orderId} not found.` };
-    }
-    // Add checks for appropriate order status if needed
-    // if (![OrderStatus.PAID, OrderStatus.PROCESSING].includes(order.status)) {
-    //    return { success: false, error: `Order ${orderId} is not in a status ready for stock deduction (current: ${order.status}).` };
-    // }
+  // Prepare for validation
+  const dataToValidate = {
+    ...rawData,
+    quantity: rawData.quantity, // Keep as string for coerce
+    // Ensure userId is correctly passed and validated
+    // userId: memberIdFromAuth, // Get this from session/auth context
+  };
 
-    const createdTransactions: StockTransaction[] = [];
+  const validatedFields = CreateStockAdjustmentSchema.safeParse(dataToValidate);
 
-    await prisma.$transaction(async (tx) => {
-      for (const item of items) {
-        const productId = item.productId;
-        let quantityToDeduct = new Prisma.Decimal(item.quantity);
-
-        if (quantityToDeduct.lte(0)) continue; // Skip zero/negative quantity items
-
-        // Determine sorting based on strategy
-        let orderBy: Prisma.StockOrderByWithRelationInput;
-        if (deductionStrategy === "FEFO") {
-          // Prioritize non-null expiry dates first, then oldest purchase date for nulls
-          orderBy = [
-            { expiryDate: "asc" /* nulls last by default */ },
-            { purchaseDate: "asc" },
-          ];
-        } else if (deductionStrategy === "LIFO") {
-          orderBy = { purchaseDate: "desc" };
-        } else {
-          // FIFO (default)
-          orderBy = { purchaseDate: "asc" };
-        }
-
-        // Find available stock batches for the product, ordered by strategy
-        const availableBatches = await tx.stock.findMany({
-          where: {
-            organizationId: organizationId,
-            productId: productId,
-            quantityAvailable: { gt: 0 },
-          },
-          orderBy: orderBy,
-        });
-
-        let deductedAmount = new Prisma.Decimal(0);
-
-        // Iterate through batches and deduct quantity
-        for (const batch of availableBatches) {
-          if (quantityToDeduct.lte(0)) break; // Fully deducted for this item
-
-          const quantityFromThisBatch = Prisma.Decimal.min(
-            quantityToDeduct,
-            batch.quantityAvailable
-          );
-
-          // Update the stock batch quantity
-          await tx.stock.update({
-            where: { id: batch.id },
-            data: {
-              quantityAvailable: { decrement: quantityFromThisBatch },
-            },
-          });
-
-          // Create the SALE transaction record
-          const transaction = await tx.stockTransaction.create({
-            data: {
-              organizationId: organizationId,
-              productId: productId,
-              stockId: batch.id, // Link to the specific batch
-              type: StockTransactionType.SALE,
-              quantityChange: quantityFromThisBatch.negated(), // Negative for sale
-              relatedOrderId: orderId,
-              createdById: userId,
-              transactionDate: new Date(),
-              reason: `Order ${orderId} fulfillment`,
-            },
-          });
-          createdTransactions.push(transaction);
-
-          quantityToDeduct = quantityToDeduct.sub(quantityFromThisBatch);
-          deductedAmount = deductedAmount.add(quantityFromThisBatch);
-        }
-
-        // Check if the full quantity could be deducted
-        if (quantityToDeduct.gt(0)) {
-          // Insufficient stock! Rollback the transaction.
-          const productInfo = await tx.product.findUnique({
-            where: { id: productId },
-            select: { name: true, sku: true },
-          });
-          throw new Error(
-            `Insufficient stock for product ${productInfo?.name ?? productId} (SKU: ${productInfo?.sku ?? "N/A"}). Required: ${item.quantity}, Available: ${deductedAmount}.`
-          );
-        }
-      } // End loop through items
-    }); // End transaction
-
-    return { success: true, data: { transactions: createdTransactions } };
-  } catch (error: any) {
-    console.error("Error processing sale stock update:", error);
+  if (!validatedFields.success) {
+    console.error(
+      "Validation Errors (adjustStock):",
+      validatedFields.error.flatten().fieldErrors
+    );
     return {
-      success: false,
-      error: error.message || "Failed to process sale stock update.",
+      error: "Validation failed.",
+      fieldErrors: validatedFields.error.flatten().fieldErrors,
     };
   }
-}
 
-interface ReconcileStockCountInput {
-  organizationId: string;
-  userId: string; // User performing the count/reconciliation
-  // Array of actual physical counts per stock batch
-  counts: { stockId: string; actualQuantity: string | number | Prisma.Decimal }[];
-  reconciliationReason: string; // e.g., "Annual Stocktake", "Cycle Count Area A"
-  transactionDate?: Date | string;
-}
-
-/**
- * Reconciles physical stock counts against recorded quantities for specific batches.
- * Creates ADJUSTMENT transactions for any discrepancies found.
- * Uses Prisma transaction for atomicity across all counts.
- */
-export async function reconcileStockCount(
-  input: ReconcileStockCountInput
-): Promise<ActionResponse<{ adjustments: StockTransaction[] }>> {
-  // TODO: Implement proper authorization check
-  // if (!(await checkUserAuthorization(input.userId, input.organizationId))) {
-  //   return { success: false, error: "Unauthorized" };
-  // }
-
+  // Destructure validated data
   const {
-    organizationId,
-    userId,
-    counts,
-    reconciliationReason,
-    transactionDate,
-  } = input;
-  const createdAdjustments: StockTransaction[] = [];
-
-  try {
-    if (!counts || counts.length === 0) {
-      return {
-        success: false,
-        error: "No stock counts provided for reconciliation.",
-      };
-    }
-
-    await prisma.$transaction(async (tx) => {
-      for (const count of counts) {
-        const stockId = count.stockId;
-        const actualQuantity = new Prisma.Decimal(count.actualQuantity);
-
-        if (actualQuantity.lt(0)) {
-          throw new Error(
-            `Actual quantity cannot be negative for stock batch ${stockId}.`
-          );
-        }
-
-        // Get the current recorded quantity for the batch
-        const stock = await tx.stock.findUnique({
-          where: { id: stockId, organizationId: organizationId },
-          select: { id: true, productId: true, quantityAvailable: true },
-        });
-
-        if (!stock) {
-          // Log warning or throw error depending on strictness
-          console.warn(
-            `Stock batch ${stockId} provided in reconciliation count not found in organization ${organizationId}. Skipping.`
-          );
-          continue; // Skip this count
-          // OR: throw new Error(`Stock batch ${stockId} not found.`);
-        }
-
-        const recordedQuantity = stock.quantityAvailable;
-        const discrepancy = actualQuantity.sub(recordedQuantity); // positive = increase, negative = decrease
-
-        // Only create adjustment if there is a discrepancy
-        if (!discrepancy.isZero()) {
-          // Update the stock batch quantity to the actual count
-          await tx.stock.update({
-            where: { id: stockId },
-            data: { quantityAvailable: actualQuantity },
-          });
-
-          // Create the ADJUSTMENT transaction
-          const adjustment = await tx.stockTransaction.create({
-            data: {
-              organizationId: organizationId,
-              productId: stock.productId,
-              stockId: stockId,
-              type: StockTransactionType.ADJUSTMENT,
-              quantityChange: discrepancy, // The difference found
-              reason: reconciliationReason,
-              createdById: userId,
-              transactionDate: transactionDate
-                ? new Date(transactionDate)
-                : new Date(),
-            },
-          });
-          createdAdjustments.push(adjustment);
-        }
-      } // End loop through counts
-    }); // End transaction
-
-    return { success: true, data: { adjustments: createdAdjustments } };
-  } catch (error: any) {
-    console.error("Error during stock count reconciliation:", error);
-    return {
-      success: false,
-      error: error.message || "Failed to reconcile stock count.",
-    };
-  }
-}
-
-interface TransferStockInput {
-  organizationId: string;
-  userId: string;
-  sourceStockId: string;
-  quantity: string | number | Prisma.Decimal;
-  reason: string;
-  transactionDate?: Date | string;
-  // Option 1: Transfer to another existing batch of the SAME product
-  targetStockId?: string;
-  // Option 2: Create a new batch for the transferred stock (SAME product)
-  // If creating new, use source batch details or allow overrides? Let's use source details for simplicity.
-  createAsNewBatch?: boolean;
-}
-
-/**
- * Transfers a quantity of stock from one batch to another (or a new batch)
- * for the SAME product within the organization.
- * Creates TRANSFER_OUT and TRANSFER_IN transactions.
- * Uses Prisma transaction for atomicity.
- */
-export async function transferStock(
-  input: TransferStockInput
-): Promise<
-  ActionResponse<{
-    outTransaction: StockTransaction;
-    inTransaction: StockTransaction;
-  }>
-> {
-  // TODO: Implement proper authorization check
-  // if (!(await checkUserAuthorization(input.userId, input.organizationId))) {
-  //   return { success: false, error: "Unauthorized" };
-  // }
-
-  const {
-    organizationId,
-    userId,
-    sourceStockId,
+    productId,
+    variantId,
+    stockBatchId,
+    locationId,
     quantity,
     reason,
-    transactionDate,
-    targetStockId,
-    createAsNewBatch,
-  } = input;
+    notes,
+  } = validatedFields.data;
 
   try {
-    const quantityToTransfer = new Prisma.Decimal(quantity);
-    if (quantityToTransfer.lte(0)) {
-      return {
-        success: false,
-        error: "Quantity to transfer must be positive.",
-      };
-    }
-    if (targetStockId && createAsNewBatch) {
-      return {
-        success: false,
-        error:
-          "Specify either 'targetStockId' OR 'createAsNewBatch', not both.",
-      };
-    }
-    if (!targetStockId && !createAsNewBatch) {
-      return {
-        success: false,
-        error:
-          "Must specify either 'targetStockId' or 'createAsNewBatch=true' for the transfer destination.",
-      };
-    }
-    if (targetStockId === sourceStockId) {
-      return {
-        success: false,
-        error: "Source and target stock batch cannot be the same.",
-      };
-    }
-
+    // Use transaction to ensure atomicity
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Get source stock batch and validate quantity
-      const sourceStock = await tx.stock.findUnique({
-        where: { id: sourceStockId, organizationId: organizationId },
+      // 1. Find the batch to get current stock and lock it (implicitly via update)
+      const batchToUpdate = await tx.stockBatch.findUnique({
+        where: { id: stockBatchId },
+        select: { currentQuantity: true, productId: true, variantId: true }, // Select necessary fields
       });
-      if (!sourceStock) {
-        throw new Error(`Source stock batch ${sourceStockId} not found.`);
+
+      if (!batchToUpdate) {
+        throw new Error("Stock batch not found."); // Or handle more gracefully
       }
-      if (sourceStock.quantityAvailable.lt(quantityToTransfer)) {
+
+      // Optional: Verify productId/variantId match the batch if provided in form
+      if (
+        productId !== batchToUpdate.productId ||
+        (variantId || undefined) !== (batchToUpdate.variantId || undefined)
+      ) {
         throw new Error(
-          `Insufficient quantity (${sourceStock.quantityAvailable}) in source batch ${sourceStockId} to transfer ${quantityToTransfer}.`
+          "Product/Variant mismatch with the specified stock batch."
         );
       }
 
-      let finalTargetStockId: string;
-      const targetProductId: string = sourceStock.productId; // Product must be the same
+      const previousStock = batchToUpdate.currentQuantity;
+      const newStock = previousStock + quantity;
 
-      // 2. Handle target (existing or new)
-      if (targetStockId) {
-        // Validate target exists and is for the same product
-        const targetStock = await tx.stock.findUnique({
-          where: { id: targetStockId, organizationId: organizationId },
-          select: { id: true, productId: true },
-        });
-        if (!targetStock) {
-          throw new Error(`Target stock batch ${targetStockId} not found.`);
-        }
-        if (targetStock.productId !== sourceStock.productId) {
-          throw new Error(
-            `Product mismatch: Source (${sourceStock.productId}) and Target (${targetStock.productId}) must be the same product.`
-          );
-        }
-        finalTargetStockId = targetStock.id;
-        // Increment target quantity
-        await tx.stock.update({
-          where: { id: finalTargetStockId },
-          data: { quantityAvailable: { increment: quantityToTransfer } },
-        });
-      } else {
-        // createAsNewBatch = true
-        // Create a new stock batch based on the source, but with the transferred quantity
-        const newTargetStock = await tx.stock.create({
-          data: {
-            organizationId: organizationId,
-            productId: sourceStock.productId,
-            quantityAvailable: quantityToTransfer,
-            unit: sourceStock.unit, // Copy details from source
-            buyingPricePerUnit: sourceStock.buyingPricePerUnit, // Crucial: Keep the cost basis
-            batchNumber: `${sourceStock.batchNumber ?? sourceStock.id}-TFR`, // Indicate transfer origin
-            purchaseDate: sourceStock.purchaseDate, // Keep original dates if relevant
-            expiryDate: sourceStock.expiryDate,
-            notes: `Transferred from batch ${sourceStock.id}. Reason: ${reason}`,
-            supplierId: sourceStock.supplierId, // Keep supplier link if exists
-          },
-        });
-        finalTargetStockId = newTargetStock.id;
+      // Basic check: prevent stock going negative unnecessarily (unless reason allows it)
+      if (
+        newStock < 0 &&
+        reason !== StockAdjustmentReason.LOST &&
+        reason !== StockAdjustmentReason.STOLEN &&
+        reason !== StockAdjustmentReason.DAMAGED &&
+        reason !== StockAdjustmentReason.EXPIRED &&
+        reason !== StockAdjustmentReason.RETURN_TO_SUPPLIER
+      ) {
+        throw new Error(
+          `Adjustment results in negative stock (${newStock}) for batch ${stockBatchId}. Please check quantity or reason.`
+        );
       }
 
-      // 3. Decrement source quantity
-      await tx.stock.update({
-        where: { id: sourceStockId },
-        data: { quantityAvailable: { decrement: quantityToTransfer } },
-      });
-
-      // 4. Create TRANSFER_OUT transaction for source
-      const outTx = await tx.stockTransaction.create({
+      // 2. Update the stock batch quantity
+      await tx.stockBatch.update({
+        where: { id: stockBatchId },
         data: {
-          organizationId: organizationId,
-          productId: sourceStock.productId,
-          stockId: sourceStockId,
-          type: StockTransactionType.TRANSFER_OUT,
-          quantityChange: quantityToTransfer.negated(), // Negative change
-          reason: `Transfer TO batch ${finalTargetStockId}. ${reason}`,
-          createdById: userId,
-          transactionDate: transactionDate
-            ? new Date(transactionDate)
-            : new Date(),
-          // Consider linking related transactions if needed, e.g., adding a custom field `relatedTransferTransactionId`
+          currentQuantity: {
+            increment: quantity, // Use increment for atomicity
+          },
         },
       });
 
-      // 5. Create TRANSFER_IN transaction for target
-      const inTx = await tx.stockTransaction.create({
+      // 3. Create the StockAdjustment record
+      const adjustment = await tx.stockAdjustment.create({
         data: {
-          organizationId: organizationId,
-          productId: targetProductId, // Same product
-          stockId: finalTargetStockId,
-          type: StockTransactionType.TRANSFER_IN,
-          quantityChange: quantityToTransfer, // Positive change
-          reason: `Transfer FROM batch ${sourceStockId}. ${reason}`,
-          createdById: userId,
-          transactionDate: transactionDate
-            ? new Date(transactionDate)
-            : new Date(),
-          // Link back: `relatedTransferTransactionId: outTx.id`
+          productId, // Store the product ID on adjustment record
+          organizationId,
+          variantId: variantId || undefined, // Store variant ID if applicable
+          stockBatchId, // Link adjustment to the specific batch
+          memberId:userId, // Link to the Member performing the action
+          locationId: locationId || '',
+          quantity,
+          reason,
+          notes,
+          // Store previous/new stock on adjustment for audit? (Optional - add fields to schema if needed)
+          // previousQuantity: previousStock,
+          // newQuantity: newStock,
         },
       });
 
-      return { outTransaction: outTx, inTransaction: inTx };
-    }); // End transaction
+      // 4. Create a StockMovement record for detailed logging
+      await tx.stockMovement.create({
+        data: {
+          productId,
+          variantId: variantId || '',
+          organizationId,
+          stockBatchId,
+          quantity, // The change amount
+          // previousStock: previousStock,
+          // newStock: newStock,
+          // userId, // Member performing action
+          memberId: userId,
+          referenceType: "ADJUSTMENT",
+          referenceId: adjustment.id, // Link to the adjustment record
+          notes: `Reason: ${reason}. ${notes || ""}`.trim(),
+        },
+      });
 
+      return adjustment; // Return the created adjustment record
+    });
+
+    revalidatePath("/inventory"); // Or relevant stock page
+    revalidatePath(`/products/${productId}`);
     return { success: true, data: result };
+    //eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
-    console.error("Error transferring stock:", error);
-    return {
-      success: false,
-      error: error.message || "Failed to transfer stock.",
-    };
+    // Check for specific errors thrown in transaction
+    console.error("Error adjusting stock:", error);
+    if (
+      error.message.includes("negative stock") ||
+      error.message.includes("Stock batch not found") ||
+      error.message.includes("Product/Variant mismatch")
+    ) {
+      return { error: error.message };
+    }
+    // Handle potential Prisma errors (like concurrent updates if not handled by increment)
+    return handleApiError(error);
+  }
+}
+export async function getPastStockBatches(
+  options: { includeProduct?: boolean } = {}
+) {
+  try {
+    // "Past" could mean batches with 0 current quantity or before a certain date
+    // Here we fetch batches with 0 quantity
+    const batches = await prisma.stockBatch.findMany({
+      where: {
+        currentQuantity: 0,
+      },
+      include: {
+        product: options.includeProduct ?? true,
+        variant: true,
+        purchaseItem: true,
+        saleItems: {
+          // Include sale items that depleted this batch
+          select: { id: true, quantity: true, saleId: true },
+        },
+      },
+      orderBy: {
+        receivedDate: "desc",
+      },
+      take: 100, // Limit results for performance
+    });
+    return { batches };
+  } catch (error) {
+    console.error("Error fetching past stock batches:", error);
+    return { error: "Failed to fetch past stock batches." };
   }
 }

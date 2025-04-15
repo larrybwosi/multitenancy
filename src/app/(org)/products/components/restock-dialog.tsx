@@ -5,8 +5,7 @@ import React, { useState, useTransition, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Product, ProductVariant } from "@prisma/client";
-import { addStockBatch } from "@/actions/stockActions"; // Import server action
+import { addStockBatch } from "@/actions/stock.actions"; // Import server action
 import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -19,7 +18,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -45,6 +43,7 @@ import { CalendarIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { ProductVariant } from "@prisma/client";
 
 // Zod schema matching the server action's RestockSchema (client-side)
 const RestockFormSchema = z.object({
@@ -69,7 +68,7 @@ interface RestockDialogProps {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
   product: ProductWithRelations | null; // Product being restocked
-  // Pass variants if product has them: variants?: ProductVariant[];
+  variants?: ProductVariant[];
   onSuccess?: (message: string) => void;
   onError?: (message: string) => void;
   onClose?: () => void; // Callback when dialog closes
@@ -79,14 +78,14 @@ export default function RestockDialog({
   isOpen,
   setIsOpen,
   product,
-  // variants = [],
+  variants = [],
   onSuccess,
   onError,
   onClose,
 }: RestockDialogProps) {
   const [isPending, startTransition] = useTransition();
   const [serverError, setServerError] = useState<string | null>(null);
-  // const hasVariants = variants && variants.length > 0; // Check if variants exist
+  const hasVariants = variants && variants.length > 0; // Check if variants exist
 
   const form = useForm<RestockFormData>({
     resolver: zodResolver(RestockFormSchema),
@@ -134,7 +133,7 @@ export default function RestockDialog({
     if (!data.expiryDate) formData.delete("expiryDate");
 
     startTransition(async () => {
-      const result = await addStockBatch(formData); // Call the server action
+      const result = await addStockBatch(formData);
 
       if (result?.error) {
         setServerError(result.error);
@@ -195,32 +194,32 @@ export default function RestockDialog({
               <input type="hidden" {...form.register("productId")} />
 
               {/* Optional: Variant Selection */}
-              {/* {hasVariants && (
-                         <FormField
-                            control={form.control}
-                            name="variantId"
-                            render={({ field }) => (
-                                <FormItem>
-                                <FormLabel>Product Variant</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value ?? undefined} value={field.value ?? undefined}>
-                                    <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select variant (if applicable)" />
-                                    </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                    {variants.map((variant) => (
-                                        <SelectItem key={variant.id} value={variant.id}>
-                                        {variant.name} ({variant.sku})
-                                        </SelectItem>
-                                    ))}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                                </FormItem>
-                            )}
-                            />
-                    )} */}
+              {hasVariants && (
+                <FormField
+                  control={form.control}
+                  name="variantId"
+                  render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Product Variant</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value ?? undefined} value={field.value ?? undefined}>
+                        <FormControl>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select variant (if applicable)" />
+                        </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                        {variants.map((variant) => (
+                            <SelectItem key={variant.id} value={variant.id}>
+                            {variant.name} ({variant.sku})
+                            </SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               <FormField
                 control={form.control}

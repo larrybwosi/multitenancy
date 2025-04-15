@@ -7,7 +7,7 @@ import {
   getCategories,
   getStockBatches,
   getPastStockBatches,
-} from "@/actions/stockActions";
+} from "@/actions/stock.actions";
 import {
   Card,
   CardContent,

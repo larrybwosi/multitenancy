@@ -92,7 +92,10 @@ export function handleApiError(error: unknown): NextResponse {
 
   // Default/Unknown Errors
   return NextResponse.json(
-    { error: "An unexpected internal server error occurred." },
+    {
+      error:
+        "An unexpected error occurred. Please contact support if the problem persists.",
+    },
     { status: 500 } // Internal Server Error
   );
 }

@@ -9,13 +9,16 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import type { FinancialData } from "@/types/reports"
 
-interface BalanceSheetViewProps {
-  data?: FinancialData["balanceSheet"]
+interface BalanceSheetTableProps {
+  data: {
+    assets: Array<{ name: string; value: number }>
+    liabilities: Array<{ name: string; value: number }>
+    equity: Array<{ name: string; value: number }>
+  }
 }
 
-export function BalanceSheetView({ data }: BalanceSheetViewProps) {
+export function BalanceSheetTable({ data }: BalanceSheetTableProps) {
   if (!data) return null
 
   const totalAssets = data.assets.reduce((sum, item) => sum + item.value, 0)

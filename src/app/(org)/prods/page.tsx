@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Plus, LayoutGrid, List, Download } from "lucide-react";
 import { useDebouncedCallback } from "use-debounce";
-import { getCategories, getProducts } from "@/actions/stockActions";
+import { getCategories, getProducts } from "@/actions/stock.actions";
 import { ExportAction, FilterControls, FilterOption } from "@/components/file-controls";
 import { ProductListItem } from "./components/List";
 import { ProductCard } from "./components/ProductCard";

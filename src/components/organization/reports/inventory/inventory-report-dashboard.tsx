@@ -3,28 +3,39 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Skeleton } from "@/components/ui/skeleton"
 import { InventoryOverviewChart } from "./inventory-overview-chart"
 import { InventoryTurnoverTable } from "./inventory-turnover-table"
 import { LowStockItemsTable } from "./low-stock-items-table"
 import { WarehouseUtilizationChart } from "./warehouse-utilization-chart"
+import type { InventoryData } from "@/types/reports"
 
 interface InventoryReportDashboardProps {
   dateRange: string
+  startDate: Date
+  endDate: Date
 }
 
-export function InventoryReportDashboard({ dateRange }: InventoryReportDashboardProps) {
+export function InventoryReportDashboard({
+  dateRange,
+  startDate,
+  endDate,
+}: InventoryReportDashboardProps) {
   const [activeTab, setActiveTab] = useState("overview")
   const [isLoading, setIsLoading] = useState(true)
-  const [inventoryData, setInventoryData] = useState<any>(null)
+  const [data, setData] = useState<InventoryData | null>(null)
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true)
       try {
-        const response = await fetch(`/api/reports/inventory?dateRange=${dateRange}&dataType=${activeTab}`)
+        const params = new URLSearchParams({
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          type: activeTab,
+        })
+        const response = await fetch(`/api/reports/inventory?${params}`)
         const data = await response.json()
-        setInventoryData(data)
+        setData(data)
       } catch (error) {
         console.error("Error fetching inventory data:", error)
       } finally {
@@ -33,36 +44,42 @@ export function InventoryReportDashboard({ dateRange }: InventoryReportDashboard
     }
 
     fetchData()
-  }, [dateRange, activeTab])
+  }, [startDate, endDate, activeTab])
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <div className="h-5 w-[250px] animate-pulse bg-muted rounded" />
+            <div className="h-4 w-[200px] animate-pulse bg-muted rounded" />
+          </CardHeader>
+          <CardContent className="h-[300px] flex items-center justify-center">
+            <div className="h-full w-full animate-pulse bg-muted rounded" />
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="turnover">Turnover</TabsTrigger>
-          <TabsTrigger value="lowStock">Low Stock</TabsTrigger>
-          <TabsTrigger value="warehouses">Warehouses</TabsTrigger>
+          <TabsTrigger value="low-stock">Low Stock</TabsTrigger>
+          <TabsTrigger value="warehouse">Warehouse</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Inventory Overview</CardTitle>
-              <CardDescription>
-                Monitor inventory levels across categories. Identify trends and potential stock issues.
-              </CardDescription>
+              <CardDescription>Current stock levels and inventory metrics</CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <Skeleton className="w-full h-[400px]" />
-              ) : (
-                <InventoryOverviewChart
-                  inventoryData={inventoryData?.inventoryData || []}
-                  categoryData={inventoryData?.categoryData || []}
-                  summary={inventoryData?.summary || {}}
-                />
-              )}
+              <InventoryOverviewChart data={data?.overview} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -71,50 +88,34 @@ export function InventoryReportDashboard({ dateRange }: InventoryReportDashboard
           <Card>
             <CardHeader>
               <CardTitle>Inventory Turnover</CardTitle>
-              <CardDescription>
-                Analyze inventory turnover rates by category. Identify fast and slow-moving products.
-              </CardDescription>
+              <CardDescription>Analysis of inventory turnover rates by category</CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <Skeleton className="w-full h-[400px]" />
-              ) : (
-                <InventoryTurnoverTable turnoverData={inventoryData?.turnoverData || []} />
-              )}
+              <InventoryTurnoverTable data={data?.turnover} />
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="lowStock" className="space-y-4">
+        <TabsContent value="low-stock" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Low Stock Items</CardTitle>
-              <CardDescription>View items that are running low on stock and need to be reordered.</CardDescription>
+              <CardDescription>Products that need attention or restocking</CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <Skeleton className="w-full h-[400px]" />
-              ) : (
-                <LowStockItemsTable lowStockItems={inventoryData?.lowStockItems || []} />
-              )}
+              <LowStockItemsTable data={data?.lowStock} />
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="warehouses" className="space-y-4">
+        <TabsContent value="warehouse" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Warehouse Utilization</CardTitle>
-              <CardDescription>
-                Track warehouse capacity utilization and space efficiency across all locations.
-              </CardDescription>
+              <CardDescription>Storage space usage and capacity analysis</CardDescription>
             </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <Skeleton className="w-full h-[400px]" />
-              ) : (
-                <WarehouseUtilizationChart warehouseData={inventoryData?.warehouseUtilization || []} />
-              )}
+            <CardContent className="h-[500px]">
+              <WarehouseUtilizationChart data={data?.warehouse} />
             </CardContent>
           </Card>
         </TabsContent>

@@ -32,7 +32,7 @@ interface StockLevelResponse {
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
+    const { searchParams } = request.nextUrl
     const locationId = searchParams.get("warehouseId")
     const search = searchParams.get("search")
     const categoryId = searchParams.get("category")
@@ -154,6 +154,16 @@ export async function GET(request: NextRequest) {
       where: productWhere
     })
 
+    console.log({
+      stockLevels: filteredStockLevels,
+      locations,
+      categories: await prisma.category.findMany(),
+      pagination: {
+        total: totalProducts,
+        page,
+        limit,
+      },
+    });
     return NextResponse.json({
       stockLevels: filteredStockLevels,
       locations,

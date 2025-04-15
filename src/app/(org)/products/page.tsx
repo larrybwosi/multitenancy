@@ -4,7 +4,7 @@ import ProductsTab from "./components/products-tab";
 import {
   getProducts,
   getCategories,
-} from "@/actions/stockActions";
+} from "@/actions/stock.actions";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 
 export default async function ProductsPage() {
