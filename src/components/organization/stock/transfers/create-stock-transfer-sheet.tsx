@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/sheet"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { toast } from "@/components/ui/use-toast"
+import { toast } from "sonner"
 
 const formSchema = z.object({
   sourceWarehouseId: z.string({
@@ -43,37 +43,50 @@ const formSchema = z.object({
   notes: z.string().optional(),
 })
 
+type FormValues = z.infer<typeof formSchema>
+
 interface CreateStockTransferSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onSubmit: (transferData: {
+    sourceWarehouseId: string
+    destinationWarehouseId: string
+    items: Array<{ productId: string; quantity: number }>
+    notes?: string
+  }) => Promise<void>
+  warehouses: Array<{ id: string; name: string }>
 }
 
-export function CreateStockTransferSheet({ open, onOpenChange }: CreateStockTransferSheetProps) {
+export function CreateStockTransferSheet({ open, onOpenChange, onSubmit, warehouses }: CreateStockTransferSheetProps) {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       notes: "",
     },
   })
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmitForm(values: FormValues) {
     try {
       setIsSubmitting(true)
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      // Format data for API - convert single product/quantity to items array
+      const transferData = {
+        sourceWarehouseId: values.sourceWarehouseId,
+        destinationWarehouseId: values.destinationWarehouseId,
+        items: [
+          {
+            productId: values.productId,
+            quantity: values.quantity
+          }
+        ],
+        notes: values.notes
+      }
 
-      // Log the transfer details for debugging
-      console.log("Transfer details:", values)
-
-      // Show success toast
-      toast({
-        title: "Stock transfer created",
-        description: "The stock transfer has been created successfully.",
-      })
+      // Call the provided onSubmit function with the transfer data
+      await onSubmit(transferData)
 
       // Reset form
       form.reset()
@@ -81,28 +94,24 @@ export function CreateStockTransferSheet({ open, onOpenChange }: CreateStockTran
       // Close sheet
       onOpenChange(false)
 
+      // Show success toast
+      toast.success("Stock transfer created", {
+        description: "The stock transfer has been created successfully.",
+      })
+
       // Refresh data
       router.refresh()
     } catch (error) {
       console.error("Error creating stock transfer:", error)
-      toast({
-        title: "Error",
+      toast.error("Error",{
         description: "Failed to create stock transfer. Please try again.",
-        variant: "destructive",
       })
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  // Mock data for warehouses and products
-  const warehouses = [
-    { id: "1", name: "Main Warehouse" },
-    { id: "2", name: "Secondary Warehouse" },
-    { id: "3", name: "Distribution Center" },
-    { id: "4", name: "Retail Storage" },
-  ]
-
+  // Mock data for products
   const products = [
     { id: "1", name: "Product A" },
     { id: "2", name: "Product B" },
@@ -121,7 +130,7 @@ export function CreateStockTransferSheet({ open, onOpenChange }: CreateStockTran
         </SheetHeader>
         <div className="py-6">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmitForm)} className="space-y-6">
               <div className="grid grid-cols-1 gap-6">
                 <FormField
                   control={form.control}

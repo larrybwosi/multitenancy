@@ -28,7 +28,6 @@ import {
 import { useState, useTransition } from "react";
 import { saveCategory } from "@/actions/category.actions";
 import { toast } from "sonner";
-import { useSession } from "@/lib/auth/authClient";
 
 // --- Zod Schema --- (can be defined here or imported)
 const CategoryFormSchema = z.object({
@@ -56,8 +55,7 @@ export function CategoryForm({
   const [error, setError] = useState<string | null>(null);
 
   const isEditing = !!category;
-const {data: session} = useSession();
-console.log(session)
+  
   const form = useForm<CategoryFormValues>({
     resolver: zodResolver(CategoryFormSchema),
     defaultValues: {

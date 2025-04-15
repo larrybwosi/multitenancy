@@ -1,7 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useToast } from "@/components/ui/use-toast"
+import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -12,63 +11,113 @@ import { Loader2, Search, Filter, ArrowUpDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
+interface Location {
+  id: string
+  name: string
+  location: string
+}
+
+interface Category {
+  id: string
+  name: string
+}
+
+interface StockLevel {
+  productId: string
+  productName: string
+  sku: string
+  category: string
+  imageUrls: string[]
+  variantStocks: {
+    warehouseId: string
+    warehouseName: string
+    quantity: number
+    minLevel: number
+    maxLevel: number
+    reorderPoint: number
+    reorderQuantity: number
+    location: string
+    lastCountDate: Date | null
+  }[]
+  totalQuantity: number
+  unitCost: number
+  totalValue: number
+  lastUpdated: string
+  status: string
+}
+
 export function StockLevelsPage() {
-  const [stockLevels, setStockLevels] = useState([])
-  const [warehouses, setWarehouses] = useState([])
-  const [categories, setCategories] = useState([])
+  const [stockLevels, setStockLevels] = useState<StockLevel[]>([])
+  const [locations, setLocations] = useState<Location[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedWarehouse, setSelectedWarehouse] = useState("all")
+  const [selectedLocation, setSelectedLocation] = useState("all")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [stockStatus, setStockStatus] = useState("all")
   const [sortBy, setSortBy] = useState("productName")
   const [sortOrder, setSortOrder] = useState("asc")
   const [viewMode, setViewMode] = useState("list")
-  const { toast } = useToast()
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
 
-  const fetchStockLevels = async () => {
+  const fetchStockLevels = useMemo(() => async () => {
     setLoading(true)
     try {
-      // Build query string from params
       const queryParams = new URLSearchParams({
-        warehouseId: selectedWarehouse,
+        warehouseId: selectedLocation,
         category: selectedCategory,
         status: stockStatus,
         search: searchQuery,
         sortBy,
         sortOrder,
+        page: page.toString(),
+        limit: "50"
       }).toString()
 
-      const response = await fetch(`/api/organization/stock/levels?${queryParams}`)
+      const response = await fetch(`/api/stock/levels?${queryParams}`)
       const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to load stock levels")
+      }
+
       setStockLevels(data.stockLevels)
-      setWarehouses(data.warehouses)
+      setLocations(data.locations)
       setCategories(data.categories)
+      setTotalPages(Math.ceil(data.pagination.total / data.pagination.limit))
       setLoading(false)
     } catch (error) {
       console.error("Error fetching stock levels:", error)
-      toast({
-        title: "Error",
-        description: "Failed to load stock levels. Please try again.",
-        variant: "destructive",
-      })
       setLoading(false)
     }
-  }
+  }, [selectedLocation, selectedCategory, stockStatus, searchQuery, sortBy, sortOrder, page])
 
   useEffect(() => {
     fetchStockLevels()
-  }, [selectedWarehouse, selectedCategory, stockStatus, searchQuery, sortBy, sortOrder, toast])
+  }, [fetchStockLevels])
 
   const toggleSortOrder = () => {
     setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+  }
+
+  const goToNextPage = () => {
+    if (page < totalPages) {
+      setPage(page + 1)
+    }
+  }
+
+  const goToPrevPage = () => {
+    if (page > 1) {
+      setPage(page - 1)
+    }
   }
 
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Stock Levels</h1>
-        <p className="text-muted-foreground">Monitor and manage stock levels across all warehouses</p>
+        <p className="text-muted-foreground">Monitor and manage stock levels across all locations</p>
       </div>
 
       {loading ? (
@@ -90,16 +139,16 @@ export function StockLevelsPage() {
               />
             </div>
             <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-              <Select value={selectedWarehouse} onValueChange={setSelectedWarehouse}>
+              <Select value={selectedLocation} onValueChange={setSelectedLocation}>
                 <SelectTrigger className="w-full sm:w-[180px] transition-all border-muted hover:border-muted-foreground/50 focus:border-primary">
                   <Filter className="mr-2 h-4 w-4" />
-                  <SelectValue placeholder="Filter by warehouse" />
+                  <SelectValue placeholder="Filter by location" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Warehouses</SelectItem>
-                  {warehouses.map((warehouse) => (
-                    <SelectItem key={warehouse.id} value={warehouse.id}>
-                      {warehouse.name}
+                  <SelectItem value="all">All Locations</SelectItem>
+                  {locations.map((location) => (
+                    <SelectItem key={location.id} value={location.id}>
+                      {location.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -126,6 +175,7 @@ export function StockLevelsPage() {
                   <SelectItem value="low_stock">Low Stock</SelectItem>
                   <SelectItem value="normal">Normal Stock</SelectItem>
                   <SelectItem value="overstock">Overstock</SelectItem>
+                  <SelectItem value="out_of_stock">Out of Stock</SelectItem>
                 </SelectContent>
               </Select>
               <div className="flex gap-2">
@@ -148,9 +198,7 @@ export function StockLevelsPage() {
                   onClick={toggleSortOrder}
                   className="transition-all border-muted hover:border-muted-foreground/50 focus:border-primary"
                 >
-                  <ArrowUpDown
-                    className={`h-4 w-4 ${sortOrder === "asc" ? "rotate-0" : "rotate-180"} transition-transform`}
-                  />
+                  <ArrowUpDown className={`h-4 w-4 ${sortOrder === "asc" ? "rotate-0" : "rotate-180"} transition-transform`} />
                   <span className="sr-only">Toggle sort order</span>
                 </Button>
               </div>
@@ -160,30 +208,49 @@ export function StockLevelsPage() {
           <Tabs defaultValue="list" value={viewMode} onValueChange={setViewMode} className="w-full">
             <div className="flex justify-between items-center mb-4">
               <TabsList>
-                <TabsTrigger
-                  value="list"
-                  className="transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                >
+                <TabsTrigger value="list" className="transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                   List View
                 </TabsTrigger>
-                <TabsTrigger
-                  value="chart"
-                  className="transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                >
+                <TabsTrigger value="chart" className="transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                   Chart View
                 </TabsTrigger>
               </TabsList>
-              <div className="text-sm text-muted-foreground">Showing {stockLevels.length} products</div>
+              <div className="text-sm text-muted-foreground">
+                Showing {stockLevels.length} products
+              </div>
             </div>
 
             <TabsContent value="list">
               <Card className="border-muted transition-all hover:border-muted-foreground/20">
                 <CardHeader>
                   <CardTitle>Stock Inventory</CardTitle>
-                  <CardDescription>View and filter current stock levels across all warehouses</CardDescription>
+                  <CardDescription>View and filter current stock levels across all locations</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <StockLevelsList stockLevels={stockLevels} selectedWarehouse={selectedWarehouse} />
+                  <StockLevelsList stockLevels={stockLevels} selectedLocation={selectedLocation} />
+                  {totalPages > 1 && (
+                    <div className="mt-4 flex items-center justify-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={goToPrevPage}
+                        disabled={page === 1}
+                      >
+                        Previous
+                      </Button>
+                      <span className="text-sm text-muted-foreground">
+                        Page {page} of {totalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={goToNextPage}
+                        disabled={page === totalPages}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -192,10 +259,10 @@ export function StockLevelsPage() {
               <Card className="border-muted transition-all hover:border-muted-foreground/20">
                 <CardHeader>
                   <CardTitle>Stock Visualization</CardTitle>
-                  <CardDescription>Visual representation of stock levels across warehouses</CardDescription>
+                  <CardDescription>Visual representation of stock levels across locations</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <StockLevelsChart stockLevels={stockLevels} selectedWarehouse={selectedWarehouse} />
+                  <StockLevelsChart stockLevels={stockLevels} selectedLocation={selectedLocation} />
                 </CardContent>
               </Card>
             </TabsContent>

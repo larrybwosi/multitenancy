@@ -1,12 +1,12 @@
 'use client';
-import CallToAction from "@/lib/home/cta";
-import Features from "@/lib/home/Features";
-import Footer from "@/lib/home/footer";
-import Hero from "@/lib/home/Hero";
-import Navbar from "@/lib/home/Navbar";
-import ResourceLibrary from "@/lib/home/ResourceLibrary";
-import Testimonials from "@/lib/home/Testimonials";
-import FinancialManagementUI from "@/lib/home/WhyUs";
+import CallToAction from "@/components/home/cta";
+import Features from "@/components/home/Features";
+import Footer from "@/components/home/footer";
+import Hero from "@/components/home/Hero";
+import Navbar from "@/components/home/Navbar";
+import ResourceLibrary from "@/components/home/ResourceLibrary";
+import Testimonials from "@/components/home/Testimonials";
+import FinancialManagementUI from "@/components/home/WhyUs";
 
 
 const App: React.FC = () => {

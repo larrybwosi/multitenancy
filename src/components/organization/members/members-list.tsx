@@ -16,7 +16,6 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { MoreHorizontal, Search, UserMinus, UserCog, Mail } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { toast } from "@/components/ui/use-toast"
 
 interface MembersListProps {
   loading: boolean
@@ -50,10 +49,10 @@ export function MembersList({ loading, members }: MembersListProps) {
     //   body: JSON.stringify({ role: newRole })
     // });
 
-    toast({
-      title: "Role updated",
-      description: `Member role has been updated to ${newRole}.`,
-    })
+    // toast({
+    //   title: "Role updated",
+    //   description: `Member role has been updated to ${newRole}.`,
+    // })
   }
 
   return (

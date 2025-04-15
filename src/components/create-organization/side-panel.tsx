@@ -49,22 +49,6 @@ export function SidePanel({ activeTab }: SidePanelProps) {
             <div className="flex items-center gap-3">
               <div
                 className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                  activeTab === "categories"
-                    ? "bg-gradient-to-br from-orange-500 to-amber-500 text-white shadow-md"
-                    : "bg-orange-100 text-orange-500"
-                }`}
-              >
-                2
-              </div>
-              <div>
-                <h3 className="font-medium text-orange-900">Business Categories</h3>
-                <p className="text-sm text-orange-700">Define product/service categories</p>
-              </div>
-            </div>
-            <Separator className="bg-orange-200" />
-            <div className="flex items-center gap-3">
-              <div
-                className={`flex h-8 w-8 items-center justify-center rounded-full ${
                   activeTab === "settings"
                     ? "bg-gradient-to-br from-orange-500 to-amber-500 text-white shadow-md"
                     : "bg-orange-100 text-orange-500"

@@ -7,7 +7,7 @@ import { db as prisma } from "@/lib/db";
 import type {
   CreateOrganizationInput,
   UpdateOrganizationInput,
-} from "@/lib/types"; // Adjust path
+} from "@/lib/types"; 
 import { getServerAuthContext } from "./auth";
 import { revalidatePath } from "next/cache";
 
@@ -21,8 +21,17 @@ export async function createOrganization(
   data: CreateOrganizationInput
 ): Promise<Organization> {
   const { userId } = await getServerAuthContext();
-  const { name, description, logo } = data;
-  console.log(data);
+  const {
+    name,
+    description,
+    logo,
+    defaultCurrency = "USD",
+    defaultTimezone = "UTC",
+    defaultTaxRate,
+    inventoryPolicy = "FEFO",
+    lowStockThreshold = 10,
+    negativeStock = false,
+  } = data;
 
   // Generate a unique slug
   const baseSlug = slugify(name, { lower: true, strict: true, trim: true });
@@ -49,12 +58,11 @@ export async function createOrganization(
       }
     }
   }
-  console.log(finalSlug);
 
   try {
     const newOrganization = await prisma.organization.create({
       data: {
-        id: `Org-${finalSlug}`,
+        id: `org-${finalSlug}`,
         name,
         slug: finalSlug,
         description,
@@ -66,22 +74,33 @@ export async function createOrganization(
             role: MemberRole.OWNER, // Assign the creator as OWNER
           },
         },
+        settings: {
+          create: {
+            defaultCurrency,
+            defaultTimezone,
+            defaultTaxRate: defaultTaxRate
+              ? new Prisma.Decimal(defaultTaxRate)
+              : null,
+            inventoryPolicy,
+            lowStockThreshold,
+            negativeStock,
+          },
+        },
       },
       include: {
         members: {
-          // Optionally include the members list
           where: { userId }, // Filter to include the owner just created
         },
+        settings: true,
       },
     });
 
     // Optionally: Update the user's activeOrganizationId if desired
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: { activeOrganizationId: newOrganization.id },
-    });
+    // await prisma.user.update({
+    //   where: { id: userId },
+    //   data: { activeOrganizationId: newOrganization.id },
+    // });
 
-    console.log(updatedUser);
     console.log("New Organization Created:", newOrganization);
     return newOrganization;
   } catch (error) {

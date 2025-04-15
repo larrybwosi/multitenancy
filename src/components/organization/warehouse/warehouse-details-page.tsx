@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { toast } from "@/components/ui/use-toast"
 import { ArrowLeft, Edit, Trash, BarChart2, Package } from "lucide-react"
 import Link from "next/link"
 import { WarehouseDeleteDialog } from "./warehouse-delete-dialog"
 import { WarehouseEditSheet } from "./warehouse-edit-sheet"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 
 interface WarehouseDetailsPageProps {
   id: string
@@ -28,15 +28,13 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
     async function fetchWarehouse() {
       try {
         setLoading(true)
-        const response = await fetch(`/api/organization/warehouse/${id}`)
+        const response = await fetch(`/api/warehouse/${id}`)
         const data = await response.json()
         setWarehouse(data.warehouse)
       } catch (error) {
         console.error("Error fetching warehouse:", error)
-        toast({
-          title: "Error",
+        toast.error("Error",{
           description: "Failed to load warehouse details. Please try again.",
-          variant: "destructive",
         })
       } finally {
         setLoading(false)
@@ -48,55 +46,49 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
 
   const handleDelete = async () => {
     try {
-      const response = await fetch(`/api/organization/warehouse/${id}`, {
+      const response = await fetch(`/api/warehouse/${id}`, {
         method: "DELETE",
-      })
+      });
 
-      if (!response.ok) throw new Error("Failed to delete warehouse")
+      if (!response.ok) throw new Error("Failed to delete warehouse");
 
-      toast({
-        title: "Warehouse deleted",
+      toast.success("Warehouse deleted",{
         description: "The warehouse has been successfully deleted.",
       })
 
-      router.push("/organization/warehouse")
+      router.push("/warehouses");
     } catch (error) {
       console.error("Error deleting warehouse:", error)
-      toast({
-        title: "Error",
+      toast.error( "Error",{
         description: "Failed to delete warehouse. Please try again.",
-        variant: "destructive",
       })
     }
   }
 
   const handleUpdate = async (formData: any) => {
     try {
-      const response = await fetch(`/api/organization/warehouse/${id}`, {
+      const response = await fetch(`/api/warehouse/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(formData),
-      })
+      });
 
-      if (!response.ok) throw new Error("Failed to update warehouse")
+      if (!response.ok) throw new Error("Failed to update warehouse");
 
-      const updatedWarehouse = await response.json()
-      setWarehouse(updatedWarehouse)
+      const updatedWarehouse = await response.json();
+      setWarehouse(updatedWarehouse);
 
-      toast({
-        title: "Warehouse updated",
+      toast.success("Warehouse updated",{
         description: "The warehouse details have been successfully updated.",
       })
 
-      return true
+      return true;
     } catch (error) {
       console.error("Error updating warehouse:", error)
-      toast({
-        title: "Error",
+      toast.error("Error",{
         description: "Failed to update warehouse. Please try again.",
-        variant: "destructive",
       })
       return false
     }
@@ -107,7 +99,7 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 container px-4 mt-4">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" asChild>

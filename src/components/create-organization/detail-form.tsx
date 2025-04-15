@@ -11,7 +11,22 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
-import type { OrganizationState } from "@/types/organization"
+import { toast } from "sonner"
+
+
+interface OrganizationState {
+  name: string;
+  slug: string;
+  description: string;
+  logoUrl: string | null; // Added for logo
+  defaultCurrency: string;
+  defaultTimezone: string;
+  defaultTaxRate: number | string; // Allow string for input control
+  inventoryPolicy: "FIFO" | "LIFO" | "FEFO";
+  lowStockThreshold: number | string; // Allow string for input control
+  negativeStock: boolean;
+}
+
 
 interface DetailFormProps {
   organization: OrganizationState
@@ -52,27 +67,41 @@ export function DetailForm({ organization, setOrganization }: DetailFormProps) {
     })
   }
 
-  const handleImageChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
 
-    setUploadingLogo(true)
-    try {
-      //@ts-expect-error this is fine
-      const imageUrl = await uploadSanityAsset(file, `${organization.slug}-logo`, "image")
-      setOrganization((prev) => ({ ...prev, logoUrl: imageUrl }))
-    } catch (error) {
-      console.error("Error uploading image:", error)
-      // Optionally remove the blob URL if it was set prematurely
-      setOrganization((prev) => ({ ...prev, logoUrl: null }))
-    } finally {
-      setUploadingLogo(false)
-      // Reset file input value so the same file can be selected again if needed
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ""
-      }
+const handleImageChange = async (e: ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  // Show uploading toast with loading state
+  const toastId = toast.loading("Uploading logo...");
+  setUploadingLogo(true);
+  
+  try {
+    //@ts-expect-error this is fine
+    const imageUrl = await uploadSanityAsset(file, `${organization.slug}-logo`, "image");
+    
+    setOrganization((prev) => ({ ...prev, logoUrl: imageUrl }));
+    
+    // Update toast to success state
+    toast.success("Logo uploaded successfully!", {
+      id: toastId,
+    });
+  } catch (error) {
+    console.error("Error uploading image:", error);
+    setOrganization((prev) => ({ ...prev, logoUrl: null }));
+    
+    // Update toast to error state
+    toast.error("Failed to upload logo", {
+      id: toastId,
+      description: error instanceof Error ? error.message : "Please try again",
+    });
+  } finally {
+    setUploadingLogo(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   }
+};
 
   return (
     <div className="space-y-8">
@@ -153,7 +182,7 @@ export function DetailForm({ organization, setOrganization }: DetailFormProps) {
           </Label>
           <div className="flex rounded-md">
             <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-orange-200 bg-orange-50 text-orange-700 text-sm">
-              drongo.io/org/
+              dealio.io/org/
             </span>
             <Input
               id="slug"

@@ -5,7 +5,33 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatCurrency } from "@/lib/utils"
 import { Truck, Clock, ArrowRightLeft, CheckCircle, XCircle, DollarSign } from "lucide-react"
 
-export function StockTransfersStats({ transfers }) {
+interface StockTransferItem {
+  id: string
+  productId: string
+  productName: string
+  quantity: number
+  unitPrice: number
+}
+
+interface StockTransfer {
+  id: string
+  date: string
+  sourceWarehouse: string
+  sourceWarehouseId: string
+  destinationWarehouse: string
+  destinationWarehouseId: string
+  status: 'pending' | 'in_transit' | 'completed' | 'cancelled'
+  items: StockTransferItem[]
+  totalValue: number
+  totalQuantity: number
+  notes?: string
+}
+
+interface StockTransfersStatsProps {
+  transfers: StockTransfer[]
+}
+
+export function StockTransfersStats({ transfers }: StockTransfersStatsProps) {
   const stats = useMemo(() => {
     // Count transfers by status
     const pending = transfers.filter((t) => t.status === "pending").length

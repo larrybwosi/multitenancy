@@ -17,12 +17,39 @@ import { Eye, Truck, CheckCircle, XCircle, MoreHorizontal } from "lucide-react"
 import { StockTransferDetailsDialog } from "./stock-transfer-details-dialog"
 import { CancelTransferDialog } from "./cancel-transfer-dialog"
 
-export function StockTransfersList({ transfers, onUpdateTransfer }) {
-  const [selectedTransfer, setSelectedTransfer] = useState(null)
+interface StockTransferItem {
+  id: string
+  productId: string
+  productName: string
+  quantity: number
+  unitPrice: number
+}
+
+interface StockTransfer {
+  id: string
+  date: string
+  sourceWarehouse: string
+  sourceWarehouseId: string
+  destinationWarehouse: string
+  destinationWarehouseId: string
+  status: 'pending' | 'in_transit' | 'completed' | 'cancelled'
+  items: StockTransferItem[]
+  totalValue: number
+  totalQuantity: number
+  notes?: string
+}
+
+interface StockTransfersListProps {
+  transfers: StockTransfer[]
+  onUpdateTransfer: (id: string, action: string, data?: Record<string, unknown>) => Promise<boolean>
+}
+
+export function StockTransfersList({ transfers, onUpdateTransfer }: StockTransfersListProps) {
+  const [selectedTransfer, setSelectedTransfer] = useState<StockTransfer | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (status: string) => {
     switch (status) {
       case "pending":
         return (
@@ -69,28 +96,28 @@ export function StockTransfersList({ transfers, onUpdateTransfer }) {
     }
   }
 
-  const handleViewDetails = (transfer) => {
+  const handleViewDetails = (transfer: StockTransfer) => {
     setSelectedTransfer(transfer)
     setDetailsOpen(true)
   }
 
-  const handleCancelTransfer = (transfer) => {
+  const handleCancelTransfer = (transfer: StockTransfer) => {
     setSelectedTransfer(transfer)
     setCancelDialogOpen(true)
   }
 
-  const handleConfirmCancel = async (reason) => {
-    const success = await onUpdateTransfer(selectedTransfer.id, "cancel", { cancellationReason: reason })
+  const handleConfirmCancel = async (reason: string) => {
+    const success = await onUpdateTransfer(selectedTransfer!.id, "cancel", { cancellationReason: reason })
     if (success) {
       setCancelDialogOpen(false)
     }
   }
 
-  const handleMarkInTransit = async (transfer) => {
+  const handleMarkInTransit = async (transfer: StockTransfer) => {
     await onUpdateTransfer(transfer.id, "mark_in_transit")
   }
 
-  const handleMarkCompleted = async (transfer) => {
+  const handleMarkCompleted = async (transfer: StockTransfer) => {
     await onUpdateTransfer(transfer.id, "mark_completed")
   }
 

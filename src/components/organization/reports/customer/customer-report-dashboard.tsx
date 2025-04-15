@@ -23,7 +23,7 @@ export function CustomerReportDashboard({ dateRange }: CustomerReportDashboardPr
     const fetchData = async () => {
       setIsLoading(true)
       try {
-        const response = await fetch(`/api/organization/reports/customer?dateRange=${dateRange}&dataType=${activeTab}`)
+        const response = await fetch(`/api/reports/customer?dateRange=${dateRange}&dataType=${activeTab}`)
         const data = await response.json()
         setCustomerData(data)
       } catch (error) {

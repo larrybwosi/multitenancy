@@ -4,7 +4,7 @@ import prisma from "@/lib/db";
 import {
   StockAdjustmentReason,
   StockBatch,
-} from "@prisma/client"; // Remove unused import
+} from "@prisma/client";
 
 interface AdjustmentRequestBody {
   // Use Zod

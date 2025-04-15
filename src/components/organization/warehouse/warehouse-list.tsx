@@ -93,7 +93,7 @@ export function WarehouseList({ warehouses, loading }: WarehouseListProps) {
               filteredWarehouses.map((warehouse) => (
                 <TableRow key={warehouse.id}>
                   <TableCell className="font-medium">
-                    <Link href={`/organization/warehouse/${warehouse.id}`} className="hover:underline">
+                    <Link href={`/warehouses/${warehouse.id}`} className="hover:underline">
                       {warehouse.name}
                     </Link>
                   </TableCell>
@@ -136,13 +136,13 @@ export function WarehouseList({ warehouses, loading }: WarehouseListProps) {
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem asChild>
-                          <Link href={`/organization/warehouse/${warehouse.id}`}>
+                          <Link href={`/warehouses/${warehouse.id}`}>
                             <Eye className="mr-2 h-4 w-4" />
                             <span>View Details</span>
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
-                          <Link href={`/organization/warehouse/${warehouse.id}/transactions`}>
+                          <Link href={`/warehouses/${warehouse.id}/transactions`}>
                             <BarChart className="mr-2 h-4 w-4" />
                             <span>View Transactions</span>
                           </Link>

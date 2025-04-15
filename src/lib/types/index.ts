@@ -467,8 +467,16 @@ export type ProductInventoryReport = {
 // Input type for creating an organization
 export type CreateOrganizationInput = Pick<
   Organization,
-  'name' | 'description' | 'logo' // Add other fields user can provide directly
->;
+  "name" | "description" | "logo" 
+> & {
+  slug: string;
+  defaultCurrency?: string;
+  defaultTimezone?: string;
+  defaultTaxRate?: number;
+  inventoryPolicy?: "FIFO" | "LIFO" | "FEFO";
+  lowStockThreshold?: number;
+  negativeStock?: boolean;
+};
 
 // Input type for updating an organization
 export type UpdateOrganizationInput = Partial<

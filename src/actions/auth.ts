@@ -27,19 +27,24 @@ async function getServerAuthContext(): Promise<{
 
     // If not in cache, fetch from auth service
     const session = await auth.api.getSession({ headers: headersList });
-    console.log("session", session);
+    
     if (!session?.user?.id ) {
       throw new Error("Unauthorized - No user ID found in session.");
     }
 
-    const org = await db.user.findUnique({
-      where: { id: session.user.id },
-      select: { activeOrganizationId: true },
-    })
+    let activeOrgId = session.session.activeOrganizationId;
+    
+    if(!activeOrgId) {
+      const org = await db.user.findUnique({
+        where: { id: session.user.id },
+        select: { activeOrganizationId: true },
+      });
+      activeOrgId = org?.activeOrganizationId;
+    }
 
     const authContext = {
       userId: session.user.id,
-      organizationId: org?.activeOrganizationId || "",
+      organizationId: activeOrgId || "",
     };
 
     // Cache the result

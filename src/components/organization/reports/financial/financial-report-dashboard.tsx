@@ -23,7 +23,7 @@ export function FinancialReportDashboard({ dateRange }: FinancialReportDashboard
     const fetchData = async () => {
       setIsLoading(true)
       try {
-        const response = await fetch(`/api/organization/reports/financial?dateRange=${dateRange}&dataType=${activeTab}`)
+        const response = await fetch(`/api/reports/financial?dateRange=${dateRange}&dataType=${activeTab}`)
         const data = await response.json()
         setFinancialData(data)
       } catch (error) {

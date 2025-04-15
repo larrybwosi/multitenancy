@@ -14,7 +14,7 @@ export function MembersPage() {
   useEffect(() => {
     async function fetchMembers() {
       try {
-        const response = await fetch("/api/organization/members")
+        const response = await fetch("/api/members/test")
         const data = await response.json()
         setMembers(data.members)
         setLoading(false)

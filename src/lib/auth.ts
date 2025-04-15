@@ -43,7 +43,6 @@ export const auth = betterAuth({
     session: {
       create: {
         before: async (session) => {
-          console.log(session);
           const user = await db.user.findUnique({
             where: { id: session.userId },
           });

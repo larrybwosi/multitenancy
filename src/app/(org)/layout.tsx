@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Providers } from "@/lib/providers";
-import { getServerAuthContext } from "@/actions/auth";
-import { db } from "@/lib/db";
+// import { getServerAuthContext } from "@/actions/auth";
+// import { db } from "@/lib/db";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,10 +15,11 @@ const geistMono = Geist_Mono({
 });
 
 export const generateMetadata = async(): Promise<Metadata> => {
-  const {organizationId } = await getServerAuthContext();
-  const org = await db.organization.findUnique({where: {id: organizationId}, select: {name: true}});
+  // const {organizationId } = await getServerAuthContext();
+  // const org = await db.organization.findUnique({where: {id: organizationId}, select: {name: true}});
   return {
-    title: org?.name || "Dealio - SaaS Application",
+    // title: org?.name || "Dealio - SaaS Application",
+    title: "Dealio - SaaS Application",
     description:
       "Dealio is a SaaS Application for Invoicing, Pro Account, Spend & Expenses Management and Accounting automation.",
   };

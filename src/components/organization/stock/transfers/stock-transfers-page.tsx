@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useToast } from "@/components/ui/use-toast"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -11,10 +10,50 @@ import { StockTransfersList } from "./stock-transfers-list"
 import { CreateStockTransferSheet } from "./create-stock-transfer-sheet"
 import { StockTransfersStats } from "./stock-transfers-stats"
 import { Loader2, Search, Filter, ArrowUpDown } from "lucide-react"
+import { toast } from "sonner"
+
+// Define types for our data structures
+interface StockTransferItem {
+  id: string
+  productId: string
+  productName: string
+  quantity: number
+  unitPrice: number
+}
+
+interface Warehouse {
+  id: string
+  name: string
+}
+
+interface StockTransfer {
+  id: string
+  date: string
+  sourceWarehouse: string
+  sourceWarehouseId: string
+  destinationWarehouse: string
+  destinationWarehouseId: string
+  status: 'pending' | 'in_transit' | 'completed' | 'cancelled'
+  items: StockTransferItem[]
+  totalValue: number
+  totalQuantity: number
+  notes?: string
+}
+
+interface TransferData {
+  sourceWarehouseId: string
+  destinationWarehouseId: string
+  items: Array<{
+    productId: string
+    quantity: number
+  }>
+  notes?: string
+  userId?: string
+}
 
 export function StockTransfersPage() {
-  const [transfers, setTransfers] = useState([])
-  const [warehouses, setWarehouses] = useState([])
+  const [transfers, setTransfers] = useState<StockTransfer[]>([])
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [loading, setLoading] = useState(true)
   const [createSheetOpen, setCreateSheetOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -22,7 +61,6 @@ export function StockTransfersPage() {
   const [sortBy, setSortBy] = useState("date")
   const [sortOrder, setSortOrder] = useState("desc")
   const [activeTab, setActiveTab] = useState("all")
-  const { toast } = useToast()
 
   const fetchTransfers = async (params = {}) => {
     setLoading(true)
@@ -37,17 +75,20 @@ export function StockTransfersPage() {
         sortOrder,
       }).toString()
 
-      const response = await fetch(`/api/organization/stock/transfers?${queryParams}`)
+      const response = await fetch(`/api/stock/transfers?${queryParams}`)
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
+      }
+      
       const data = await response.json()
       setTransfers(data.transfers)
       setWarehouses(data.warehouses)
       setLoading(false)
     } catch (error) {
       console.error("Error fetching transfers:", error)
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: "Failed to load stock transfers. Please try again.",
-        variant: "destructive",
       })
       setLoading(false)
     }
@@ -55,11 +96,11 @@ export function StockTransfersPage() {
 
   useEffect(() => {
     fetchTransfers()
-  }, [activeTab, selectedWarehouse, searchQuery, sortBy, sortOrder, toast])
+  }, [activeTab, selectedWarehouse, searchQuery, sortBy, sortOrder])
 
-  const handleCreateTransfer = async (transferData) => {
+  const handleCreateTransfer = async (transferData: TransferData) => {
     try {
-      const response = await fetch("/api/organization/stock/transfers", {
+      const response = await fetch("/api/stock/transfers", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -67,32 +108,33 @@ export function StockTransfersPage() {
         body: JSON.stringify(transferData),
       })
 
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
+      }
+
       const data = await response.json()
 
       if (data.success) {
         // Refresh the transfers list
         fetchTransfers()
-        toast({
-          title: "Success",
+        toast.success("Success", {
           description: "Stock transfer created successfully.",
-        })
+        });
         setCreateSheetOpen(false)
       } else {
         throw new Error(data.message || "Failed to create stock transfer")
       }
-    } catch (error) {
-      console.error("Error creating transfer:", error)
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create stock transfer. Please try again.",
-        variant: "destructive",
+    } catch (error: unknown) {
+      console.error("Error creating transfer:", error);
+      toast.error("Error", {
+        description: error instanceof Error ? error.message : "Failed to create stock transfer. Please try again.",
       })
     }
   }
 
-  const handleUpdateTransfer = async (id, action, data = {}) => {
+  const handleUpdateTransfer = async (id: string, action: string, data: Record<string, unknown> = {}) => {
     try {
-      const response = await fetch("/api/organization/stock/transfers", {
+      const response = await fetch("/api/stock/transfers", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -104,6 +146,10 @@ export function StockTransfersPage() {
         }),
       })
 
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
+      }
+
       const responseData = await response.json()
 
       if (responseData.success) {
@@ -112,10 +158,9 @@ export function StockTransfersPage() {
           prevTransfers.map((transfer) => (transfer.id === id ? responseData.transfer : transfer)),
         )
 
-        toast({
-          title: "Success",
+        toast.success("Success", {
           description: `Stock transfer ${action.replace("_", " ")} successfully.`,
-        })
+        });
 
         return true
       } else {
@@ -123,10 +168,10 @@ export function StockTransfersPage() {
       }
     } catch (error) {
       console.error(`Error ${action.replace("_", " ")} transfer:`, error)
-      toast({
-        title: "Error",
-        description: error.message || `Failed to ${action.replace("_", " ")} stock transfer. Please try again.`,
-        variant: "destructive",
+      toast.error("Error", {
+        description: error instanceof Error 
+          ? error.message 
+          : `Failed to ${action.replace("_", " ")} stock transfer. Please try again.`,
       })
       return false
     }

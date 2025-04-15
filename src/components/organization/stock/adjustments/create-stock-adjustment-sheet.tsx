@@ -21,7 +21,6 @@ import {
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { toast } from "@/components/ui/use-toast"
 
 const formSchema = z.object({
   warehouseId: z.string({
@@ -75,10 +74,10 @@ export function CreateStockAdjustmentSheet({ open, onOpenChange }: CreateStockAd
       console.log("Adjustment details:", values)
 
       // Show success toast
-      toast({
-        title: "Stock adjustment created",
-        description: "The stock adjustment has been created successfully.",
-      })
+      // toast({
+      //   title: "Stock adjustment created",
+      //   description: "The stock adjustment has been created successfully.",
+      // })
 
       // Reset form
       form.reset()
@@ -90,11 +89,11 @@ export function CreateStockAdjustmentSheet({ open, onOpenChange }: CreateStockAd
       router.refresh()
     } catch (error) {
       console.error("Error creating stock adjustment:", error)
-      toast({
-        title: "Error",
-        description: "Failed to create stock adjustment. Please try again.",
-        variant: "destructive",
-      })
+      // toast({
+      //   title: "Error",
+      //   description: "Failed to create stock adjustment. Please try again.",
+      //   variant: "destructive",
+      // })
     } finally {
       setIsSubmitting(false)
     }

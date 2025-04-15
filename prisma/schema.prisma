@@ -52,7 +52,6 @@ enum MemberRole {
   EMPLOYEE  // Standard user, can perform assigned tasks (e.g., make sales, receive stock)
   CASHIER   // Limited role, primarily for making sales
   REPORTER  // View-only access to reports
-  // Removed VIEWER - use REPORTER or more specific roles
 }
 
 model Member {
@@ -492,6 +491,7 @@ model InventoryLocation {
   variantStocks   ProductVariantStock[] // Aggregated stock levels per variant here
   outgoingMovements StockMovement[] @relation("FromLocationMovements")
   incomingMovements StockMovement[] @relation("ToLocationMovements")
+  location          String?
 
   @@unique([organizationId, name]) // Location names unique per org
   @@index([name])
@@ -865,7 +865,6 @@ enum PurchaseStatus {
 }
 
 
-
 model Organization {
   id           String    @id @default(cuid())
   name         String
@@ -897,6 +896,9 @@ model Organization {
   attachments          Attachment[]
   auditLogs            AuditLog[]
   settings             OrganizationSettings? // One-to-one settings
+  assistants           Assistant[]           // NEW: Organization can have multiple assistants
+  automations          Automation[]          // NEW: Organization can have multiple automations
+  executionLogs        ExecutionLog[]
 
   @@map("organization")
 }
@@ -950,6 +952,125 @@ model Invitation {
   @@index([organizationId])
   @@index([inviterId])
   @@map("invitation")
+}
+
+// Assistant Model Definition
+model Assistant {
+  id             String            @id @default(cuid())
+  name           String
+  description    String?
+  isActive       Boolean           @default(true)
+  type           AssistantType     @default(GENERAL)
+  capabilities   AssistantCapability[] // Multiple capabilities per assistant
+  configuration  Json?             // Store assistant-specific configuration
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  
+  // Relations
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  automations    Automation[]      // Automations configured for this assistant
+  executionLogs  ExecutionLog[]    // Logs of automation executions
+
+  @@index([organizationId])
+  @@index([type])
+}
+
+enum AssistantType {
+  GENERAL       // General purpose assistant
+  INVENTORY     // Specialized for inventory management
+  SALES         // Specialized for sales processing
+  CUSTOMER      // Specialized for customer management
+  REPORTING     // Specialized for generating reports
+  CUSTOM        // Custom-built assistant
+}
+
+enum AssistantCapability {
+  AUTO_REORDER          // Can automatically create purchase orders when stock is low
+  INVENTORY_ALERTS      // Sends notifications about inventory issues
+  SALES_SUMMARY         // Generates daily/weekly sales summaries
+  CUSTOMER_ENGAGEMENT   // Sends automated messages to customers
+  REPORT_GENERATION     // Creates and distributes reports
+  ORDER_PROCESSING      // Processes online orders automatically
+  STOCK_OPTIMIZATION    // Suggests optimal stock levels
+  DATA_ANALYSIS         // Analyzes business data for insights
+}
+
+// Automation model for configuring automated tasks
+model Automation {
+  id             String            @id @default(cuid())
+  name           String
+  description    String?
+  isActive       Boolean           @default(true)
+  triggerType    TriggerType       // What triggers this automation
+  triggerConfig  Json              // Configuration for the trigger (e.g., schedule, conditions)
+  actionType     ActionType        // What action to perform
+  actionConfig   Json              // Configuration for the action
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  // Relations
+  assistantId    String
+  assistant      Assistant         @relation(fields: [assistantId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  executionLogs  ExecutionLog[]    // Logs of automation executions
+
+  @@index([assistantId])
+  @@index([organizationId])
+  @@index([triggerType])
+}
+
+enum TriggerType {
+  SCHEDULE           // Time-based trigger (daily, weekly, etc.)
+  EVENT              // Event-based trigger (e.g., low stock, new sale)
+  CONDITION          // Condition-based trigger (when certain conditions are met)
+  MANUAL             // Manually triggered by a user
+  API                // Triggered via API call
+}
+
+enum ActionType {
+  CREATE_PURCHASE_ORDER    // Create a purchase order for low stock items
+  SEND_NOTIFICATION        // Send notification to staff
+  GENERATE_REPORT          // Generate and send a report
+  UPDATE_INVENTORY         // Update inventory levels
+  SEND_CUSTOMER_MESSAGE    // Send message to customers
+  ADJUST_PRICING           // Adjust product pricing
+  EXPORT_DATA              // Export data to external system
+  RUN_ANALYSIS             // Run data analysis
+  CUSTOM_ACTION            // Custom action defined in actionConfig
+}
+
+// Logs for automation executions
+model ExecutionLog {
+  id              String     @id @default(cuid())
+  executedAt      DateTime   @default(now())
+  status          ExecutionStatus
+  details         Json?      // Details about the execution
+  result          String?    // Result of the execution
+  errorMessage    String?    // Error message if failed
+  
+  // Relations
+  automationId    String?
+  automation      Automation? @relation(fields: [automationId], references: [id], onDelete: SetNull)
+  assistantId     String
+  assistant       Assistant  @relation(fields: [assistantId], references: [id], onDelete: Cascade)
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([automationId])
+  @@index([assistantId])
+  @@index([organizationId])
+  @@index([executedAt])
+  @@index([status])
+}
+
+enum ExecutionStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  CANCELLED
 }
 
 // --- Authentication & Authorization Models --- (Mostly standard, added Organization links)

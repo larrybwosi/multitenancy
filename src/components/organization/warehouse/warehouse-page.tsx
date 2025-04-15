@@ -3,20 +3,27 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Plus, Download } from "lucide-react"
+import { Plus, Download, Warehouse, Boxes } from "lucide-react"
 import { WarehouseList } from "./warehouse-list"
 import { WarehouseStats } from "./warehouse-stats"
 import { WarehouseCreateSheet } from "./warehouse-create-sheet"
+import { SectionHeader } from "@/components/ui/SectionHeader"
 
+interface Warehouse {
+  id: string
+  name: string
+  location: string
+  capacity: number
+}
 export function WarehousePage() {
   const [loading, setLoading] = useState(true)
-  const [warehouses, setWarehouses] = useState<any[]>([])
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [showCreateSheet, setShowCreateSheet] = useState(false)
 
   const fetchWarehouses = async () => {
     try {
       setLoading(true)
-      const response = await fetch("/api/organization/warehouse")
+      const response = await fetch("/api/warehouse")
       const data = await response.json()
       setWarehouses(data.warehouses)
     } catch (error) {
@@ -35,12 +42,14 @@ export function WarehousePage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 container px-4 mt-4">
       <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold">Warehouse Management</h1>
-          <p className="text-muted-foreground">Manage your organization's warehouses and storage facilities</p>
-        </div>
+        <SectionHeader
+          title="Warehouse Management"
+          subtitle="Manage your organization's warehouses and storage facilities"
+          icon={<Boxes className="h-8 w-8 text-gray-600" />}
+          autoUpdate="2 min"
+        />
         <div className="flex gap-2">
           <Button variant="outline">
             <Download className="mr-2 h-4 w-4" />
@@ -59,7 +68,8 @@ export function WarehousePage() {
         <CardHeader>
           <CardTitle>Warehouses</CardTitle>
           <CardDescription>
-            View and manage all warehouses. Monitor capacity, inventory levels, and warehouse status.
+            View and manage all warehouses. Monitor capacity, inventory levels,
+            and warehouse status.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -67,7 +77,11 @@ export function WarehousePage() {
         </CardContent>
       </Card>
 
-      <WarehouseCreateSheet open={showCreateSheet} onOpenChange={setShowCreateSheet} onSuccess={handleCreateSuccess} />
+      <WarehouseCreateSheet
+        open={showCreateSheet}
+        onOpenChange={setShowCreateSheet}
+        onSuccess={handleCreateSuccess}
+      />
     </div>
-  )
+  );
 }

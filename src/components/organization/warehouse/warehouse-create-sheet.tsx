@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2 } from "lucide-react"
-import { toast } from "@/components/ui/use-toast"
+import { toast } from "sonner"
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
@@ -54,7 +54,7 @@ export function WarehouseCreateSheet({ open, onOpenChange, onSuccess }: Warehous
   const handleSubmit = async (values: FormValues) => {
     setIsSubmitting(true)
     try {
-      const response = await fetch("/api/organization/warehouse", {
+      const response = await fetch("/api/warehouse", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -64,8 +64,7 @@ export function WarehouseCreateSheet({ open, onOpenChange, onSuccess }: Warehous
 
       if (!response.ok) throw new Error("Failed to create warehouse")
 
-      toast({
-        title: "Warehouse created",
+      toast.success("Warehouse created",{
         description: "The warehouse has been successfully created.",
       })
 
@@ -74,10 +73,8 @@ export function WarehouseCreateSheet({ open, onOpenChange, onSuccess }: Warehous
       onSuccess()
     } catch (error) {
       console.error("Error creating warehouse:", error)
-      toast({
-        title: "Error",
+      toast.error("Error",{
         description: "Failed to create warehouse. Please try again.",
-        variant: "destructive",
       })
     } finally {
       setIsSubmitting(false)

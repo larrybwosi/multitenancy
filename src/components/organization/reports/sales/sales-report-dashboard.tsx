@@ -22,7 +22,7 @@ export function SalesReportDashboard({ dateRange }: SalesReportDashboardProps) {
     const fetchData = async () => {
       setIsLoading(true)
       try {
-        const response = await fetch(`/api/organization/reports/sales?dateRange=${dateRange}&dataType=${activeTab}`)
+        const response = await fetch(`/api/reports/sales?dateRange=${dateRange}&dataType=${activeTab}`)
         const data = await response.json()
         setSalesData(data)
       } catch (error) {

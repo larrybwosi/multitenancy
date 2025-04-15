@@ -3,20 +3,22 @@ import prisma from "@/lib/db"
 import { updateWarehouseSchema } from "../types"
 import { getServerAuthContext } from "@/actions/auth";
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+type Params = Promise<{ id: string }>;
+
+export async function GET(request: Request, { params }: { params: Params }) {
   try {
-    const id = params.id
+    const { id } = await params;
     const { userId, organizationId } = await getServerAuthContext();
+    
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     if (!organizationId) {
-      return NextResponse.json(
-        { error: "No active organization" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "No active organization" }, { status: 400 });
     }
+
+    // Get warehouse with its stock batches and their products
     const location = await prisma.inventoryLocation.findFirst({
       where: {
         id,
@@ -24,36 +26,34 @@ export async function GET(request: Request, { params }: { params: { id: string }
       },
       include: {
         stockBatches: {
-          select: {
-            currentQuantity: true,
-            initialQuantity: true,
-            product: {
-              select: {
-                id: true,
-                name: true,
-              }
-            }
+          include: {
+            product: true
+          }
+        },
+        variantStocks: {
+          include: {
+            product: true,
+            variant: true
           }
         }
       }
-    })
+    });
 
     if (!location) {
-      return NextResponse.json({ error: "Warehouse not found" }, { status: 404 })
+      return NextResponse.json({ error: "Warehouse not found" }, { status: 404 });
     }
 
-    // Calculate used capacity - sum of all current quantities
+    // Calculate total capacity used from stock batches
     const usedCapacity = location.stockBatches.reduce(
-      (sum, batch) => sum + batch.currentQuantity, 
+      (sum, batch) => sum + batch.currentQuantity,
       0
-    )
-    
-    // Count unique products
-    const uniqueProductIds = new Set(
-      location.stockBatches.map(batch => batch.product.id)
-    )
-    
-    const productCount = uniqueProductIds.size
+    );
+
+    // Calculate unique products count
+    const uniqueProductIds = new Set([
+      ...location.stockBatches.map(batch => batch.productId),
+      ...location.variantStocks.map(stock => stock.productId)
+    ]);
 
     // Transform to match UI expectations
     return NextResponse.json({
@@ -61,28 +61,39 @@ export async function GET(request: Request, { params }: { params: { id: string }
         id: location.id,
         name: location.name,
         location: location.description || "Not specified",
-        capacity: 10000, // Default value
+        capacity: location.capacity || 10000, // Default capacity if not set
         used: usedCapacity,
-        manager: "Not assigned", // Not in our schema
+        manager: location.managerId || "Not assigned",
         status: location.isActive ? "ACTIVE" : "INACTIVE",
-        productCount,
+        productCount: uniqueProductIds.size,
         lastUpdated: location.updatedAt.toISOString(),
         description: location.description || "",
-        address: "", // Not in our schema
-        phone: "", // Not in our schema
-        email: "", // Not in our schema
-      },
-    })
+        capacityUnit: location.capacityUnit || "units",
+        customFields: location.customFields || {},
+        stockValue: location.stockBatches.reduce(
+          (sum, batch) => sum + (batch.currentQuantity * Number(batch.purchasePrice)),
+          0
+        ),
+        stockItems: location.stockBatches.map(batch => ({
+          id: batch.id,
+          productId: batch.productId,
+          productName: batch.product.name,
+          quantity: batch.currentQuantity,
+          value: batch.currentQuantity * Number(batch.purchasePrice)
+        }))
+      }
+    });
   } catch (error) {
-    console.error("Error fetching warehouse:", error)
-    return NextResponse.json({ error: "Failed to fetch warehouse" }, { status: 500 })
+    console.error("Error fetching warehouse:", error);
+    return NextResponse.json({ error: "Failed to fetch warehouse" }, { status: 500 });
   }
 }
 
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PUT(request: Request, { params }: { params: Params }) {
   try {
-    const id = params.id
-    const { userId, organizationId } = await getServerAuthContext();
+    const { id } = await params;
+
+    const{ userId, organizationId } = await getServerAuthContext();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -180,9 +191,9 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(request: Request, { params }: { params: Params }) {
   try {
-    const id = params.id
+    const { id } = await params;
     const { userId, organizationId } = await getServerAuthContext();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -21,7 +21,7 @@ export function StockAdjustmentsPage() {
       </div>
 
       <div className="flex justify-between items-center">
-        <div></div>
+        <div/>
         <div className="flex gap-2">
           <Button variant="outline">
             <Filter className="mr-2 h-4 w-4" />

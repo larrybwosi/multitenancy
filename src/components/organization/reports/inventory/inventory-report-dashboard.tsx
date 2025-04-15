@@ -22,7 +22,7 @@ export function InventoryReportDashboard({ dateRange }: InventoryReportDashboard
     const fetchData = async () => {
       setIsLoading(true)
       try {
-        const response = await fetch(`/api/organization/reports/inventory?dateRange=${dateRange}&dataType=${activeTab}`)
+        const response = await fetch(`/api/reports/inventory?dateRange=${dateRange}&dataType=${activeTab}`)
         const data = await response.json()
         setInventoryData(data)
       } catch (error) {
