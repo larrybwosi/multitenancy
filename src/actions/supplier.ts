@@ -446,7 +446,7 @@ export async function getSupplierPurchaseHistory(
                     }
                 },
                  // Include the user (Member) who created the purchase if needed
-                 user: { select: { id: true, user: { select: { name: true, email: true }} } }
+                 member: { select: { id: true, user: { select: { name: true, email: true }} } }
             },
             orderBy: { orderDate: 'desc' }, // Order by most recent purchase
         });

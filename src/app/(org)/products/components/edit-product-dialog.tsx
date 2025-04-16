@@ -6,7 +6,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Category } from "@prisma/client";
-import { updateProduct } from "@/actions/stock.actions"; // Import server action
 import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -38,6 +37,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { ProductWithRelations } from "./products-columns";
+import { updateProduct } from "@/actions/products";
 
 // Zod schema matching the server action's EditProductSchema
 const EditProductFormSchema = z.object({

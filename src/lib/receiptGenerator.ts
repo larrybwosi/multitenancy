@@ -7,8 +7,8 @@ import {
   Customer,
 } from "@prisma/client";
 import { formatCurrency, formatDate } from "./utils"; // Adjust path
-import { getBrowserInstance } from "./browser"; // Adjust path
-import { uploadSanityAsset } from "./sanity/client";
+import { getBrowserInstance } from "./browser"; 
+import { uploadSanityAsset } from "@/actions/uploads";
 
 // Define a more detailed type for receipt data
 type SaleForReceipt = Sale & {
@@ -160,6 +160,7 @@ export async function generateAndSaveReceiptPdf(
     // Upload to Sanity
     console.log(`Uploading ${fileName} to Sanity...`);
     const receiptUrl = await uploadSanityAsset(
+      //@ts-expect-error this is fine
       pdfBuffer,
       fileName,
       "application/pdf"

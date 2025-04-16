@@ -1,6 +1,6 @@
 "use server";
 
-import { Prisma, type Organization, MemberRole } from "@prisma/client";
+import { Prisma, type Organization, MemberRole, LocationType } from "@prisma/client";
 import slugify from "slugify";
 
 import { db as prisma } from "@/lib/db";
@@ -95,6 +95,17 @@ export async function createOrganization(
       },
     });
 
+  await prisma.inventoryLocation.create({
+    data: {
+      name: "Main Store",
+      description: "Primary retail store location",
+      locationType: LocationType.RETAIL_SHOP,
+      isDefault: true,
+      isActive: true,
+      capacityTracking: false,
+      organizationId: newOrganization.id,
+    },
+  });
     // Optionally: Update the user's activeOrganizationId if desired
     // await prisma.user.update({
     //   where: { id: userId },

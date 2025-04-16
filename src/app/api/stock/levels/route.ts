@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import prisma from "@/lib/db"
 import { Prisma } from "@prisma/client"
+import { getServerAuthContext } from "@/actions/auth"
 
 // Define types for stock levels response
 interface WarehouseStockData {
@@ -31,6 +32,7 @@ interface StockLevelResponse {
 }
 
 export async function GET(request: NextRequest) {
+  const { organizationId } = await getServerAuthContext();
   try {
     const { searchParams } = request.nextUrl
     const locationId = searchParams.get("warehouseId")
@@ -49,7 +51,8 @@ export async function GET(request: NextRequest) {
       productWhere.OR = [
         { name: { contains: search, mode: 'insensitive' } },
         { sku: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } }
+        { description: { contains: search, mode: 'insensitive' } },
+        { organizationId }
       ]
     }
     if (categoryId && categoryId !== "all") {
@@ -81,11 +84,11 @@ export async function GET(request: NextRequest) {
 
     // Get all inventory locations
     const locations = await prisma.inventoryLocation.findMany({
-      where: { isActive: true },
+      where: { isActive: true, organizationId },
       select: {
         id: true,
         name: true,
-        location: true
+        address: true,
       }
     })
 
@@ -119,7 +122,7 @@ export async function GET(request: NextRequest) {
           maxLevel: isFinite(maxLevel) ? maxLevel : 0,
           reorderPoint: isFinite(reorderPoint) ? reorderPoint : 0,
           reorderQuantity: reorderPoint,
-          location: location.location || "",
+          location: location.address || "",
           lastCountDate: null
         }
       })

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import db from "@/lib/db";
 import { generateAndSaveReceiptPdf } from "@/lib/receiptGenerator"; 
+import { getServerAuthContext } from "./auth";
 
 // --- Type Definitions ---
 // Types for data coming from the POS client
@@ -48,7 +49,6 @@ const ProcessSaleSchema = z.object({
   paymentMethod: z.nativeEnum(PaymentMethod),
   discountAmount: z.number().min(0).default(0), // Optional discount applied to total
   // taxAmount: z.number().min(0).default(0), // Tax calculated server-side
-  userId: z.string().cuid(), // Should come from auth context
 });
 
 // --- Server Actions ---
@@ -148,7 +148,8 @@ export async function processSale(
     };
   }
 
-  const { cartItems, customerId, paymentMethod, discountAmount, userId } =
+  const { userId, organizationId } = await getServerAuthContext();
+  const { cartItems, customerId, paymentMethod, discountAmount } =
     validation.data;
 
   try {
@@ -165,7 +166,7 @@ export async function processSale(
         // 1. Fetch product/variant details and validate stock within transaction
         for (const item of cartItems) {
           const product = await tx.product.findUnique({
-            where: { id: item.productId, isActive: true },
+            where: { id: item.productId, isActive: true, organizationId },
             include: {
               variants: {
                 where: { id: item.variantId ?? undefined, isActive: true },
@@ -246,8 +247,9 @@ export async function processSale(
         // 3. Create the Sale record
         const sale = await tx.sale.create({
           data: {
-            saleNumber: `SALE-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, // Simple unique number
-            userId: userId, // Assumes userId is valid CUID from auth
+            saleNumber: `SALE-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+            organizationId,
+            memberId: userId,
             customerId: customerId,
             saleDate: new Date(),
             totalAmount: subTotal,
@@ -274,7 +276,7 @@ export async function processSale(
               },
             },
             customer: true, // Include customer details
-            user: { select: { name: true } }, // Include user name
+            member: { select: { user: { select: { name: true } } } }, // Include user name
           },
         });
 
@@ -304,8 +306,9 @@ export async function processSale(
             });
             await tx.loyaltyTransaction.create({
               data: {
+                organizationId,
                 customerId: customerId,
-                userId: userId,
+                memberId: userId,
                 pointsChange: pointsEarned,
                 reason: "SALE_EARNED",
                 relatedSaleId: sale.id, // Link loyalty tx to the sale
@@ -334,7 +337,10 @@ export async function processSale(
         "Transaction successful, generating receipt for Sale ID:",
         result.id
       );
-      receiptUrl = await generateAndSaveReceiptPdf(result); // Cast result type
+      receiptUrl = await generateAndSaveReceiptPdf({
+        ...result,
+        user: result.member.user
+      }); // Cast result type
 
       // Update the Sale record with the receipt URL
       await db.sale.update({

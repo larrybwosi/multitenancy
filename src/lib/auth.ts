@@ -37,7 +37,7 @@ export const auth = betterAuth({
       enabled: true,
       maxAge: 5 * 60* 60,
     },
-    preserveSessionInDatabase: true,
+    // preserveSessionInDatabase: true,
   },
   databaseHooks: {
     session: {

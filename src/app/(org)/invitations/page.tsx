@@ -6,8 +6,9 @@ import { InvitationsList } from "./list"
 import { Button } from "@/components/ui/button"
 import { UserPlus } from "lucide-react"
 import Link from "next/link"
+import { SectionHeader } from "@/components/ui/SectionHeader"
 
-export function InvitationsPage() {
+export default function InvitationsPage() {
   const [loading, setLoading] = useState(true)
   const [invitations, setInvitations] = useState<any[]>([])
 
@@ -28,14 +29,18 @@ export function InvitationsPage() {
   }, [])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 container px-4 mt-4">
       <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold">Pending Invitations</h1>
-          <p className="text-muted-foreground">Manage your organization's pending invitations</p>
-        </div>
+        
+        <SectionHeader
+          title="Pending Invitations"
+          subtitle="Manage your organization's pending invitations"
+          icon={<UserPlus className="h-8 w-8 text-indigo-500" />}
+          // actionLabel="Invite Member"
+          autoUpdate="2 min"
+        />
         <Button asChild>
-          <Link href="/organization/invite">
+          <Link href="/invite">
             <UserPlus className="mr-2 h-4 w-4" />
             Invite Member
           </Link>
@@ -46,8 +51,8 @@ export function InvitationsPage() {
         <CardHeader>
           <CardTitle>Invitations</CardTitle>
           <CardDescription>
-            View and manage all pending invitations to your organization. You can resend or cancel invitations as
-            needed.
+            View and manage all pending invitations to your organization. You
+            can resend or cancel invitations as needed.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -55,5 +60,5 @@ export function InvitationsPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

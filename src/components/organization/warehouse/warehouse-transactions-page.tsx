@@ -1,11 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { toast } from "@/components/ui/use-toast"
 import { ArrowLeft, Download, Filter, Calendar } from "lucide-react"
 import Link from "next/link"
 import { Input } from "@/components/ui/input"
@@ -13,15 +11,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { toast } from "sonner"
+import { InventoryLocation } from "@prisma/client"
 
 interface WarehouseTransactionsPageProps {
   id: string
 }
 
 export function WarehouseTransactionsPage({ id }: WarehouseTransactionsPageProps) {
-  const router = useRouter()
   const [loading, setLoading] = useState(true)
-  const [warehouse, setWarehouse] = useState<any>(null)
+  const [warehouse, setWarehouse] = useState<InventoryLocation| null>(null)
   const [transactions, setTransactions] = useState<any[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [filterType, setFilterType] = useState("ALL")
@@ -32,21 +31,19 @@ export function WarehouseTransactionsPage({ id }: WarehouseTransactionsPageProps
         setLoading(true)
 
         // Fetch warehouse details
-        const warehouseResponse = await fetch(`/api/organization/warehouse/${id}`)
+        const warehouseResponse = await fetch(`/api/warehouse/${id}`)
         const warehouseData = await warehouseResponse.json()
         setWarehouse(warehouseData.warehouse)
 
         // Fetch transactions
-        const transactionsResponse = await fetch(`/api/organization/warehouse/${id}/transactions`)
+        const transactionsResponse = await fetch(`/api/warehouse/${id}/transactions`)
         const transactionsData = await transactionsResponse.json()
         setTransactions(transactionsData.transactions)
       } catch (error) {
         console.error("Error fetching data:", error)
-        toast({
-          title: "Error",
+        toast.error("Error", {
           description: "Failed to load warehouse data. Please try again.",
-          variant: "destructive",
-        })
+        });
       } finally {
         setLoading(false)
       }
@@ -81,7 +78,7 @@ export function WarehouseTransactionsPage({ id }: WarehouseTransactionsPageProps
             </Link>
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">{warehouse.name} - Transactions</h1>
+            <h1 className="text-2xl font-bold">{warehouse?.name} - Transactions</h1>
             <p className="text-muted-foreground">View all stock movements for this warehouse</p>
           </div>
         </div>

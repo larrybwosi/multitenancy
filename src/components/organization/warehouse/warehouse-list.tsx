@@ -18,21 +18,40 @@ import { MoreHorizontal, Search, Trash, Eye, BarChart } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Progress } from "@/components/ui/progress"
 import Link from "next/link"
+import { InventoryLocation } from "@prisma/client"
+import { AlertTriangle } from "lucide-react"
 
 interface WarehouseListProps {
-  warehouses: any[]
+  warehouses: InventoryLocation[]
   loading: boolean
+  error?: Error | null
 }
 
-export function WarehouseList({ warehouses, loading }: WarehouseListProps) {
+export function WarehouseList({ warehouses, loading, error }: WarehouseListProps) {
   const [searchQuery, setSearchQuery] = useState("")
 
-  const filteredWarehouses = warehouses.filter(
-    (warehouse) =>
-      warehouse.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      warehouse.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      warehouse.manager.toLowerCase().includes(searchQuery.toLowerCase()),
-  )
+  const filteredWarehouses = warehouses?.filter((warehouse) => {
+    const searchLower = searchQuery.toLowerCase()
+    return (
+      warehouse.name.toLowerCase().includes(searchLower) ||
+      (warehouse.address?.toLowerCase().includes(searchLower) || false)
+    )
+  })
+
+  if (error) {
+    return (
+      <div className="border rounded-md p-4 flex flex-col items-center justify-center gap-4 h-64">
+        <AlertTriangle className="h-8 w-8 text-red-500" />
+        <div className="text-center">
+          <h3 className="font-medium">Failed to load warehouses</h3>
+          <p className="text-sm text-muted-foreground">{error.message}</p>
+        </div>
+        <Button variant="outline" onClick={() => window.location.reload()}>
+          Retry
+        </Button>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4">
@@ -55,7 +74,6 @@ export function WarehouseList({ warehouses, loading }: WarehouseListProps) {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Location</TableHead>
-              <TableHead>Manager</TableHead>
               <TableHead>Capacity</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Last Updated</TableHead>
@@ -76,9 +94,6 @@ export function WarehouseList({ warehouses, loading }: WarehouseListProps) {
                     <Skeleton className="h-6 w-[100px]" />
                   </TableCell>
                   <TableCell>
-                    <Skeleton className="h-6 w-[100px]" />
-                  </TableCell>
-                  <TableCell>
                     <Skeleton className="h-6 w-[80px]" />
                   </TableCell>
                   <TableCell>
@@ -89,7 +104,7 @@ export function WarehouseList({ warehouses, loading }: WarehouseListProps) {
                   </TableCell>
                 </TableRow>
               ))
-            ) : filteredWarehouses.length > 0 ? (
+            ) : filteredWarehouses?.length > 0 ? (
               filteredWarehouses.map((warehouse) => (
                 <TableRow key={warehouse.id}>
                   <TableCell className="font-medium">
@@ -97,32 +112,33 @@ export function WarehouseList({ warehouses, loading }: WarehouseListProps) {
                       {warehouse.name}
                     </Link>
                   </TableCell>
-                  <TableCell>{warehouse.location}</TableCell>
-                  <TableCell>{warehouse.manager}</TableCell>
+                  <TableCell>{warehouse.address || '-'}</TableCell>
                   <TableCell>
                     <div className="space-y-1">
                       <div className="flex justify-between text-xs">
-                        <span>{warehouse.used.toLocaleString()}</span>
-                        <span>{warehouse.capacity.toLocaleString()}</span>
+                        <span>{warehouse.capacityUsed?.toLocaleString() || '0'}</span>
+                        <span>{warehouse.totalCapacity?.toLocaleString() || '0'}</span>
                       </div>
-                      <Progress
-                        value={(warehouse.used / warehouse.capacity) * 100}
-                        className="h-2"
-                        indicatorClassName={cn(
-                          warehouse.used / warehouse.capacity > 0.9
-                            ? "bg-red-500"
-                            : warehouse.used / warehouse.capacity > 0.7
-                              ? "bg-amber-500"
-                              : "bg-green-500",
-                        )}
-                      />
+                      {warehouse.totalCapacity && warehouse.capacityUsed && (
+                        <Progress
+                          value={(warehouse.capacityUsed / warehouse.totalCapacity) * 100}
+                          className="h-2"
+                          indicatorClassName={cn(
+                            warehouse.capacityUsed / warehouse.totalCapacity > 0.9
+                              ? "bg-red-500"
+                              : warehouse.capacityUsed / warehouse.totalCapacity > 0.7
+                                ? "bg-amber-500"
+                                : "bg-green-500",
+                          )}
+                        />
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <StatusBadge status={warehouse.status} />
+                    <StatusBadge isActive={warehouse.isActive} />
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {new Date(warehouse.lastUpdated).toLocaleDateString()}
+                    {new Date(warehouse.updatedAt).toLocaleDateString()}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -159,8 +175,8 @@ export function WarehouseList({ warehouses, loading }: WarehouseListProps) {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center">
-                  No warehouses found.
+                <TableCell colSpan={6} className="h-24 text-center">
+                  No warehouses found
                 </TableCell>
               </TableRow>
             )}
@@ -171,17 +187,15 @@ export function WarehouseList({ warehouses, loading }: WarehouseListProps) {
   )
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const statusColors: Record<string, string> = {
+function StatusBadge({ isActive }: { isActive: boolean }) {
+  const status = isActive ? 'ACTIVE' : 'INACTIVE'
+  const statusColors = {
     ACTIVE: "bg-green-100 text-green-800 hover:bg-green-200 border-green-200",
-    MAINTENANCE: "bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-200",
     INACTIVE: "bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-200",
   }
 
-  const colorClass = statusColors[status] || "bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-200"
-
   return (
-    <Badge variant="outline" className={cn("font-medium", colorClass)}>
+    <Badge variant="outline" className={cn("font-medium", statusColors[status])}>
       {status.charAt(0) + status.slice(1).toLowerCase()}
     </Badge>
   )

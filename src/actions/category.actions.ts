@@ -35,7 +35,7 @@ const CategoryFormSchema = z.object({
  * Fetches all categories and calculates statistics for each.
  */
 
-interface GetCategoriesWithStatsParams {
+export type GetCategoriesWithStatsParams = {
   search?: string;
   filter?: string;
   page?: number;

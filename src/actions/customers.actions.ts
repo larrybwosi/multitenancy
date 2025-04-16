@@ -33,7 +33,7 @@ export type CustomerWithDetails = Prisma.CustomerGetPayload<{
     };
     loyaltyTransactions: {
       include: {
-        user: { select: { user: { select: { name: true; email: true } } } }; // User who processed
+        member: { select: { user: { select: { name: true; email: true } } } }; // User who processed
       };
       orderBy: { transactionDate: "desc" };
       take: 50; // Limit initial load
@@ -44,8 +44,6 @@ export type CustomerWithDetails = Prisma.CustomerGetPayload<{
 }>;
 
 // --- Helper Functions ---
-
-// Get server session safely
 
 
 // --- Zod Validation Schemas ---
@@ -109,12 +107,7 @@ export async function getCustomers(searchParams?: {
     totalPages: number;
   }>
 > {
-  const authContext = await getServerAuthContext();
-  if (!authContext) {
-    return { success: false, message: "Authentication required." };
-  }
-  const { userId, organizationId } = authContext;
-  console.log(userId, organizationId);
+  const { userId, organizationId } = await getServerAuthContext();
 
   // Authorization check (optional, if base membership isn't enough)
   if (!(await checkUserAuthorization(userId, organizationId))) {
@@ -230,7 +223,7 @@ export async function getCustomerById(
         },
         loyaltyTransactions: {
           include: {
-            user: { select: { user: { select: { name: true, email: true } } } },
+            member: { select: { user: { select: { name: true, email: true } } } },
           },
           orderBy: { transactionDate: "desc" },
           take: 50,
@@ -543,7 +536,8 @@ export async function addManualLoyaltyTransaction(
       const loyaltyTx = await tx.loyaltyTransaction.create({
         data: {
           customerId: customerId,
-          userId: userId, // Use the authenticated user ID
+          organizationId,
+          memberId: userId,
           pointsChange: pointsChange,
           reason: reason,
           notes: notes,

@@ -3,9 +3,9 @@ import { Package2 } from "lucide-react";
 import ProductsTab from "./components/products-tab";
 import {
   getProducts,
-  getCategories,
-} from "@/actions/stock.actions";
+} from "@/actions/products";
 import { SectionHeader } from "@/components/ui/SectionHeader";
+import { getCategories } from "./actions";
 
 export default async function ProductsPage() {
   
@@ -14,6 +14,7 @@ export default async function ProductsPage() {
       getProducts({ includeCategory: true }),
       getCategories(),
     ]);
+    
   return (
     <Card className="border-none shadow-lg flex-1 overflow-hidden bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900">
       <CardHeader>
@@ -28,8 +29,8 @@ export default async function ProductsPage() {
       <CardContent className="px-6">
         <ProductsTab
           //@ts-expect-error base prise is string
-          initialProducts={productData.products ?? []}
-          initialCategories={categoryData.categories ?? []}
+          initialProducts={productData.data ?? []}
+          initialCategories={categoryData ?? []}
         />
       </CardContent>
     </Card>

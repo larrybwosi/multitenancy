@@ -591,53 +591,6 @@ model InventoryLocation {
   @@index([parentLocationId])
 }
 
-model StockBatch {
-  id              String          @id @default(cuid())
-  productId       String
-  product         Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
-  variantId       String?
-  variant         ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
-  batchNumber     String?         // Manufacturer or internal batch number
-  purchaseItemId  String?         // Link to the purchase item that created this batch
-  purchaseItem    PurchaseItem?   @relation(fields: [purchaseItemId], references: [id], onDelete: SetNull)
-  locationId      String          // Location where this batch is physically stored
-  location        InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
-  
-  // NEW Storage placement fields
-  storageUnitId   String?         // Which specific storage unit contains this batch
-  storageUnit     StorageUnit?    @relation("UnitStockBatches", fields: [storageUnitId], references: [id], onDelete: SetNull)
-  positionId      String?         // Which specific position within the unit
-  position        StoragePosition? @relation("PositionStockBatches", fields: [positionId], references: [id], onDelete: SetNull)
-  
-  initialQuantity Int             // Quantity when the batch was created/received
-  currentQuantity Int             // Current available quantity in this batch
-  purchasePrice   Decimal         @db.Decimal(10, 2) // Cost per unit for items in this batch
-  expiryDate      DateTime?       // Expiry date for FEFO tracking
-  receivedDate    DateTime        @default(now()) // Date batch was added to inventory
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  
-  // The physical space this batch occupies (can be calculated from product dimensions × quantity)
-  spaceOccupied   Float?
-  spaceUnit       MeasurementUnit?
-
-  // Relations
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  saleItems      SaleItem[]        // Track which sales depleted this batch
-  adjustments    StockAdjustment[] // Adjustments specifically affecting this batch
-  movements      StockMovement[]   // Track movements involving this batch
-
-  @@index([productId, variantId])
-  @@index([expiryDate])
-  @@index([receivedDate])
-  @@index([currentQuantity])
-  @@index([locationId])
-  @@index([organizationId])
-  @@index([storageUnitId])
-  @@index([positionId])
-}
-
 
 model StorageZone {
   id              String    @id @default(cuid())
@@ -725,6 +678,53 @@ model StoragePosition {
   @@index([storageUnitId])
   @@index([isOccupied])
   @@index([organizationId])
+}
+
+model StockBatch {
+  id              String          @id @default(cuid())
+  productId       String
+  product         Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId       String?
+  variant         ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  batchNumber     String?         // Manufacturer or internal batch number
+  purchaseItemId  String?         // Link to the purchase item that created this batch
+  purchaseItem    PurchaseItem?   @relation(fields: [purchaseItemId], references: [id], onDelete: SetNull)
+  locationId      String          // Location where this batch is physically stored
+  location        InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  
+  // NEW Storage placement fields
+  storageUnitId   String?         // Which specific storage unit contains this batch
+  storageUnit     StorageUnit?    @relation("UnitStockBatches", fields: [storageUnitId], references: [id], onDelete: SetNull)
+  positionId      String?         // Which specific position within the unit
+  position        StoragePosition? @relation("PositionStockBatches", fields: [positionId], references: [id], onDelete: SetNull)
+  
+  initialQuantity Int             // Quantity when the batch was created/received
+  currentQuantity Int             // Current available quantity in this batch
+  purchasePrice   Decimal         @db.Decimal(10, 2) // Cost per unit for items in this batch
+  expiryDate      DateTime?       // Expiry date for FEFO tracking
+  receivedDate    DateTime        @default(now()) // Date batch was added to inventory
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  
+  // The physical space this batch occupies (can be calculated from product dimensions × quantity)
+  spaceOccupied   Float?
+  spaceUnit       MeasurementUnit?
+
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  saleItems      SaleItem[]        // Track which sales depleted this batch
+  adjustments    StockAdjustment[] // Adjustments specifically affecting this batch
+  movements      StockMovement[]   // Track movements involving this batch
+
+  @@index([productId, variantId])
+  @@index([expiryDate])
+  @@index([receivedDate])
+  @@index([currentQuantity])
+  @@index([locationId])
+  @@index([organizationId])
+  @@index([storageUnitId])
+  @@index([positionId])
 }
 
 model ProductVariantStock {

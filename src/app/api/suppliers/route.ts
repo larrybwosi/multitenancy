@@ -1,9 +1,7 @@
-// app/api/suppliers/route.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import prisma from "@/lib/db";
-import { Supplier } from "@prisma/client";
-import { SupplierSchema } from "@/lib/validations/schemas";
+import { createSupplier, getSuppliers } from "@/actions/supplier";
+import { handleApiError } from "@/lib/api-utils";
 
 
 export async function POST(request: NextRequest) {
@@ -11,33 +9,11 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const validationResult = SupplierSchema.safeParse(body); 
-
-    if (!validationResult.success) {
-      // Format Zod errors for a user-friendly response
-      const errors = validationResult.error.flatten().fieldErrors;
-      console.error("Validation Errors:", errors);
-      return NextResponse.json(
-        { error: "Validation failed", details: errors },
-        { status: 400 } // Bad Request
-      );
-    }
-
-    // Data is validated, proceed using validationResult.data
-    const validatedData = validationResult.data;
-
-    const newSupplier: Supplier = await prisma.supplier.create({
-      data: validatedData, // Use the validated data
-    });
-
+    const newSupplier = await createSupplier(body)
     return NextResponse.json(newSupplier, { status: 201 });
 
-  } catch (error: any) {
-    console.error('Failed to add supplier:', error);
-     if (error?.code === 'P2002' && error?.meta?.target?.includes('name')) {
-         return NextResponse.json({ error: 'Supplier name already exists' }, { status: 409 }); // Conflict
-     }
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error);
   }
 }
 
@@ -45,18 +21,12 @@ export async function POST(request: NextRequest) {
 // and other POST routes (using their respective Create schemas).
 
 export async function GET(request: NextRequest) {
-  // Add Auth checks
+  const {searchParams} = request.nextUrl;
+  
   try {
-    const suppliers: Supplier[] = await prisma.supplier.findMany({
-      where: { isActive: true }, // Optional: Only active ones
-      orderBy: { name: "asc" },
-    });
+    const suppliers = await getSuppliers()
     return NextResponse.json(suppliers);
   } catch (error) {
-    console.error("Failed to get suppliers:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 }
-    );
+    return handleApiError(error)
   }
 }
