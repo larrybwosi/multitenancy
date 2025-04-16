@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/sheet"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
-import { toast } from "@/components/ui/use-toast"
 
 const formSchema = z.object({
   description: z.string().min(3, {
@@ -92,19 +91,19 @@ export function CreateTransactionSheet({
       }
 
       const data = await response.json()
-      toast({
-        title: "Transaction created",
-        description: "Your transaction has been created successfully.",
-      })
+      // toast({
+      //   title: "Transaction created",
+      //   description: "Your transaction has been created successfully.",
+      // })
       form.reset()
       onTransactionCreated()
     } catch (error) {
       console.error("Error creating transaction:", error)
-      toast({
-        title: "Error",
-        description: "Failed to create transaction. Please try again.",
-        variant: "destructive",
-      })
+      // toast({
+      //   title: "Error",
+      //   description: "Failed to create transaction. Please try again.",
+      //   variant: "destructive",
+      // })
     } finally {
       setIsSubmitting(false)
     }

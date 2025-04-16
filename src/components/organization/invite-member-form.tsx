@@ -9,8 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { toast } from "@/components/ui/use-toast"
 import { Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
@@ -51,8 +51,7 @@ export function InviteMemberForm({ onSuccess }: InviteMemberFormProps) {
       // Simulate API call
       await new Promise((resolve) => setTimeout(resolve, 1500))
 
-      toast({
-        title: "Invitation sent",
+      toast.success( "Invitation sent",{
         description: `An invitation has been sent to ${values.email}`,
       })
 
@@ -62,10 +61,9 @@ export function InviteMemberForm({ onSuccess }: InviteMemberFormProps) {
         onSuccess()
       }
     } catch (error) {
-      toast({
-        title: "Error",
+      console.log(error)
+      toast.error("Error",{
         description: "Failed to send invitation. Please try again.",
-        variant: "destructive",
       })
     } finally {
       setIsSubmitting(false)
