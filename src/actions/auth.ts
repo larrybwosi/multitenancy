@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import redis from "@/lib/redis";
+import { MemberRole } from "@prisma/client";
 import { headers } from "next/headers";
 
 
@@ -11,7 +12,7 @@ const AUTHORIZATION_TTL = 3600; // 60 minutes (longer TTL since org membership c
 async function getServerAuthContext(): Promise<{
   userId: string;
   organizationId: string;
-  role?: string; // Added member role to return type
+  role?: MemberRole; // Added member role to return type
 }> {
   const headersList = await headers();
   const cacheKey = `auth:context`;
@@ -23,7 +24,7 @@ async function getServerAuthContext(): Promise<{
       return cachedAuthContext as {
         userId: string;
         organizationId: string;
-        role?: string;
+        role?: MemberRole;
       };
     }
 
@@ -35,7 +36,7 @@ async function getServerAuthContext(): Promise<{
     }
 
     let activeOrgId = session.session?.activeOrganizationId || '';
-    let role: string | undefined;
+    let role: MemberRole | undefined;
 
     if (!activeOrgId) {
       // If no active org in session, try to get it from user record

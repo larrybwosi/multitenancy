@@ -176,6 +176,7 @@ export async function getOrganizationBySlug(
 export async function getOrganizationById(
   id: string
 ): Promise<Organization | null> {
+  // const { role } = await getServerAuthContext();
   try {
     const organization = await prisma.organization.findUnique({
       where: { id },

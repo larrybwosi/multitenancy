@@ -55,6 +55,7 @@ enum MemberRole {
   CASHIER   // Limited role, primarily for making sales
   REPORTER  // View-only access to reports
 }
+
 model Member {
   id             String       @id @default(cuid())
   organizationId String
@@ -89,6 +90,7 @@ model Member {
   isCheckedIn         Boolean      @default(false)
   lastCheckInTime     DateTime?
   currentLocationId   String?
+  notifications Notification[]
   currentLocation     InventoryLocation? @relation("MemberCurrentLocation", fields: [currentLocationId], references: [id], onDelete: SetNull)
 
   @@unique([organizationId, userId])
@@ -97,6 +99,7 @@ model Member {
   @@index([isCheckedIn]) // New index to quickly find active members
   @@map("member")
 }
+
 model Organization {
   id                 String    @id @default(cuid())
   name               String
@@ -1334,27 +1337,40 @@ enum ExecutionStatus {
   CANCELLED
 }
 
+
 model Notification {
-  id          String    @id @default(uuid())
-  type        NotificationType // Use Enum for predefined types
-  title       String    // Short headline (e.g., "New Mention")
-  body        String    // Detailed description
-  read        Boolean   @default(false) // Has the user seen this?
-  readAt      DateTime? // When was it marked as read?
-  metadata    Json?     // Flexible field for extra data (e.g., { inviterId: "...", taskId: "..." })
-  link        String?   // Optional URL to navigate to on click
-  
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id        String   @id @default(cuid())
+  type      NotificationType                      // e.g., "invitation", "mention", "announcement"
+  title     String
+  description String
+  read      Boolean  @default(false)
+  link      String?                     // Optional URL link associated with the notification
+  createdAt DateTime @default(now())
 
-  // Relation: Each notification belongs to one user
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade) // onDelete: Cascade ensures notifications are deleted if the user is deleted
+  // --- Recipient ---
+  // EITHER link to a registered User OR store the target email
+  userId         String?       // Foreign key for registered user
+  recipientEmail String?       // Email address for unregistered users/invitations
 
-  // Indexes for performance
-  @@index([userId]) // Crucial for fetching user's notifications
-  @@index([userId, read]) // Useful for fetching unread notifications
-  @@index([createdAt])
+  // Relation to the User model (optional)
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade) // Optional: Cascade delete notifications if user is deleted
+
+  // --- Sender Information (Optional) ---
+  senderId           String?
+  member Member? @relation(fields: [senderId], references: [id], onDelete: Cascade) // Optional: Cascade delete notifications if user is deleted
+
+
+  // --- Type-Specific Details ---
+  // Use a JSON field to store variable data based on notification type
+  // Examples: { "organization": "Acme Corp", "role": "Developer" } for invitations
+  //           { "meetingTime": "Tomorrow, 10:00 AM PST" } for reminders
+  details Json?
+
+  // --- Indexes for Performance ---
+  @@index([userId])          // Index for quickly finding notifications for a specific user
+  @@index([recipientEmail]) // Index for finding notifications sent to a specific email
+  @@index([read])            // Index for filtering read/unread notifications
+  @@index([createdAt])       // Index for sorting by creation time
 }
 
 // Enum for Notification Types
@@ -1365,7 +1381,10 @@ enum NotificationType {
   REMINDER
   TASK_UPDATE
   SYSTEM_ALERT
-  // Add other types as needed
+  NEW_MEMBER
+  WELCOME
+  INVITATION_ACCEPTED
+  INVITATION_DECLINED
 }
 
 // --- Authentication & Authorization Models --- (Mostly standard, added Organization links)

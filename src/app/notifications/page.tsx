@@ -27,7 +27,7 @@ const initialNotifications = [
     time: '10 minutes ago',
     read: false,
     invitedBy: 'Alex Morgan',
-    invitedByAvatar: 'AM', // Initials for avatar
+    invitedByAvatar: 'AM',
     organization: 'Acme Corporation',
     role: 'Developer'
   },

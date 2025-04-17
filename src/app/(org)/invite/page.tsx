@@ -5,6 +5,9 @@ import { InviteMemberForm } from "./form"
 import { useRouter } from "next/navigation"
 import { UserPlus } from "lucide-react"
 import { SectionHeader } from "@/components/ui/SectionHeader"
+import { useSession } from "@/lib/auth/authClient"
+import useSWR from "swr"
+import { getOrganizationById } from "@/actions/organization"
 
 export default function InvitePage() {
   const router = useRouter()
@@ -12,6 +15,22 @@ export default function InvitePage() {
   const handleSuccess = () => {
     router.push("/invitations")
   }
+
+  const {data: session } = useSession()
+  console.log("Session in InvitePage:", session)
+
+    const { data: organization, error, isLoading } = useSWR(
+      "organization",
+      async ()=>getOrganizationById(session?.session.activeOrganizationId || ''),
+      {
+        revalidateOnFocus: false,
+        dedupingInterval: 60000, // 1 minute
+      }
+    );
+if (isLoading) return <div>Loading...</div>
+if (error) return <div>Error loading organization</div>
+  if (!organization) return <div>No organization found</div>
+  console.log("Organization in InvitePage:", organization)
 
   return (
     <div className="space-y-6 container p-4 mt-4">
@@ -33,7 +52,7 @@ export default function InvitePage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <InviteMemberForm onSuccess={handleSuccess} />
+          <InviteMemberForm onSuccess={handleSuccess} organizationName={organization?.name} inviterName={session?.user?.name || ''}/>
         </CardContent>
       </Card>
     </div>

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Providers } from "@/lib/providers";
+import { getServerAuthContext } from "@/actions/auth";
+import { redirect } from "next/navigation";
 // import { getServerAuthContext } from "@/actions/auth";
 // import { db } from "@/lib/db";
 
@@ -25,11 +27,22 @@ export const generateMetadata = async(): Promise<Metadata> => {
   };
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const { userId, organizationId } = await getServerAuthContext();
+
+  console.log("User ID in RootLayout:", userId);
+  if(!userId) {
+    return redirect("/login");
+  }
+
+  // if(!organizationId) {
+  //   return redirect("/organizations");
+  // }
+
   return (
     <html lang="en">
       <body
