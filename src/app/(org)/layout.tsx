@@ -32,7 +32,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { userId, organizationId } = await getServerAuthContext();
+  const { userId } = await getServerAuthContext();
 
   console.log("User ID in RootLayout:", userId);
   if(!userId) {

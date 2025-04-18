@@ -147,7 +147,7 @@ const UnauthorizedPage = ({
 
       {/* Minimalist Footer (Optional - can be removed if handled by a global layout) */}
        <div className="mt-8 text-xs text-slate-500 text-center">
-        © {new Date().getFullYear()} Your Application.
+        © {new Date().getFullYear()} Dealio.
       </div>
     </div>
   );

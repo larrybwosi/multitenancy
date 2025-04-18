@@ -9,12 +9,15 @@ import {
   Phone,
   FileText,
   HelpCircle,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 
 const SupportPage = () => {
   const [activeTab, setActiveTab] = useState("faq");
   const [activeAccordion, setActiveAccordion] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [contactFormData, setContactFormData] = useState({
     name: "",
     email: "",
@@ -24,29 +27,29 @@ const SupportPage = () => {
 
   const faqs = [
     {
-      question: "How do I reset my password?",
+      question: "How do I add a new tenant?",
       answer:
-        'To reset your password, click on the "Forgot Password" link on the login page. Enter your registered email address, and we will send you a link to create a new password.',
+        "To add a new tenant, navigate to the Tenants section in your dashboard and click the 'Add Tenant' button. Fill in the required information including company name, admin contact details, and subscription plan.",
     },
     {
-      question: "How can I update my account information?",
+      question: "How do I manage user permissions?",
       answer:
-        'You can update your account information by navigating to the Profile section after logging in. Click on "Edit Profile" to modify your personal details.',
+        "User permissions can be managed through the Security settings for each tenant. You can assign roles like Admin, Manager, or User, and customize specific permissions for each role.",
     },
     {
-      question: "What payment methods do you accept?",
+      question: "How do I access billing information?",
       answer:
-        "We accept various payment methods including credit/debit cards (Visa, MasterCard, American Express), PayPal, and bank transfers. For enterprise customers, we also offer invoice-based payments.",
+        "Billing information can be found in the Billing section of your tenant dashboard. Here you can view invoices, update payment methods, and manage your subscription plan.",
     },
     {
-      question: "How do I cancel my subscription?",
+      question: "Can I switch between different tenants?",
       answer:
-        'To cancel your subscription, go to the Billing section in your account settings. Click on "Manage Subscription" and follow the cancellation process. Please note that refunds are subject to our refund policy.',
+        "Yes, you can easily switch between tenants using the tenant selector in the top navigation bar. This allows you to manage multiple organizations from a single account.",
     },
     {
-      question: "Is my data secure?",
+      question: "How secure is the platform?",
       answer:
-        "Yes, we take data security very seriously. We use industry-standard encryption protocols and secure servers to protect your information. Our platform is compliant with relevant data protection regulations.",
+        "Our platform uses enterprise-grade security measures including data encryption, regular security audits, and role-based access control. All data is isolated between tenants, and we maintain compliance with industry security standards.",
     },
   ];
 
@@ -69,11 +72,31 @@ const SupportPage = () => {
     setContactFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleContactFormSubmit = (e: React.FormEvent) => {
+  const handleContactFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Here you would implement your form submission logic
-    alert("Support request submitted! We will get back to you soon.");
-    setContactFormData({ name: "", email: "", subject: "", message: "" });
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch('/api/support', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(contactFormData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit support request');
+      }
+
+      toast.success("Support request submitted successfully!");
+      setContactFormData({ name: "", email: "", subject: "", message: "" });
+    } catch (error) {
+      console.log(error)
+      toast.error("Failed to submit support request. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const filteredFaqs = faqs.filter(
@@ -83,28 +106,27 @@ const SupportPage = () => {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 py-16 px-4">
+      <div className="bg-gradient-to-r from-blue-700 to-indigo-800 py-20 px-4">
         <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            How can we help you?
+          <h1 className="text-4xl md:text-5xl font-bold text-white mb-6 tracking-tight">
+            How can we help you today?
           </h1>
-          <p className="text-blue-100 mb-8 max-w-2xl mx-auto">
-            Find answers to frequently asked questions or get in touch with our
-            support team
+          <p className="text-blue-100 text-lg mb-8 max-w-2xl mx-auto">
+            Find answers in our documentation or get in touch with our support team
           </p>
           <div className="relative max-w-xl mx-auto">
             <input
               type="text"
-              placeholder="Search for help..."
+              placeholder="Search for answers..."
               value={searchQuery}
               onChange={handleSearchChange}
-              className="w-full py-3 px-4 pl-12 rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full py-4 px-6 pl-12 rounded-xl shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
             />
             <Search
-              className="absolute left-4 top-3.5 text-gray-500"
-              size={20}
+              className="absolute left-4 top-4 text-gray-500"
+              size={24}
             />
           </div>
         </div>
@@ -159,7 +181,7 @@ const SupportPage = () => {
             {searchQuery && filteredFaqs.length === 0 && (
               <div className="text-center py-8">
                 <p className="text-gray-500">
-                  No results found for "{searchQuery}"
+                  No results found for &quot;{searchQuery}&quot;
                 </p>
                 <p className="mt-2 text-gray-600">
                   Try using different keywords or contact our support team
@@ -205,7 +227,7 @@ const SupportPage = () => {
 
         {activeTab === "contact" && (
           <div className="grid md:grid-cols-3 gap-8">
-            <div className="md:col-span-2">
+            <div className="md:col-span-2 bg-white rounded-xl shadow-lg p-8">
               <h2 className="text-2xl font-bold text-gray-800 mb-6">
                 Contact Support
               </h2>
@@ -283,9 +305,17 @@ const SupportPage = () => {
                 <div>
                   <button
                     type="submit"
-                    className="w-full sm:w-auto bg-blue-600 text-white py-3 px-8 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                    disabled={isSubmitting}
+                    className="w-full sm:w-auto bg-blue-600 text-white py-3 px-8 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:opacity-50 flex items-center justify-center"
                   >
-                    Submit Request
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="animate-spin mr-2" size={20} />
+                        Submitting...
+                      </>
+                    ) : (
+                      'Submit Request'
+                    )}
                   </button>
                 </div>
               </form>
@@ -338,91 +368,96 @@ const SupportPage = () => {
         {activeTab === "resources" && (
           <div>
             <h2 className="text-2xl font-bold text-gray-800 mb-6">
-              Support Resources
+              Platform Documentation
             </h2>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="bg-white p-6 rounded-lg shadow-md border-t-4 border-blue-600">
+              <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-blue-600 hover:shadow-xl transition-shadow">
                 <h3 className="text-xl font-semibold text-gray-800 mb-3">
-                  User Guide
+                  Getting Started Guide
                 </h3>
                 <p className="text-gray-600 mb-4">
-                  Comprehensive guide to using all features of the application
+                  Quick start guide for setting up your first tenant and understanding core features
                 </p>
                 <a
-                  href="#"
-                  className="text-blue-600 font-medium hover:text-blue-700"
+                  href="/docs/getting-started"
+                  className="text-blue-600 font-medium hover:text-blue-700 flex items-center"
                 >
-                  Read the guide →
+                  Read the guide <ChevronDown className="ml-2 rotate-[-90deg]" size={16} />
                 </a>
               </div>
-              <div className="bg-white p-6 rounded-lg shadow-md border-t-4 border-green-600">
+
+              <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-green-600 hover:shadow-xl transition-shadow">
                 <h3 className="text-xl font-semibold text-gray-800 mb-3">
-                  Video Tutorials
+                  Tenant Management
                 </h3>
                 <p className="text-gray-600 mb-4">
-                  Step-by-step video guides for common tasks and features
+                  Learn how to effectively manage multiple tenants and their configurations
                 </p>
                 <a
-                  href="#"
-                  className="text-blue-600 font-medium hover:text-blue-700"
+                  href="/docs/tenant-management"
+                  className="text-blue-600 font-medium hover:text-blue-700 flex items-center"
                 >
-                  Watch tutorials →
+                  View guides <ChevronDown className="ml-2 rotate-[-90deg]" size={16} />
                 </a>
               </div>
-              <div className="bg-white p-6 rounded-lg shadow-md border-t-4 border-purple-600">
+
+              <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-purple-600 hover:shadow-xl transition-shadow">
                 <h3 className="text-xl font-semibold text-gray-800 mb-3">
-                  Knowledge Base
+                  Security & Compliance
                 </h3>
                 <p className="text-gray-600 mb-4">
-                  Explore articles and guides on specific topics and features
+                  Detailed information about our security features and compliance standards
                 </p>
                 <a
-                  href="#"
-                  className="text-blue-600 font-medium hover:text-blue-700"
+                  href="/docs/security"
+                  className="text-blue-600 font-medium hover:text-blue-700 flex items-center"
                 >
-                  Browse articles →
+                  Learn more <ChevronDown className="ml-2 rotate-[-90deg]" size={16} />
                 </a>
               </div>
-              <div className="bg-white p-6 rounded-lg shadow-md border-t-4 border-yellow-600">
+
+              <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-yellow-600 hover:shadow-xl transition-shadow">
                 <h3 className="text-xl font-semibold text-gray-800 mb-3">
                   API Documentation
                 </h3>
                 <p className="text-gray-600 mb-4">
-                  Technical documentation for developers using our API
+                  Complete API reference for integrating with our platform
                 </p>
                 <a
-                  href="#"
-                  className="text-blue-600 font-medium hover:text-blue-700"
+                  href="/docs/api"
+                  className="text-blue-600 font-medium hover:text-blue-700 flex items-center"
                 >
-                  View documentation →
+                  View API docs <ChevronDown className="ml-2 rotate-[-90deg]" size={16} />
                 </a>
               </div>
-              <div className="bg-white p-6 rounded-lg shadow-md border-t-4 border-red-600">
+
+              <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-red-600 hover:shadow-xl transition-shadow">
                 <h3 className="text-xl font-semibold text-gray-800 mb-3">
-                  Community Forum
+                  Billing & Subscriptions
                 </h3>
                 <p className="text-gray-600 mb-4">
-                  Connect with other users to share tips and get help
+                  Understanding billing cycles, invoices, and subscription management
                 </p>
                 <a
-                  href="#"
-                  className="text-blue-600 font-medium hover:text-blue-700"
+                  href="/docs/billing"
+                  className="text-blue-600 font-medium hover:text-blue-700 flex items-center"
                 >
-                  Join discussion →
+                  Read more <ChevronDown className="ml-2 rotate-[-90deg]" size={16} />
                 </a>
               </div>
-              <div className="bg-white p-6 rounded-lg shadow-md border-t-4 border-indigo-600">
+
+              <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-indigo-600 hover:shadow-xl transition-shadow">
                 <h3 className="text-xl font-semibold text-gray-800 mb-3">
-                  Release Notes
+                  Best Practices
                 </h3>
                 <p className="text-gray-600 mb-4">
-                  Stay up to date with the latest features and improvements
+                  Tips and recommendations for getting the most out of the platform
                 </p>
                 <a
-                  href="#"
-                  className="text-blue-600 font-medium hover:text-blue-700"
+                  href="/docs/best-practices"
+                  className="text-blue-600 font-medium hover:text-blue-700 flex items-center"
                 >
-                  Read updates →
+                  View guides <ChevronDown className="ml-2 rotate-[-90deg]" size={16} />
                 </a>
               </div>
             </div>
@@ -431,30 +466,30 @@ const SupportPage = () => {
       </div>
 
       {/* Footer */}
-      <div className="bg-gray-800 text-white py-8 px-4 mt-12">
+      <div className="bg-gray-900 text-white py-12 px-4 mt-16">
         <div className="max-w-6xl mx-auto">
           <div className="grid md:grid-cols-2 gap-8">
             <div>
-              <h3 className="text-xl font-semibold mb-4">YourApp Support</h3>
-              <p className="text-gray-300">
-                We're here to help you make the most of our platform.
+              <h3 className="text-2xl font-bold mb-4">Platform Support</h3>
+              <p className="text-gray-300 text-lg">
+                We&apos;re here to help you succeed with your multi-tenant application.
               </p>
             </div>
             <div className="md:text-right">
               <h3 className="text-xl font-semibold mb-4">
-                Can't find what you need?
+                Need additional help?
               </h3>
               <button
                 onClick={() => handleTabChange("contact")}
-                className="bg-white text-gray-800 py-2 px-6 rounded-lg hover:bg-gray-100 transition-colors"
+                className="bg-white text-gray-900 py-3 px-8 rounded-lg hover:bg-gray-100 transition-colors font-medium"
               >
-                Contact Us
+                Contact Support Team
               </button>
             </div>
           </div>
-          <div className="border-t border-gray-700 mt-8 pt-8 text-center text-gray-400">
+          <div className="border-t border-gray-800 mt-10 pt-8 text-center text-gray-400">
             <p>
-              &copy; {new Date().getFullYear()} YourApp. All rights reserved.
+              © {new Date().getFullYear()} Multi-tenant Platform. All rights reserved.
             </p>
           </div>
         </div>

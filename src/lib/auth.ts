@@ -17,13 +17,7 @@ export const auth = betterAuth({
     autoSignIn: true,
   },
   secret: process.env.BETTER_AUTH_SECRET,
-  trustedOrigins: [
-    "http://localhost:3000",
-    "https://cheapcity.vercel.app",
-    "https://www.cheapcity.vercel.app",
-    "http://192.168.137.56:3000",
-  ],
-  appName: "Clevery POS",
+  appName: "Dealio POS",
   account: {
     accountLinking: {
       enabled: true,

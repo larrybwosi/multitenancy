@@ -16,6 +16,7 @@ import { ExpensesList } from "./expenses-list"
 import { ExpensesStats } from "./expenses-stats"
 import { RecurringExpensesList } from "./recurring-expenses-list"
 import { CreateExpenseSheet } from "./create-expense-sheet"
+import { ExpenseAnalytics } from "./expense-analytics"
 
 export function ExpensesPage() {
   const router = useRouter()
@@ -25,14 +26,20 @@ export function ExpensesPage() {
   const [expenses, setExpenses] = useState<any[]>([])
   const [pagination, setPagination] = useState<any>({})
   const [categories, setCategories] = useState<string[]>([])
+  const [departments, setDepartments] = useState<string[]>([])
+  const [vendors, setVendors] = useState<string[]>([])
+  const [approvalStatuses, setApprovalStatuses] = useState<string[]>([])
   const [isCreateSheetOpen, setIsCreateSheetOpen] = useState(false)
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "all")
 
   // Filter states
   const [category, setCategory] = useState(searchParams.get("category") || "")
-  const [startDate, setStartDate] = useState<Date | undefined>(\
-    searchParams.get("startDate\") ? new Date(  setStartDate] = useState<Date | undefined>(
-    searchParams.get("startDate") ? new Date(searchParams.get("startDate") as string) : undefined
+  const [department, setDepartment] = useState(searchParams.get("department") || "")
+  const [vendor, setVendor] = useState(searchParams.get("vendor") || "")
+  const [approvalStatus, setApprovalStatus] = useState(searchParams.get("approvalStatus") || "")
+  const [taxDeductible, setTaxDeductible] = useState(searchParams.get("taxDeductible") || "")
+  const [startDate, setStartDate] = useState<Date | undefined>(
+    searchParams.get("startDate") ? new Date(searchParams.get("startDate") as string) : undefined,
   )
   const [endDate, setEndDate] = useState<Date | undefined>(
     searchParams.get("endDate") ? new Date(searchParams.get("endDate") as string) : undefined,
@@ -42,13 +49,17 @@ export function ExpensesPage() {
 
   useEffect(() => {
     fetchExpenses()
-  }, [category, startDate, endDate, search, page, activeTab])
+  }, [category, department, vendor, approvalStatus, taxDeductible, startDate, endDate, search, page, activeTab])
 
   const fetchExpenses = async () => {
     setIsLoading(true)
     try {
       const params = new URLSearchParams()
       if (category) params.append("category", category)
+      if (department) params.append("department", department)
+      if (vendor) params.append("vendor", vendor)
+      if (approvalStatus) params.append("approvalStatus", approvalStatus)
+      if (taxDeductible) params.append("taxDeductible", taxDeductible)
       if (startDate) params.append("startDate", startDate.toISOString().split("T")[0])
       if (endDate) params.append("endDate", endDate.toISOString().split("T")[0])
       if (search) params.append("search", search)
@@ -61,7 +72,10 @@ export function ExpensesPage() {
 
       setExpenses(data.expenses)
       setPagination(data.pagination)
-      setCategories(data.categories)
+      setCategories(data.categories || [])
+      setDepartments(data.departments || [])
+      setVendors(data.vendors || [])
+      setApprovalStatuses(data.approvalStatuses || [])
     } catch (error) {
       console.error("Error fetching expenses:", error)
     } finally {
@@ -77,6 +91,10 @@ export function ExpensesPage() {
 
   const handleReset = () => {
     setCategory("")
+    setDepartment("")
+    setVendor("")
+    setApprovalStatus("")
+    setTaxDeductible("")
     setStartDate(undefined)
     setEndDate(undefined)
     setSearch("")
@@ -88,6 +106,10 @@ export function ExpensesPage() {
     const params = new URLSearchParams()
     params.append("tab", activeTab)
     if (category) params.append("category", category)
+    if (department) params.append("department", department)
+    if (vendor) params.append("vendor", vendor)
+    if (approvalStatus) params.append("approvalStatus", approvalStatus)
+    if (taxDeductible) params.append("taxDeductible", taxDeductible)
     if (startDate) params.append("startDate", startDate.toISOString().split("T")[0])
     if (endDate) params.append("endDate", endDate.toISOString().split("T")[0])
     if (search) params.append("search", search)
@@ -117,7 +139,7 @@ export function ExpensesPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Expenses</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Expense Management</h1>
         <Button onClick={() => setIsCreateSheetOpen(true)}>
           <PlusIcon className="mr-2 h-4 w-4" />
           Add Expense
@@ -133,31 +155,44 @@ export function ExpensesPage() {
         <>
           <ExpensesStats expenses={expenses} />
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Manage Expenses</CardTitle>
-              <CardDescription>View and manage all your expenses and recurring payments</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-                <TabsList>
-                  <TabsTrigger value="all">All Expenses</TabsTrigger>
-                  <TabsTrigger value="recurring">Recurring Expenses</TabsTrigger>
-                </TabsList>
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="all">All Expenses</TabsTrigger>
+              <TabsTrigger value="recurring">Recurring Expenses</TabsTrigger>
+              <TabsTrigger value="analytics">Expense Analytics</TabsTrigger>
+            </TabsList>
 
-                <div className="space-y-4">
-                  <form onSubmit={handleSearch} className="flex flex-col gap-4 md:flex-row">
-                    <div className="flex-1">
-                      <Input
-                        placeholder="Search expenses..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="w-full"
-                      />
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Expense Filters</CardTitle>
+                  <CardDescription>Filter expenses by various criteria</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleSearch} className="space-y-4">
+                    <div className="flex flex-col gap-4 md:flex-row">
+                      <div className="flex-1">
+                        <Input
+                          placeholder="Search expenses..."
+                          value={search}
+                          onChange={(e) => setSearch(e.target.value)}
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button type="submit" variant="secondary">
+                          <FilterIcon className="mr-2 h-4 w-4" />
+                          Apply Filters
+                        </Button>
+                        <Button type="button" variant="outline" onClick={handleReset}>
+                          Reset
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                       <Select value={category} onValueChange={setCategory}>
-                        <SelectTrigger className="w-[150px]">
+                        <SelectTrigger>
                           <SelectValue placeholder="All Categories" />
                         </SelectTrigger>
                         <SelectContent>
@@ -170,53 +205,101 @@ export function ExpensesPage() {
                         </SelectContent>
                       </Select>
 
+                      <Select value={department} onValueChange={setDepartment}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="All Departments" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Departments</SelectItem>
+                          {departments.map((dept) => (
+                            <SelectItem key={dept} value={dept}>
+                              {dept}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <Select value={vendor} onValueChange={setVendor}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="All Vendors" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Vendors</SelectItem>
+                          {vendors.map((v) => (
+                            <SelectItem key={v} value={v}>
+                              {v}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <Select value={approvalStatus} onValueChange={setApprovalStatus}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="All Approval Statuses" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Approval Statuses</SelectItem>
+                          {approvalStatuses.map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {status}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <Select value={taxDeductible} onValueChange={setTaxDeductible}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Tax Deductible" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All</SelectItem>
+                          <SelectItem value="true">Tax Deductible</SelectItem>
+                          <SelectItem value="false">Non-Deductible</SelectItem>
+                        </SelectContent>
+                      </Select>
+
                       <DatePicker date={startDate} setDate={setStartDate} placeholder="Start Date" />
 
                       <DatePicker date={endDate} setDate={setEndDate} placeholder="End Date" />
-
-                      <Button type="submit" variant="secondary">
-                        <FilterIcon className="mr-2 h-4 w-4" />
-                        Filter
-                      </Button>
-
-                      <Button type="button" variant="outline" onClick={handleReset}>
-                        Reset
-                      </Button>
                     </div>
                   </form>
+                </CardContent>
+              </Card>
 
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" size="sm">
-                      <DownloadIcon className="mr-2 h-4 w-4" />
-                      Export
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      Calendar View
-                    </Button>
-                  </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" size="sm">
+                  <DownloadIcon className="mr-2 h-4 w-4" />
+                  Export to CSV
+                </Button>
+                <Button variant="outline" size="sm">
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  Calendar View
+                </Button>
+              </div>
 
-                  <TabsContent value="all" className="mt-0">
-                    <ExpensesList
-                      expenses={expenses}
-                      isLoading={isLoading}
-                      pagination={pagination}
-                      onPageChange={handlePageChange}
-                    />
-                  </TabsContent>
+              <TabsContent value="all" className="mt-0">
+                <ExpensesList
+                  expenses={expenses}
+                  isLoading={isLoading}
+                  pagination={pagination}
+                  onPageChange={handlePageChange}
+                />
+              </TabsContent>
 
-                  <TabsContent value="recurring" className="mt-0">
-                    <RecurringExpensesList
-                      expenses={expenses.filter((e) => e.isRecurring)}
-                      isLoading={isLoading}
-                      pagination={pagination}
-                      onPageChange={handlePageChange}
-                    />
-                  </TabsContent>
-                </div>
-              </Tabs>
-            </CardContent>
-          </Card>
+              <TabsContent value="recurring" className="mt-0">
+                <RecurringExpensesList
+                  expenses={expenses.filter((e) => e.isRecurring)}
+                  isLoading={isLoading}
+                  pagination={pagination}
+                  onPageChange={handlePageChange}
+                />
+              </TabsContent>
+
+              <TabsContent value="analytics" className="mt-0">
+                <ExpenseAnalytics expenses={expenses} />
+              </TabsContent>
+            </div>
+          </Tabs>
         </>
       )}
 
@@ -224,6 +307,8 @@ export function ExpensesPage() {
         open={isCreateSheetOpen}
         onOpenChange={setIsCreateSheetOpen}
         categories={categories}
+        departments={departments}
+        vendors={vendors}
         onExpenseCreated={handleExpenseCreated}
       />
     </div>
