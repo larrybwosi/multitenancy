@@ -602,9 +602,10 @@ export async function toggleSupplierStatus(id: string, currentStatus: boolean) {
   if (!id) {
     return { success: false, message: "Supplier ID is required." };
   }
+  const { organizationId } = await getServerAuthContext();
   try {
     const updatedSupplier = await db.supplier.update({
-      where: { id },
+      where: { id, organizationId },
       data: { isActive: !currentStatus },
     });
     revalidatePath("/suppliers");

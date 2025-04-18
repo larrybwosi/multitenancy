@@ -31,6 +31,29 @@ const CategoryFormSchema = z.object({
 
 // --- Server Actions ---
 
+export async function getCategories() {
+  const { organizationId } = await getServerAuthContext();
+  try {
+    const categories = await db.category.findMany({
+      where: { organizationId },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        parentId: true,
+        _count: {
+          select: { products: true },
+        },
+      },
+      orderBy: { name: "asc" },
+    });
+    return categories;
+  } catch (error) {
+    console.error("Failed to fetch categories:", error);
+    return [];
+  }
+}
+
 /**
  * Fetches all categories and calculates statistics for each.
  */
@@ -53,7 +76,8 @@ export async function getCategoriesWithStats({
   totalPages: number;
 }> {
   try {
-    const where: Prisma.CategoryWhereInput = {};
+  const { organizationId } = await getServerAuthContext();
+    const where: Prisma.CategoryWhereInput = {organizationId};
 
     if (search) {
       where.OR = [
@@ -159,9 +183,11 @@ export async function getCategoriesWithStats({
 export async function getCategoryOptions(): Promise<
   { value: string; label: string }[]
 > {
+  const { organizationId } = await getServerAuthContext();
   try {
     const categories = await db.category.findMany({
-      select: { id: true, name: true },
+      where: { organizationId },
+      select: { id: true, name: true, parentId: true },
       orderBy: { name: "asc" },
     });
     return categories.map((cat) => ({ value: cat.id, label: cat.name }));
@@ -203,7 +229,7 @@ export async function saveCategory(formData: FormData) {
     if (id) {
       // Update existing category
       await db.category.update({
-        where: { id: id },
+        where: { id, organizationId },
         data: {
           name,
           description,
@@ -256,11 +282,12 @@ export async function deleteCategory(id: string) {
   if (!id) {
     return { message: "Error: Category ID is missing." };
   }
+  const { organizationId } = await getServerAuthContext();
 
   try {
     // Optional: Check if category has products or subcategories before deleting
     const category = await db.category.findUnique({
-      where: { id },
+      where: { id, organizationId },
       include: {
         _count: {
           select: { products: true, subcategories: true },

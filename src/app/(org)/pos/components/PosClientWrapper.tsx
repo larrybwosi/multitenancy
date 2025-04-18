@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQueryState, parseAsArrayOf, parseAsString } from "nuqs";
-import { createSaleAction } from "@/actions/posActions";
 import { ProductGrid } from "./ProductGrid";
 import { Cart } from "./Cart";
 import { Customer, Prisma, Product } from "@prisma/client";
+import { processSale } from "@/actions/pos.actions";
 
 
 
@@ -174,7 +174,7 @@ export function PosClientWrapper({
       const actionItems = saleData.items
       
       formData.append("items", JSON.stringify(actionItems));
-      return await createSaleAction(formData);
+      return await processSale(formData);
     },
     []
   );

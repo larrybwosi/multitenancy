@@ -2,7 +2,6 @@
 import {
   Sale,
   SaleItem,
-  Product,
   ProductVariant,
   Customer,
 } from "@prisma/client";
@@ -15,7 +14,7 @@ type SaleForReceipt = Sale & {
   customer: Customer | null;
   user: { name: string | null }; // Assuming user name is needed
   items: (SaleItem & {
-    product: Product & { category: { name: string } };
+    product: { name: string , sku?: string} & { category: { name: string } };
     variant: ProductVariant | null;
   })[];
 };
