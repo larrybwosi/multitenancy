@@ -8,13 +8,13 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
 interface InvitePageProps {
-  params: {
+  params: Promise<{
     token: string;
-  };
+  }>;
 }
 
 export default async function InvitePage({ params }: InvitePageProps) {
-  const { token } = params;
+  const { token } = await params;
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.id) {
     // If not logged in, redirect to login, possibly passing the invite token

@@ -45,7 +45,7 @@ export async function createNotification(
       title: data.title,
       description: data.description,
       link: data.link,
-      userId: data.userId,
+      userId: data.userId? data.userId : undefined,
       recipientEmail: data.recipientEmail,
       senderId: data.senderId,
       details: data.details ? data.details : {},

@@ -1,20 +1,15 @@
 'use server'
 import nodemailer from "nodemailer";
 
-// Set up Nodemailer transporter with Gmail
-const createTransporter = async () => {
-  // For production, use OAuth2 instead of password auth
-  // See: https://nodemailer.com/smtp/oauth2/
   const transporter = nodemailer.createTransport({
-    service: "gmail",
+    host: "smtp-relay.brevo.com",
+    port: 587,
+    secure: false, // true for 465, false for other ports
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD, // App password if 2FA is enabled
     },
   });
-
-  return transporter;
-};
 
 // Send invitation email with beautiful template
 export async function sendInvitationEmail(
@@ -23,8 +18,11 @@ export async function sendInvitationEmail(
   organizationName: string,
   inviterName?: string
 ): Promise<boolean> {
+  
+  if (!recipientEmail || !token || !organizationName) {
+    throw new Error("Missing required parameters: recipientEmail, token, organizationName");
+  }
   try {
-    const transporter = await createTransporter();
     const acceptUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/invitation/${token}`;
 
     // Email template with modern, responsive design
@@ -210,32 +208,32 @@ export async function sendInvitationEmail(
     `;
 
     // Text-only version as fallback
-    const textVersion = `
-      Invitation to join ${organizationName}
+    // const textVersion = `
+    //   Invitation to join ${organizationName}
       
-      Hi there,
+    //   Hi there,
       
-      ${inviterName ? `${inviterName} has invited you` : "You have been invited"} to join ${organizationName} workspace. Join the team to start collaborating!
+    //   ${inviterName ? `${inviterName} has invited you` : "You have been invited"} to join ${organizationName} workspace. Join the team to start collaborating!
       
-      Accept the invitation by visiting:
-      ${acceptUrl}
+    //   Accept the invitation by visiting:
+    //   ${acceptUrl}
       
-      This invitation link will expire in ${process.env.INVITATION_EXPIRY_DAYS || 7} days.
+    //   This invitation link will expire in ${process.env.INVITATION_EXPIRY_DAYS || 7} days.
       
-      If you have any questions, please contact us at ${process.env.SUPPORT_EMAIL || process.env.EMAIL_USER}.
+    //   If you have any questions, please contact us at ${process.env.SUPPORT_EMAIL || process.env.EMAIL_USER}.
       
-      Best regards,
-      The ${organizationName} Team
+    //   Best regards,
+    //   The ${organizationName} Team
       
-      © ${new Date().getFullYear()} ${organizationName}. All rights reserved.
-    `;
+    //   © ${new Date().getFullYear()} ${organizationName}. All rights reserved.
+    // `;
 
     // Send the email
     const info = await transporter.sendMail({
       from: `"${organizationName}" <${process.env.EMAIL_USER}>`,
       to: recipientEmail,
       subject: `You've been invited to join ${organizationName}`,
-      text: textVersion,
+      // text: textVersion,
       html: htmlTemplate,
     });
 

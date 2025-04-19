@@ -297,7 +297,10 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div className="text-sm font-medium text-neutral-800 truncate">{user.name}</div>
           <div className="text-xs text-neutral-500 truncate">{user.role}</div>
         </div>
-        <LogOut size={18} onClick={() => signOut()} className="ml-auto text-neutral-400 hover:text-neutral-600 cursor-pointer" />
+        <LogOut size={18} onClick={async() => {
+          await signOut();
+          router.push('/check-in');
+        }} className="ml-auto text-neutral-400 hover:text-neutral-600 cursor-pointer" />
       </div>
     </div>
   );

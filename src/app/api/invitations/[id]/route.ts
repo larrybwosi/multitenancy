@@ -2,25 +2,19 @@ import { getServerAuthContext } from "@/actions/auth";
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 
-// DELETE /api/invitations/[id]
 export async function DELETE(
   req: Request,
   { params }: { params: { id: string } }
 ) {
+  const { id } = await params
   try {
   const { organizationId } = await getServerAuthContext();
     
 
     const invitation = await db.invitation.findFirst({
       where: {
-        id: params.id,
-        organization: {
-          members: {
-            some: {
-              userId: user.id,
-            },
-          },
-        },
+        id,
+        organizationId,
       },
     });
 
@@ -47,18 +41,13 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+  const { id } = await params;
   const { organizationId } = await getServerAuthContext();
 
     const invitation = await db.invitation.findFirst({
       where: {
-        id: params.id,
-        organization: {
-          members: {
-            some: {
-              userId: user.id,
-            },
-          },
-        },
+        id,
+        organizationId,
       },
     });
 

@@ -1,6 +1,6 @@
 import { differenceInMinutes } from "date-fns";
 import prisma from '@/lib/db';
-import { AttendanceStatus } from "@prisma/client";
+import { AttendanceStatus, InventoryLocation } from "@prisma/client";
 
 // Function to check in a member
 export async function checkInMember(
@@ -128,6 +128,37 @@ export async function checkOutMember(
   });
 }
 
+
+export async function getMemberActiveLocation(memberId: string): Promise<InventoryLocation | null> {
+  try {
+    const member = await prisma.member.findUnique({
+      where: { id: memberId },
+      select: {
+        isCheckedIn: true, // [cite: 14]
+        currentLocationId: true, // [cite: 15]
+        currentLocation: true, // Include the full location details [cite: 16]
+      },
+    });
+
+    if (!member) {
+      console.log(`Member with ID ${memberId} not found.`);
+      return null;
+    }
+
+    if (member.isCheckedIn && member.currentLocation) {
+      console.log(`Member ${memberId} is active at location: ${member.currentLocation.name}`);
+      return member.currentLocation; // [cite: 16]
+    } else {
+      console.log(`Member ${memberId} is not currently checked in or location is not set.`);
+      return null;
+    }
+  } catch (error) {
+    console.error(`Error retrieving active location for member ${memberId}:`, error);
+    return null;
+  } finally {
+    await prisma.$disconnect();
+  }
+}
 // Function to get attendance stats for a member
 export async function getMemberAttendanceStats(
   memberId: string,

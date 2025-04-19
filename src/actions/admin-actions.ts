@@ -8,8 +8,6 @@ import { db } from "@/lib/db";
 import { v4 as uuid} from 'uuid';
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { organization } from "@/lib/auth/authClient";
-// import { getCurrentUserId } from '@/lib/auth'; // <<< --- IMPORTANT: You NEED a way to get the current user's ID
 
 // --- Action Return Type (Ensure this type exists or define it) ---
 type ActionResponse<T = null> = {

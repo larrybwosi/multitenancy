@@ -14,8 +14,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import db from "@/lib/db";
 import { generateAndSaveReceiptPdf } from "@/lib/receiptGenerator";
-// Assuming getServerAuthContext returns the active member and organization
-import { getServerAuthContext } from "./auth"; // Adjust path as needed
+import { getServerAuthContext } from "./auth";
 
 // --- Type Definitions ---
 

@@ -5,6 +5,7 @@ import { db } from "./db";
 import { UserRole } from "@prisma/client";
 import { ac, ADMIN, CASHIER, DEVELOPER } from "./auth/permissions";
 import redis from "./redis";
+import { passkey } from "better-auth/plugins/passkey";
 
 
 export const auth = betterAuth({
@@ -29,7 +30,7 @@ export const auth = betterAuth({
     updateAge: 24 * 60 * 60, // 24 hours
     cookieCache: {
       enabled: true,
-      maxAge: 5 * 60* 60,
+      maxAge: 5 * 60 * 60,
     },
     // preserveSessionInDatabase: true,
   },
@@ -75,15 +76,29 @@ export const auth = betterAuth({
       },
       creatorRole: UserRole.ADMIN,
     }),
+    passkey({
+      rpID: "localhost", // Use 'localhost' for local development
+      rpName: "Dealio POS",
+      origin: "http://localhost:3000", // Use 'http://localhost:3000' for local development
+      // Optional authenticator selection criteria
+      authenticatorSelection: {
+        // Determines the type of authenticator
+        authenticatorAttachment: "platform", // 'platform' or 'cross-platform'
+        // Controls credential storage behavior
+        residentKey: "preferred", // 'required', 'preferred', or 'discouraged'
+        // Controls biometric/PIN verification
+        userVerification: "preferred", // 'required', 'preferred', or 'discouraged'
+      },
+    }),
   ],
 
   secondaryStorage: {
     get: async (key) => {
-      const value = await redis.get(key) as string | null;
+      const value = (await redis.get(key)) as string | null;
       return value ? value : null;
     },
     set: async (key, value, ttl) => {
-      if (ttl) await redis.setex(key,ttl, value,);
+      if (ttl) await redis.setex(key, ttl, value);
       else await redis.set(key, value);
     },
     delete: async (key) => {

@@ -69,8 +69,8 @@ export async function createOrganization(
         logo,
         members: {
           create: {
-            id: `User-org-${finalSlug}-${userId}`,
-            userId: userId!,
+            id: `user-org-${finalSlug}-${userId}`,
+            userId,
             role: MemberRole.OWNER, // Assign the creator as OWNER
           },
         },
@@ -107,10 +107,10 @@ export async function createOrganization(
     },
   });
     // Optionally: Update the user's activeOrganizationId if desired
-    // await prisma.user.update({
-    //   where: { id: userId },
-    //   data: { activeOrganizationId: newOrganization.id },
-    // });
+    await prisma.user.update({
+      where: { id: userId },
+      data: { activeOrganizationId: newOrganization.id },
+    });
 
     console.log("New Organization Created:", newOrganization);
     return newOrganization;

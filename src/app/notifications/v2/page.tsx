@@ -48,8 +48,6 @@ async function apiFetchNotifications(userId: string, options: { filter: string, 
     return data.map(n => ({
         ...n,
         createdAt: new Date(n.createdAt),
-        updatedAt: new Date(n.updatedAt),
-        readAt: n.readAt ? new Date(n.readAt) : null,
     }));
 }
 
@@ -70,8 +68,6 @@ async function apiMarkNotificationRead(notificationId: string, userId: string): 
      return {
         ...updatedNotification,
         createdAt: new Date(updatedNotification.createdAt),
-        updatedAt: new Date(updatedNotification.updatedAt),
-        readAt: updatedNotification.readAt ? new Date(updatedNotification.readAt) : null,
     };
 }
 

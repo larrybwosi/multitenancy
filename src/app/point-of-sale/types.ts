@@ -45,7 +45,7 @@ export interface CartItem {
   variantName?: string;
   price: number; // This will be calculated from string basePrice + string priceModifier
   quantity: number;
-  image?: string | null;
+  imageUrls?: string[] | null;
   sku?: string | null;
 }
 

@@ -4,7 +4,7 @@ import { handleApiError } from "@/lib/api-utils";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
-  const { userId: memberId, organizationId } = await getServerAuthContext();
+  const { memberId, organizationId } = await getServerAuthContext();
 
   const { notes } = await req.json();
 

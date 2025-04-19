@@ -26,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
 import { MemberRole } from "@prisma/client";
 import EmailPreview from "./email-template";
+import { createInvitation } from "@/actions/invitations";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
@@ -38,18 +39,15 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 interface InviteMemberFormProps {
-  onSuccess?: () => void;
   organizationName: string;
   inviterName: string;
 }
 
 export function InviteMemberForm({
-  onSuccess,
   organizationName,
   inviterName,
 }: InviteMemberFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formValues, setFormValues] = useState<FormValues | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -66,24 +64,26 @@ export function InviteMemberForm({
 
   const onSubmit = async (values: FormValues) => {
     setIsSubmitting(true);
-    setFormValues(values);
-
+    
+    console.log("Form values:", values);
     try {
-      // In a real app, you would call your API
-      await fetch("/api/invitations", {
-        method: "POST",
-        body: JSON.stringify(values),
-      });
+      // const response = await fetch("/api/invitations", {
+      //   method: "POST",
+      //   body: JSON.stringify(values),
+      // });
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const invitation = await createInvitation({
+        inviteeEmail: values.email,
+        role: values.role,
+      })
 
-      form.reset();
-      setFormValues(null);
+      console.log(invitation);
+      // form.reset();
+      // setFormValues(null);
 
-      if (onSuccess) {
-        onSuccess();
-      }
+      // if (onSuccess) {
+      //   onSuccess();
+      // }
     } catch (error) {
       console.error(error);
     } finally {
@@ -166,7 +166,6 @@ export function InviteMemberForm({
               <Button
                 type="button"
                 variant="outline"
-                onClick={onSuccess}
                 disabled={isSubmitting}
               >
                 Cancel
@@ -196,7 +195,7 @@ export function InviteMemberForm({
               recipientEmail={watchEmail}
               role={watchRole}
               customMessage={watchMessage}
-              acceptUrl={`${window.location.origin}/invite/token-placeholder`}
+              acceptUrl={`${process.env.NEXT_PUBLIC_APP_URL}/invite/token-placeholder`}
             />
           </div>
           <p className="text-sm text-muted-foreground mt-2">

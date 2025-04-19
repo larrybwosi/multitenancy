@@ -1,8 +1,11 @@
+'use server';
+
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import redis from "@/lib/redis";
 import { MemberRole } from "@prisma/client";
 import { headers } from "next/headers";
+import { getMemberActiveLocation } from "./attendance";
 
 // Cache TTL constants
 const AUTH_CONTEXT_TTL = 1800; // 30 minutes
@@ -15,10 +18,11 @@ interface ServerAuthContextResult {
   role?: MemberRole;
   organizationSlug?: string | null;
   organizationDescription?: string | null;
+  activeLocation?: string | null;
 }
 
 // Helper function remains the same as before
-async function getMemberAndOrgDetails(
+export async function getMemberAndOrgDetails(
   userId: string,
   organizationId: string
 ): Promise<{
@@ -123,6 +127,7 @@ async function getServerAuthContext(): Promise<ServerAuthContextResult> {
     if (activeOrgId) {
       const details = await getMemberAndOrgDetails(userId, activeOrgId);
       if (details.memberId) {
+        const activeLocation = await getMemberActiveLocation(details.memberId);
         authContextData = {
           userId: userId, // *** Include userId in the context ***
           memberId: details.memberId,
@@ -130,6 +135,7 @@ async function getServerAuthContext(): Promise<ServerAuthContextResult> {
           role: details.role,
           organizationSlug: details.organizationSlug,
           organizationDescription: details.organizationDescription,
+          activeLocation: activeLocation?.id,
         };
       } else {
         console.warn(

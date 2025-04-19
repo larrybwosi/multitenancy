@@ -1,21 +1,45 @@
 import { checkInMember } from "@/actions/attendance";
-import { getServerAuthContext } from "@/actions/auth";
+import { getMemberAndOrgDetails } from "@/actions/auth";
 import { handleApiError } from "@/lib/api-utils";
+import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
-  const { userId: memberId, organizationId } = await getServerAuthContext()
 
-  const { locationId, notes } = await req.json();
-  
+  const { locationId, notes, email, password } = await req.json();
+  //Sign in the user with email and password
+  const user = await auth.api.signInEmail({
+    body: {
+      email,
+      password,
+      rememberMe: true,
+    }
+  });
+  // Check if the user is authenticated
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const session = await auth.api.getSession({headers: await headers()});
 
-  if (!memberId || !organizationId) {
-    return NextResponse.json(
-      { error: "Missing required fields" },
-      { status: 400 }
-    );
+  let organizationId: string | undefined | null = undefined;
+  // Get the organizationId from the session
+  organizationId = session?.session?.activeOrganizationId;
+
+  if (!organizationId) {
+    // Get the organizationId from the user
+    const userOrg = await db.user.findUnique({
+      where: { id: user.user.id },
+      select: { activeOrganizationId: true },
+    });
+    organizationId = userOrg?.activeOrganizationId;
   }
 
+  const { memberId } = await getMemberAndOrgDetails(user.user.id, organizationId!);
+  if (!memberId || !organizationId) {
+    return NextResponse.json({ error: "Member not found or organization not found" }, { status: 404 });
+  }
   try {
     const attendance = await checkInMember(
       memberId,
@@ -23,6 +47,8 @@ export async function POST(req: Request) {
       locationId,
       notes
     );
+    console.log("Attendance checked in:", attendance);
+
     return NextResponse.json(attendance);
   } catch (error) {
     console.error("Check-in error:", error);

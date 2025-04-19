@@ -286,7 +286,7 @@ export async function getStockBatches(
 }
 
 export async function adjustStock(formData: FormData) {
-  const { userId, organizationId } = await getServerAuthContext();
+  const { memberId, organizationId } = await getServerAuthContext();
   const rawData = Object.fromEntries(formData.entries());
 
   const dataToValidate = {
@@ -368,7 +368,7 @@ export async function adjustStock(formData: FormData) {
           organizationId,
           variantId: variantId || undefined,
           stockBatchId,
-          memberId: userId,
+          memberId,
           locationId: locationId || "",
           quantity,
           reason,
@@ -383,7 +383,7 @@ export async function adjustStock(formData: FormData) {
           organizationId,
           stockBatchId,
           quantity,
-          memberId: userId,
+          memberId,
           movementType: "ADJUSTMENT_IN",
           referenceId: adjustment.id,
           notes: `Reason: ${reason}. ${notes || ""}`.trim(),

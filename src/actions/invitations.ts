@@ -5,6 +5,9 @@ import prisma from '@/lib/db'
 import { getServerAuthContext } from "./auth";
 import { createNotification } from "./notifications";
 import { hasMemberPermission } from "@/lib/auth/organisation/authorizations";
+import { sendInvitationEmail } from "./emails";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 // Assume email sending function exists
 
 
@@ -22,6 +25,8 @@ export async function createInvitation({
 }: CreateInvitationArgs) {
   const { userId, organizationId, role: inviterRole } = await getServerAuthContext();
   try {
+    
+    const session = await auth.api.getSession({ headers: await headers() });
     // 1. Check if inviter is part of the organization (optional but recommended)
     const inviterMembership = await prisma.member.findUnique({
       where: {
@@ -34,6 +39,7 @@ export async function createInvitation({
     });
     // Add permission check here if needed (e.g., only ADMIN/OWNER can invite)
     if (!inviterMembership || inviterRole && !hasMemberPermission(inviterRole, "invite_members")) {
+      console.log("Inviter does not belong to this organization or lacks permission.");
       return {
         error:
           "Inviter does not belong to this organization or lacks permission.",
@@ -50,6 +56,7 @@ export async function createInvitation({
       },
     });
     if (existingMember) {
+      console.log("This email address already belongs to a member of this organization.");
       return {
         error:
           "This email address already belongs to a member of this organization.",
@@ -67,6 +74,9 @@ export async function createInvitation({
     });
     if (existingPendingInvite) {
       // Optional: Resend email for existing pending invite instead of erroring
+      console.log("An active pending invitation already exists for this email address.");
+      // Delete the old invitation if needed (optional)
+      // await prisma.invitation.delete({ where: { id: existingPendingInvite.id } });
       return {
         error:
           "An active pending invitation already exists for this email address.",
@@ -99,17 +109,16 @@ export async function createInvitation({
     // Build the accept URL using the token (e.g., https://yourapp.com/accept-invite?token=...)
     const acceptUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/invitation/${token}`;
     console.log(`Invitation URL: ${acceptUrl}`); // For debugging, remove in production
-    await sendInvitationEmail(inviteeEmail, token, newInvitation.organization.name);
-    console.log(
-      `INFO: Invitation created. Token: ${token}. Email not sent (implement sendInvitationEmail).`
-    );
-    
+    await sendInvitationEmail(inviteeEmail, token, newInvitation.organization.name, session?.user.name || '');
+    // Note: In production, handle email sending errors gracefully
+
     // 7. Create a notification for the invited user
     await createNotification(prisma, {
       type: NotificationType.INVITATION,
       title: `Invitation to join ${inviterMembership.organization.name}`,
       description: `${inviterMembership.user.name || inviterMembership.user.email} has invited you to join ${inviterMembership.organization.name} as a ${role.toLowerCase()}.`,
       recipientEmail: inviteeEmail,
+      link: acceptUrl,
       senderId: userId,
       details: {
         organizationId,
