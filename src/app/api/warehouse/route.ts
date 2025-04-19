@@ -96,7 +96,7 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json(warehousesResponseSchema.parse({ warehouses }));
+    return NextResponse.json(warehouses);
   } catch (error) {
     console.error("Error fetching warehouses:", error);
     return NextResponse.json(

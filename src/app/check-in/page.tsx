@@ -13,12 +13,14 @@ import {
 import Image from "next/image";
 import { toast } from "sonner";
 import { signIn } from "@/lib/auth/authClient";
+import { useRouter } from "next/navigation";
 
 const CheckInPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const router = useRouter();
 
   const LOCATION_ID = "cm9e4ynql0000bkacheb1jxcd"; // Replace with actual location ID or fetch it dynamically
 
@@ -54,7 +56,9 @@ const CheckInPage = () => {
       if (result.ok) {
         setShowSuccess(true);
         toast.success("Check-in successful!");
-        // Optionally, redirect or perform other actions after successful check-in
+        // Delay 2 seconds before redirecting
+        await Promise.resolve( setTimeout(() => {}, 2000));
+        router.push("/dashboard");
       } else {
         toast.error("Check-in failed. Please try again.",{
           description: data.error || "An unknown error occurred.",

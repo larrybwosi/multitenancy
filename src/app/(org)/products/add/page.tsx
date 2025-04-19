@@ -67,7 +67,6 @@ export function AddProductForm() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isUploading, setIsUploading] = useState(false);
-  const [formErrors, setFormErrors] = useState<Record<string, string[] | undefined>>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
 
@@ -120,7 +119,7 @@ export function AddProductForm() {
   });
 
   // --- SWR Data Fetching ---
-  const { data: locationsResult, error: locationsError, isLoading: isLoadingLocations } = useSWR<{data?: Location[], error?: string}>(
+  const { data: locationsResult, error: locationsError, isLoading: isLoadingLocations } = useSWR(
     '/api/warehouse',
     fetcher,{
       revalidateOnMount: true,
@@ -128,7 +127,7 @@ export function AddProductForm() {
       shouldRetryOnError: true
     }
   );
-  const storageLocations = locationsResult?.data ?? [];
+  
 
   const { data: suppliersResult, error: suppliersError, isLoading: isLoadingSuppliers } = useSWR<{data?: Supplier[], error?: string }>(
     '/api/suppliers',
@@ -216,7 +215,6 @@ export function AddProductForm() {
 
   // --- Form Submission ---
   const onSubmit = async (values: ProductInput) => {
-    setFormErrors({});
     setGeneralError(null);
 
     const formData = new FormData();
@@ -242,7 +240,6 @@ export function AddProductForm() {
         if (result?.error) {
             setGeneralError(result.error);
           if (result.fieldErrors) {
-            setFormErrors(result.fieldErrors);
             const firstErrorField = Object.keys(result.fieldErrors)[0];
             const element = document.getElementsByName(firstErrorField)[0];
             element?.focus();
@@ -279,11 +276,11 @@ export function AddProductForm() {
   }, [form]);
 
   return (
-    <ScrollArea className="container mx-auto p-4 space-y-6">
+    <ScrollArea className="container mx-auto p-4 space-y-6 py-4">
       <SectionHeader
-        title="Product Management"
-        subtitle="Manage your product catalog efficiently."
-        icon={<PackagePlus className="h-8 w-8 text-indigo-500" />}
+        title="Create New Product"
+        subtitle="Fill in the details to add a new product to your catalog."
+        icon={<PackagePlus className="h-8 w-8 text-gray-500 mt-2" />}
       />
 
       <Form {...form}>
@@ -300,7 +297,9 @@ export function AddProductForm() {
           <Card>
             <CardHeader>
               <CardTitle>Basic Information</CardTitle>
-              <CardDescription>Enter the core details of your product.</CardDescription>
+              <CardDescription>
+                Enter the core details of your product.
+              </CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <FormField
@@ -336,7 +335,11 @@ export function AddProductForm() {
                   <FormItem className="md:col-span-2">
                     <FormLabel>Description</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Detailed description of the product..." {...field} />
+                      <Textarea
+                        placeholder="Detailed description of the product..."
+                        {...field}
+                        value={field.value || ""}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -349,7 +352,11 @@ export function AddProductForm() {
                   <FormItem>
                     <FormLabel>Product Barcode (Optional)</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., 123456789012" {...field} />
+                      <Input
+                        placeholder="e.g., 123456789012"
+                        {...field}
+                        value={field.value || ""}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -361,16 +368,40 @@ export function AddProductForm() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Category *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingCategories}>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                      disabled={isLoadingCategories}
+                    >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder={isLoadingCategories ? "Loading categories..." : "Select Category..."} />
+                          <SelectValue
+                            placeholder={
+                              isLoadingCategories
+                                ? "Loading categories..."
+                                : "Select Category..."
+                            }
+                          />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {isLoadingCategories && <SelectItem value="loading" disabled>Loading...</SelectItem>}
-                        {categoriesError && <SelectItem value="error" disabled>Error loading categories</SelectItem>}
-                        {!isLoadingCategories && !categoriesError && categories.length === 0 && <SelectItem value="no-items" disabled>No categories found</SelectItem>}
+                        {isLoadingCategories && (
+                          <SelectItem value="loading" disabled>
+                            Loading...
+                          </SelectItem>
+                        )}
+                        {categoriesError && (
+                          <SelectItem value="error" disabled>
+                            Error loading categories
+                          </SelectItem>
+                        )}
+                        {!isLoadingCategories &&
+                          !categoriesError &&
+                          categories.length === 0 && (
+                            <SelectItem value="no-items" disabled>
+                              No categories found
+                            </SelectItem>
+                          )}
                         {categories.map((cat) => (
                           <SelectItem key={cat.id} value={cat.id}>
                             {cat.name}
@@ -389,7 +420,13 @@ export function AddProductForm() {
                   <FormItem>
                     <FormLabel>Base Price ($) *</FormLabel>
                     <FormControl>
-                      <Input type="number" step="0.01" min="0" placeholder="e.g., 29.99" {...field} />
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="e.g., 29.99"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -423,7 +460,10 @@ export function AddProductForm() {
           <Card>
             <CardHeader>
               <CardTitle>Product Images</CardTitle>
-              <CardDescription>Upload images for your product. The first image is often used as the main display image.</CardDescription>
+              <CardDescription>
+                Upload images for your product. The first image is often used as
+                the main display image.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <FormField
@@ -434,8 +474,16 @@ export function AddProductForm() {
                     <FormControl>
                       <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
                         {imageUrls.map((url) => (
-                          <div key={url} className="relative aspect-square group">
-                            <Image src={url} alt="Product image" fill className="rounded-md border object-cover" />
+                          <div
+                            key={url}
+                            className="relative aspect-square group"
+                          >
+                            <Image
+                              src={url}
+                              alt="Product image"
+                              fill
+                              className="rounded-md border object-cover"
+                            />
                             <Button
                               type="button"
                               variant="destructive"
@@ -449,13 +497,18 @@ export function AddProductForm() {
                             </Button>
                           </div>
                         ))}
-                        <Label htmlFor="imageUpload" className={`flex flex-col items-center justify-center aspect-square border-2 border-dashed rounded-md transition-colors ${isUploading || isPending ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-primary'}`}>
+                        <Label
+                          htmlFor="imageUpload"
+                          className={`flex flex-col items-center justify-center aspect-square border-2 border-dashed rounded-md transition-colors ${isUploading || isPending ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:border-primary"}`}
+                        >
                           {isUploading ? (
                             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                           ) : (
                             <UploadCloud className="h-8 w-8 text-muted-foreground" />
                           )}
-                          <span className="mt-2 text-xs text-muted-foreground">{isUploading ? 'Uploading...' : 'Upload'}</span>
+                          <span className="mt-2 text-xs text-muted-foreground">
+                            {isUploading ? "Uploading..." : "Upload"}
+                          </span>
                           <Input
                             id="imageUpload"
                             type="file"
@@ -478,11 +531,18 @@ export function AddProductForm() {
           <Card>
             <CardHeader>
               <CardTitle>Variants</CardTitle>
-              <CardDescription>Define different versions (e.g., size, color). The first variant often represents the base product if no specific attributes differentiate it.</CardDescription>
+              <CardDescription>
+                Define different versions (e.g., size, color). The first variant
+                often represents the base product if no specific attributes
+                differentiate it.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {variantFields.map((field, index) => (
-                <div key={field.id} className="p-4 border rounded-md relative space-y-4 bg-muted/20 dark:bg-muted/40">
+                <div
+                  key={field.id}
+                  className="p-4 border rounded-md relative space-y-4 bg-muted/20 dark:bg-muted/40"
+                >
                   {variantFields.length > 1 && (
                     <Button
                       type="button"
@@ -496,7 +556,9 @@ export function AddProductForm() {
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   )}
-                  <h4 className="font-medium text-sm mb-3">Variant #{index + 1}</h4>
+                  <h4 className="font-medium text-sm mb-3">
+                    Variant #{index + 1}
+                  </h4>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                     <FormField
                       control={form.control}
@@ -518,9 +580,14 @@ export function AddProductForm() {
                         <FormItem>
                           <FormLabel>Variant SKU *</FormLabel>
                           <FormControl>
-                            <Input placeholder="e.g., TSHIRT-PREM-BLK-L" {...field} />
+                            <Input
+                              placeholder="e.g., TSHIRT-PREM-BLK-L"
+                              {...field}
+                            />
                           </FormControl>
-                          <FormDescription className="text-xs">Must be unique.</FormDescription>
+                          <FormDescription className="text-xs">
+                            Must be unique.
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -532,7 +599,11 @@ export function AddProductForm() {
                         <FormItem>
                           <FormLabel>Barcode (Optional)</FormLabel>
                           <FormControl>
-                            <Input placeholder="Variant specific barcode" {...field} />
+                            <Input
+                              placeholder="Variant specific barcode"
+                              {...field}
+                              value={field.value || ""}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -545,9 +616,16 @@ export function AddProductForm() {
                         <FormItem>
                           <FormLabel>Price Modifier ($) *</FormLabel>
                           <FormControl>
-                            <Input type="number" step="0.01" placeholder="e.g., 5.00 or -2.00" {...field} />
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="e.g., 5.00 or -2.00"
+                              {...field}
+                            />
                           </FormControl>
-                          <FormDescription className="text-xs">Adjustment to base price. Use 0 if same as base.</FormDescription>
+                          <FormDescription className="text-xs">
+                            Adjustment to base price. Use 0 if same as base.
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -561,7 +639,9 @@ export function AddProductForm() {
                           <FormControl>
                             <Input type="number" min="0" step="1" {...field} />
                           </FormControl>
-                          <FormDescription className="text-xs">Stock level to trigger alert.</FormDescription>
+                          <FormDescription className="text-xs">
+                            Stock level to trigger alert.
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -575,7 +655,9 @@ export function AddProductForm() {
                           <FormControl>
                             <Input type="number" min="1" step="1" {...field} />
                           </FormControl>
-                          <FormDescription className="text-xs">Typical quantity to reorder.</FormDescription>
+                          <FormDescription className="text-xs">
+                            Typical quantity to reorder.
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -588,9 +670,18 @@ export function AddProductForm() {
                       render={({ field }) => (
                         <FormItem className="flex flex-row items-center space-x-2 space-y-0">
                           <FormControl>
-                            <Checkbox checked={field.value} onCheckedChange={field.onChange} id={`variant-isActive-${index}`}/>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              id={`variant-isActive-${index}`}
+                            />
                           </FormControl>
-                          <FormLabel htmlFor={`variant-isActive-${index}`} className="text-sm font-medium !mt-0">Active</FormLabel>
+                          <FormLabel
+                            htmlFor={`variant-isActive-${index}`}
+                            className="text-sm font-medium !mt-0"
+                          >
+                            Active
+                          </FormLabel>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -601,9 +692,18 @@ export function AddProductForm() {
                       render={({ field }) => (
                         <FormItem className="flex flex-row items-center space-x-2 space-y-0">
                           <FormControl>
-                            <Checkbox checked={field.value} onCheckedChange={field.onChange} id={`variant-lowStockAlert-${index}`}/>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              id={`variant-lowStockAlert-${index}`}
+                            />
                           </FormControl>
-                          <FormLabel htmlFor={`variant-lowStockAlert-${index}`} className="text-sm font-medium !mt-0">Low Stock Alert</FormLabel>
+                          <FormLabel
+                            htmlFor={`variant-lowStockAlert-${index}`}
+                            className="text-sm font-medium !mt-0"
+                          >
+                            Low Stock Alert
+                          </FormLabel>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -611,12 +711,21 @@ export function AddProductForm() {
                   </div>
                 </div>
               ))}
-              <Button type="button" variant="outline" onClick={addVariant} disabled={isPending}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addVariant}
+                disabled={isPending}
+              >
                 Add Variant
               </Button>
-              {form.formState.errors.variants && typeof form.formState.errors.variants === 'object' && !Array.isArray(form.formState.errors.variants) && (
-                <p className="text-sm font-medium text-destructive">{form.formState.errors.variants.message}</p>
-              )}
+              {form.formState.errors.variants &&
+                typeof form.formState.errors.variants === "object" &&
+                !Array.isArray(form.formState.errors.variants) && (
+                  <p className="text-sm font-medium text-destructive">
+                    {form.formState.errors.variants.message}
+                  </p>
+                )}
             </CardContent>
           </Card>
 
@@ -624,37 +733,73 @@ export function AddProductForm() {
           <Card>
             <CardHeader>
               <CardTitle>Suppliers</CardTitle>
-              <CardDescription>Manage suppliers and their specific details for this product.</CardDescription>
+              <CardDescription>
+                Manage suppliers and their specific details for this product.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex flex-col sm:flex-row gap-2 items-end p-4 border rounded-lg bg-muted/20 dark:bg-muted/40">
                 <div className="flex-grow w-full sm:w-auto space-y-1">
                   <Label htmlFor="supplierSelect">Available Suppliers</Label>
-                  <Select value={selectedSupplierToAdd} onValueChange={setSelectedSupplierToAdd} disabled={isLoadingSuppliers || isPending || availableSuppliers.length === 0}>
+                  <Select
+                    value={selectedSupplierToAdd}
+                    onValueChange={setSelectedSupplierToAdd}
+                    disabled={
+                      isLoadingSuppliers ||
+                      isPending ||
+                      availableSuppliers.length === 0
+                    }
+                  >
                     <SelectTrigger id="supplierSelect">
-                      <SelectValue placeholder={
-                        isLoadingSuppliers ? "Loading..." :
-                        suppliersError ? "Error loading" :
-                        availableSuppliers.length === 0 ? "No available suppliers" :
-                        "Select a supplier to add"} />
+                      <SelectValue
+                        placeholder={
+                          isLoadingSuppliers
+                            ? "Loading..."
+                            : suppliersError
+                              ? "Error loading"
+                              : availableSuppliers.length === 0
+                                ? "No available suppliers"
+                                : "Select a supplier to add"
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
-                      {isLoadingSuppliers && <SelectItem value="loading" disabled>Loading...</SelectItem>}
-                      {suppliersError && <SelectItem value="error" disabled>Error loading suppliers</SelectItem>}
-                      {!isLoadingSuppliers && !suppliersError && availableSuppliers.length === 0 && <SelectItem value="no-suppliers" disabled>No suppliers found or all added</SelectItem>}
-                      {availableSuppliers.map(supplier => (
+                      {isLoadingSuppliers && (
+                        <SelectItem value="loading" disabled>
+                          Loading...
+                        </SelectItem>
+                      )}
+                      {suppliersError && (
+                        <SelectItem value="error" disabled>
+                          Error loading suppliers
+                        </SelectItem>
+                      )}
+                      {!isLoadingSuppliers &&
+                        !suppliersError &&
+                        availableSuppliers.length === 0 && (
+                          <SelectItem value="no-suppliers" disabled>
+                            No suppliers found or all added
+                          </SelectItem>
+                        )}
+                      {availableSuppliers.map((supplier) => (
                         <SelectItem key={supplier.id} value={supplier.id}>
                           {supplier.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  {suppliersError && <p className="text-sm text-destructive mt-1">{suppliersError}</p>}
+                  {suppliersError && (
+                    <p className="text-sm text-destructive mt-1">
+                      {suppliersError}
+                    </p>
+                  )}
                 </div>
                 <Button
                   type="button"
                   onClick={addProductSupplier}
-                  disabled={!selectedSupplierToAdd || isLoadingSuppliers || isPending}
+                  disabled={
+                    !selectedSupplierToAdd || isLoadingSuppliers || isPending
+                  }
                   className="w-full sm:w-auto"
                 >
                   Add Supplier to Product
@@ -664,9 +809,14 @@ export function AddProductForm() {
               {supplierFields.length > 0 && <Separator />}
               <div className="space-y-4">
                 {supplierFields.map((field, index) => {
-                  const supplierDetails = availableSuppliers.find(s => s.id === field.supplierId);
+                  const supplierDetails = availableSuppliers.find(
+                    (s) => s.id === field.supplierId
+                  );
                   return (
-                    <div key={field.id} className="p-4 border rounded-md relative space-y-4">
+                    <div
+                      key={field.id}
+                      className="p-4 border rounded-md relative space-y-4"
+                    >
                       <Button
                         type="button"
                         variant="ghost"
@@ -678,7 +828,10 @@ export function AddProductForm() {
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
-                      <h4 className="font-semibold">{supplierDetails?.name || `Supplier ID: ${field.supplierId}`}</h4>
+                      <h4 className="font-semibold">
+                        {supplierDetails?.name ||
+                          `Supplier ID: ${field.supplierId}`}
+                      </h4>
                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         <FormField
                           control={form.control}
@@ -687,7 +840,10 @@ export function AddProductForm() {
                             <FormItem>
                               <FormLabel>Supplier SKU</FormLabel>
                               <FormControl>
-                                <Input placeholder="Supplier's product code" {...field} />
+                                <Input
+                                  placeholder="Supplier's product code"
+                                  {...field}
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -700,7 +856,12 @@ export function AddProductForm() {
                             <FormItem>
                               <FormLabel>Cost Price ($) *</FormLabel>
                               <FormControl>
-                                <Input type="number" step="0.01" min="0" {...field} />
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  {...field}
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -713,7 +874,12 @@ export function AddProductForm() {
                             <FormItem>
                               <FormLabel>Min. Order Qty</FormLabel>
                               <FormControl>
-                                <Input type="number" min="1" step="1" {...field} />
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  step="1"
+                                  {...field}
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -726,7 +892,10 @@ export function AddProductForm() {
                             <FormItem>
                               <FormLabel>Packaging Unit</FormLabel>
                               <FormControl>
-                                <Input placeholder="e.g., Box of 12" {...field} />
+                                <Input
+                                  placeholder="e.g., Box of 12"
+                                  {...field}
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -741,11 +910,18 @@ export function AddProductForm() {
                             <FormControl>
                               <Checkbox
                                 checked={field.value}
-                                onCheckedChange={() => handlePreferredSupplierChange(index)}
+                                onCheckedChange={() =>
+                                  handlePreferredSupplierChange(index)
+                                }
                                 id={`isPreferred-${index}`}
                               />
                             </FormControl>
-                            <Label htmlFor={`isPreferred-${index}`} className="text-sm font-medium">Preferred Supplier</Label>
+                            <Label
+                              htmlFor={`isPreferred-${index}`}
+                              className="text-sm font-medium"
+                            >
+                              Preferred Supplier
+                            </Label>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -754,9 +930,13 @@ export function AddProductForm() {
                   );
                 })}
               </div>
-              {form.formState.errors.suppliers && typeof form.formState.errors.suppliers === 'object' && !Array.isArray(form.formState.errors.suppliers) && (
-                <p className="text-sm font-medium text-destructive">{form.formState.errors.suppliers.message}</p>
-              )}
+              {form.formState.errors.suppliers &&
+                typeof form.formState.errors.suppliers === "object" &&
+                !Array.isArray(form.formState.errors.suppliers) && (
+                  <p className="text-sm font-medium text-destructive">
+                    {form.formState.errors.suppliers.message}
+                  </p>
+                )}
             </CardContent>
           </Card>
 
@@ -764,7 +944,10 @@ export function AddProductForm() {
           <Card>
             <CardHeader>
               <CardTitle>Physical Properties</CardTitle>
-              <CardDescription>Enter dimensions and weight, primarily used for shipping calculations. Leave blank if not applicable.</CardDescription>
+              <CardDescription>
+                Enter dimensions and weight, primarily used for shipping
+                calculations. Leave blank if not applicable.
+              </CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2 lg:grid-cols-3">
               <div className="space-y-4 border p-4 rounded-md md:col-span-2 lg:col-span-1">
@@ -777,7 +960,14 @@ export function AddProductForm() {
                       <FormItem className="col-span-1">
                         <FormLabel className="text-xs">Width</FormLabel>
                         <FormControl>
-                          <Input type="number" step="any" min="0" placeholder="W" {...field} value={field.value ?? ''}/>
+                          <Input
+                            type="number"
+                            step="any"
+                            min="0"
+                            placeholder="W"
+                            {...field}
+                            value={field.value ?? ""}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -790,7 +980,14 @@ export function AddProductForm() {
                       <FormItem className="col-span-1">
                         <FormLabel className="text-xs">Height</FormLabel>
                         <FormControl>
-                          <Input type="number" step="any" min="0" placeholder="H" {...field} value={field.value ?? ''} />
+                          <Input
+                            type="number"
+                            step="any"
+                            min="0"
+                            placeholder="H"
+                            {...field}
+                            value={field.value ?? ""}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -803,7 +1000,14 @@ export function AddProductForm() {
                       <FormItem className="col-span-1">
                         <FormLabel className="text-xs">Depth</FormLabel>
                         <FormControl>
-                          <Input type="number" step="any" min="0" placeholder="D" {...field} value={field.value ?? ''}/>
+                          <Input
+                            type="number"
+                            step="any"
+                            min="0"
+                            placeholder="D"
+                            {...field}
+                            value={field.value ?? ""}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -817,7 +1021,10 @@ export function AddProductForm() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Dimension Unit</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Unit" />
@@ -843,7 +1050,14 @@ export function AddProductForm() {
                     render={({ field }) => (
                       <FormItem className="flex-grow">
                         <FormControl>
-                          <Input type="number" step="any" min="0" placeholder="e.g., 0.5" {...field} value={field.value ?? ''}/>
+                          <Input
+                            type="number"
+                            step="any"
+                            min="0"
+                            placeholder="e.g., 0.5"
+                            {...field}
+                            value={field.value ?? ""}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -854,10 +1068,13 @@ export function AddProductForm() {
                     name="weightUnit"
                     render={({ field }) => (
                       <FormItem className="w-[80px] flex-shrink-0">
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Unit"/>
+                              <SelectValue placeholder="Unit" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -881,10 +1098,18 @@ export function AddProductForm() {
                   <FormItem className="md:col-span-2 lg:col-span-3">
                     <FormLabel>Volumetric Weight (Optional)</FormLabel>
                     <FormControl>
-                      <Input type="number" step="any" min="0" placeholder="Calculated or specified volumetric weight" {...field} value={field.value ?? ''}/>
+                      <Input
+                        type="number"
+                        step="any"
+                        min="0"
+                        placeholder="Calculated or specified volumetric weight"
+                        {...field}
+                        value={field.value ?? ""}
+                      />
                     </FormControl>
                     <FormDescription>
-                      Used by some carriers. Often calculated as (L x W x H) / Dim Factor. Uses same unit as Weight.
+                      Used by some carriers. Often calculated as (L x W x H) /
+                      Dim Factor. Uses same unit as Weight.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -897,7 +1122,9 @@ export function AddProductForm() {
           <Card>
             <CardHeader>
               <CardTitle>Inventory</CardTitle>
-              <CardDescription>Set overall product reorder level and default storage location.</CardDescription>
+              <CardDescription>
+                Set overall product reorder level and default storage location.
+              </CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <FormField
@@ -910,7 +1137,8 @@ export function AddProductForm() {
                       <Input type="number" min="0" step="1" {...field} />
                     </FormControl>
                     <FormDescription>
-                      Alert level for the product overall (variants have their own).
+                      Alert level for the product overall (variants have their
+                      own).
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -922,17 +1150,41 @@ export function AddProductForm() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Default Storage Location *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingLocations}>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                      disabled={isLoadingLocations}
+                    >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder={isLoadingLocations ? "Loading locations..." : "Select default location"} />
+                          <SelectValue
+                            placeholder={
+                              isLoadingLocations
+                                ? "Loading locations..."
+                                : "Select default location"
+                            }
+                          />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {isLoadingLocations && <SelectItem value="loading" disabled>Loading...</SelectItem>}
-                        {locationsError && <SelectItem value="error" disabled>Error loading locations</SelectItem>}
-                        {!isLoadingLocations && !locationsError && storageLocations.length === 0 && <SelectItem value="no-items" disabled>No locations found</SelectItem>}
-                        {storageLocations.map((loc) => (
+                        {isLoadingLocations && (
+                          <SelectItem value="loading" disabled>
+                            Loading...
+                          </SelectItem>
+                        )}
+                        {locationsError && (
+                          <SelectItem value="error" disabled>
+                            Error loading locations
+                          </SelectItem>
+                        )}
+                        {!isLoadingLocations &&
+                          !locationsError &&
+                          locationsResult?.length === 0 && (
+                            <SelectItem value="no-items" disabled>
+                              No locations found
+                            </SelectItem>
+                          )}
+                        {locationsResult?.map((loc) => (
                           <SelectItem key={loc.id} value={loc.id}>
                             {loc.name}
                           </SelectItem>
@@ -951,27 +1203,37 @@ export function AddProductForm() {
 
           {/* --- Submission --- */}
           <div className="flex justify-end space-x-4 pt-4">
-            <Button type="button" variant="outline" onClick={() => router.back()} disabled={isPending}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.back()}
+              disabled={isPending}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={isPending || isUploading}>
-              {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              {isPending ? 'Adding Product...' : 'Add Product'}
+              {isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              {isPending ? "Adding Product..." : "Add Product"}
             </Button>
           </div>
 
           {/* Display raw form errors for debugging if needed */}
-          {Object.keys(form.formState.errors).length > 0 && process.env.NODE_ENV === 'development' && (
-            <Alert variant="destructive" className="mt-6">
-              <Terminal className="h-4 w-4" />
-              <AlertTitle>Validation Errors Detected (Dev Only)</AlertTitle>
-              <AlertDescription>
-                <pre className="mt-2 rounded-md bg-slate-950 p-4 overflow-x-auto">
-                  <code className="text-white text-xs">{JSON.stringify(form.formState.errors, null, 2)}</code>
-                </pre>
-              </AlertDescription>
-            </Alert>
-          )}
+          {Object.keys(form.formState.errors).length > 0 &&
+            process.env.NODE_ENV === "development" && (
+              <Alert variant="destructive" className="mt-6">
+                <Terminal className="h-4 w-4" />
+                <AlertTitle>Validation Errors Detected (Dev Only)</AlertTitle>
+                <AlertDescription>
+                  <pre className="mt-2 rounded-md bg-slate-950 p-4 overflow-x-auto">
+                    <code className="text-white text-xs">
+                      {JSON.stringify(form.formState.errors, null, 2)}
+                    </code>
+                  </pre>
+                </AlertDescription>
+              </Alert>
+            )}
         </form>
       </Form>
     </ScrollArea>

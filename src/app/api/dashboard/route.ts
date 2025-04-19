@@ -1,67 +1,223 @@
 import { NextResponse } from "next/server"
+import { db } from "@/lib/db"
+import { getServerAuthContext } from "@/actions/auth"
 
 export async function GET() {
-  // This is a placeholder API route that would normally fetch data from a database
-  // In a real application, you would connect to your database and return actual data
+  const { organizationId } = await getServerAuthContext()
+  try {
+    // Get start dates
+    const now = new Date()
+    const currentQuarterStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1)
+    const previousQuarterStart = new Date(currentQuarterStart)
+    previousQuarterStart.setMonth(previousQuarterStart.getMonth() - 3)
 
-  // Simulate a delay to mimic a real API call
-  await new Promise((resolve) => setTimeout(resolve, 500))
+    // Fetch metrics data
+    const [
+      organization,
+      totalStaff,
+      totalPrevStaff,
+      totalApplications,
+      totalPrevApplications,
+      totalProjects,
+      totalPrevProjects,
+      totalDepartments,
+      staffApplications,
+      payrollSummary,
+      incomeData,
+      paymentVouchers,
+      budgetHistory
+    ] = await Promise.all([
+      db.organization.findUnique({
+        where: { id: organizationId },
+        select: {
+          name: true,
+          logo: true,
+          slug: true,
+          description: true,
+        }
+      }),
+      // Current quarter staff count
+      db.member.count({
+        where: {
+          organizationId,
+          isActive: true,
+          createdAt: { gte: currentQuarterStart }
+        }
+      }),
+      // Previous quarter staff count
+      db.member.count({
+        where: {
+          organizationId,
+          isActive: true,
+          createdAt: {
+            gte: previousQuarterStart,
+            lt: currentQuarterStart
+          }
+        }
+      }),
+      // Current quarter applications
+      db.invitation.count({
+        where: {
+          organizationId,
+          createdAt: { gte: currentQuarterStart }
+        }
+      }),
+      // Previous quarter applications
+      db.invitation.count({
+        where: {
+          organizationId,
+          createdAt: {
+            gte: previousQuarterStart,
+            lt: currentQuarterStart
+          }
+        }
+      }),
+      // Current quarter projects (using budgets as proxy)
+      db.budget.count({
+        where: {
+          organizationId,
+          createdAt: { gte: currentQuarterStart }
+        }
+      }),
+      // Previous quarter projects
+      db.budget.count({
+        where: {
+          organizationId,
+          createdAt: {
+            gte: previousQuarterStart,
+            lt: currentQuarterStart
+          }
+        }
+      }),
+      // Total departments (using expense categories)
+      db.expenseCategory.count({
+        where: {
+          organizationId,
+          isActive: true
+        }
+      }),
+      // Staff applications over time
+      db.invitation.findMany({
+        where: {
+          organizationId,
+          createdAt: { gte: previousQuarterStart }
+        },
+        select: {
+          createdAt: true,
+          status: true
+        },
+        orderBy: {
+          createdAt: 'asc'
+        }
+      }),
+      // Payroll summary
+      db.expense.groupBy({
+        by: ['expenseDate'],
+        where: {
+          organizationId,
+          category: {
+            name: 'Payroll'
+          },
+          createdAt: { gte: previousQuarterStart }
+        },
+        _sum: {
+          amount: true
+        },
+        orderBy: {
+          expenseDate: 'asc'
+        }
+      }),
+      // Total income
+      db.sale.groupBy({
+        by: ['saleDate'],
+        where: {
+          organizationId,
+          createdAt: { gte: previousQuarterStart }
+        },
+        _sum: {
+          finalAmount: true
+        },
+        orderBy: {
+          saleDate: 'asc'
+        }
+      }),
+      // Payment vouchers
+      db.expense.findMany({
+        where: {
+          organizationId,
+          createdAt: { gte: previousQuarterStart }
+        },
+        select: {
+          expenseNumber: true,
+          description: true,
+          amount: true,
+          expenseDate: true,
+          status: true
+        },
+        orderBy: {
+          expenseDate: 'desc'
+        },
+        take: 5
+      }),
+      // Budget history
+      db.budget.findMany({
+        where: {
+          organizationId,
+          isActive: true
+        },
+        select: {
+          name: true,
+          amount: true,
+          amountUsed: true,
+          periodStart: true,
+          periodEnd: true
+        },
+        orderBy: {
+          periodStart: 'desc'
+        },
+        take: 5
+      })
+    ])
 
-  return NextResponse.json({
-    organization: {
-      id: "org_01",
-      name: "Orlando Inc.",
-      logo: "/logo.svg",
-      description: "A leading provider of innovative solutions for businesses of all sizes.",
-      createdAt: "2023-01-15T08:00:00.000Z",
-    },
-    metrics: {
-      totalStaff: 250,
-      totalApplications: 200,
-      totalProjects: 38,
-      totalDepartments: 8,
-      staffGrowth: 12, // percentage growth from last quarter
-      applicationsGrowth: 0.2, // percentage growth from last quarter
-      projectsGrowth: 4, // percentage growth from last quarter
-      departmentsChange: 0, // no change
-    },
-    applications: {
-      total: 200,
-      pending: 100,
-      approved: 60,
-      rejected: 40,
-    },
-    payroll: {
-      summary: [
-        { month: "Sep", netSalary: 280000, tax: 70000, loan: 150000 },
-        { month: "Oct", netSalary: 290000, tax: 75000, loan: 160000 },
-        { month: "Nov", netSalary: 300000, tax: 80000, loan: 170000 },
-        { month: "Dec", netSalary: 310000, tax: 85000, loan: 180000 },
-        { month: "Jan", netSalary: 320000, tax: 90000, loan: 190000 },
-      ],
-    },
-    income: {
-      total: 11800000,
-      growth: 21, // percentage growth from last month
-      monthly: [
-        { month: "Sep", amount: 2100000 },
-        { month: "Oct", amount: 2300000 },
-        { month: "Nov", amount: 2400000 },
-        { month: "Dec", amount: 2500000 },
-        { month: "Jan", amount: 2500000 },
-      ],
-    },
-    paymentVouchers: [
-      { id: "01", subject: "Request for FARS for October 2022", date: "25/10/2025", status: "Pending" },
-      { id: "02", subject: "Request for project proposal fee", date: "19/10/2025", status: "Approved" },
-      { id: "03", subject: "Request for FARS for October 2022", date: "10/10/2025", status: "Approved" },
-      { id: "04", subject: "Request for project proposal fee", date: "03/10/2025", status: "Pending" },
-    ],
-    budgetHistory: [
-      { id: "01", budgetNo: "00211235", budgetedAmount: 14000000, actualAmount: 13100000, date: "25/10/2025" },
-      { id: "02", budgetNo: "36211235", budgetedAmount: 4000000, actualAmount: 5000000, date: "22/10/2025" },
-      { id: "03", budgetNo: "00214455", budgetedAmount: 22000000, actualAmount: 14000000, date: "20/10/2025" },
-      { id: "04", budgetNo: "00214465", budgetedAmount: 3000000, actualAmount: 1800000, date: "20/10/2025" },
-    ],
-  })
+    // Calculate growth percentages
+    const staffGrowth = totalPrevStaff > 0 
+      ? ((totalStaff - totalPrevStaff) / totalPrevStaff) * 100 
+      : 0
+
+    const applicationsGrowth = totalPrevApplications > 0
+      ? ((totalApplications - totalPrevApplications) / totalPrevApplications) * 100
+      : 0
+
+    const projectsGrowth = totalPrevProjects > 0
+      ? ((totalProjects - totalPrevProjects) / totalPrevProjects) * 100
+      : 0
+
+    return NextResponse.json({
+      organization: {
+        name: organization?.name,
+        logo: organization?.logo,
+        description: organization?.description,
+        slug: organization?.slug,
+      },
+      metrics: {
+        totalStaff,
+        staffGrowth: Math.round(staffGrowth),
+        totalApplications,
+        applicationsGrowth: Math.round(applicationsGrowth),
+        totalProjects,
+        projectsGrowth: Math.round(projectsGrowth),
+        totalDepartments,
+      },
+      applications: staffApplications,
+      payroll: {
+        summary: payrollSummary,
+      },
+      income: incomeData,
+      paymentVouchers,
+      budgetHistory,
+    });
+  } catch (error) {
+    console.error("Dashboard data fetch error:", error)
+    return new NextResponse("Internal Server Error", { status: 500 })
+  }
 }

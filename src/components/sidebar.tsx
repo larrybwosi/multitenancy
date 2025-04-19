@@ -13,6 +13,7 @@ import {
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { signOut } from '@/lib/auth/authClient';
+import Link from 'next/link';
 
 // --- Type Definitions ---
 
@@ -265,13 +266,13 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Bottom Actions */}
       <div className="border-t border-neutral-200 mt-auto">
-        <div className="px-4 py-2.5 flex items-center text-neutral-600 hover:text-neutral-900 cursor-pointer hover:bg-gray-100 group">
+        <Link href={'/notifications'} className="px-4 py-2.5 flex items-center text-neutral-600 hover:text-neutral-900 cursor-pointer hover:bg-gray-100 group">
           <Bell size={20} className="text-neutral-400 group-hover:text-neutral-600 mr-3" />
           <span className="text-sm">Notifications</span>
           <div className="ml-auto rounded-full bg-red-500 text-white w-5 h-5 flex items-center justify-center text-xs">
             5
           </div>
-        </div>
+        </Link>
          <div className="px-4 py-2.5 flex items-center text-neutral-600 hover:text-neutral-900 cursor-pointer hover:bg-gray-100 group">
           <HelpCircle size={20} className="text-neutral-400 group-hover:text-neutral-600 mr-3" />
           <span className="text-sm">Support</span>
