@@ -17,8 +17,6 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
-  SheetFooter,
 } from "@/components/ui/sheet";
 import {
   PlusCircle,
@@ -35,7 +33,7 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { CustomerActions } from "./CustomerActions";
-import { CustomerForm } from "./CustomerForm";
+import { CreateCustomerSheet } from "./CustomerForm";
 import { formatDate } from "@/lib/utils";
 import { CustomerDetailView } from "./CustomerDetailView";
 import { Card, CardContent } from "@/components/ui/card";
@@ -57,7 +55,6 @@ export function CustomerTable({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [searchTerm, setSearchTerm] = useState(searchParams.get("query") || "");
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [viewingCustomer, setViewingCustomer] = useState<Customer | null>(null);
   const [currentPage, setCurrentPage] = useState(
@@ -127,11 +124,9 @@ export function CustomerTable({
 
   const handleOpenSheet = (customer: Customer | null = null) => {
     setEditingCustomer(customer);
-    setIsSheetOpen(true);
   };
 
   const handleCloseSheet = () => {
-    setIsSheetOpen(false);
     setEditingCustomer(null);
   };
 
@@ -178,39 +173,10 @@ export function CustomerTable({
   return (
     <div className="w-full space-y-6">
       <div className="flex justify-end">
-        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-          <SheetTrigger asChild>
-            <Button
-              onClick={() => handleOpenSheet()}
-              className="bg-indigo-500 hover:bg-indigo-600 text-white rounded-md"
-            >
-              <PlusCircle className="mr-2 h-4 w-4" />
-              <p className="text-gray-50">Add Customer</p>
-            </Button>
-          </SheetTrigger>
-          <SheetContent className="sm:max-w-[540px] p-5 overflow-y-auto">
-            <SheetHeader>
-              <SheetTitle className="text-2xl font-bold text-indigo-600">
-                {editingCustomer ? "Edit Customer" : "Add New Customer"}
-              </SheetTitle>
-            </SheetHeader>
-            <div className="py-6">
-              <CustomerForm
-                customer={editingCustomer}
-                onFormSubmit={handleCloseSheet}
-              />
-            </div>
-            <SheetFooter>
-              <Button
-                variant="outline"
-                onClick={handleCloseSheet}
-                className="rounded-full"
-              >
-                Cancel
-              </Button>
-            </SheetFooter>
-          </SheetContent>
-        </Sheet>
+          <CreateCustomerSheet
+            customer={editingCustomer}
+            onFormSubmit={handleCloseSheet}
+          />
       </div>
 
       <FilterControls
@@ -329,7 +295,7 @@ export function CustomerTable({
                             <Avatar
                               className={`h-8 w-8 ${getAvatarColor(customer.name)}`}
                             >
-                              <AvatarFallback className="text-white">
+                              <AvatarFallback>
                                 {getInitials(customer.name)}
                               </AvatarFallback>
                             </Avatar>
@@ -523,6 +489,7 @@ export function CustomerTable({
         </>
       )}
 
+      <div className="flex-1 flex-grow"/>
       {/* Custom Pagination Component */}
         <Pagination
           currentPage={currentPage}

@@ -35,16 +35,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { CustomerForm } from "./CustomerForm";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { getCustomerDetails } from "@/actions/customerActions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
+import { CreateCustomerSheet } from "./CustomerForm";
+import { getCustomerDetails } from "@/actions/customers.actions";
 
 interface CustomerDetailViewProps {
   customerId: string;
@@ -239,7 +239,7 @@ export function CustomerDetailView({
                       </DialogTitle>
                     </DialogHeader>
                     <div className="py-4">
-                      <CustomerForm
+                      <CreateCustomerSheet
                         customer={customer}
                         onFormSubmit={handleEditModalClose}
                       />

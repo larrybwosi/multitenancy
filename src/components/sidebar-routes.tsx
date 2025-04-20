@@ -72,12 +72,12 @@ export const sidebarSectionsData: SectionItem[] = [
           {
             id: "customer-groups",
             title: "Customer Groups",
-            path: "/customers/groups",
+            // path: "/customers/groups",
           },
           {
             id: "loyalty-program",
             title: "Loyalty Program",
-            path: "/customers/loyalty",
+            // path: "/customers/loyalty",
           },
         ],
       },
@@ -215,23 +215,23 @@ export const sidebarSectionsData: SectionItem[] = [
       {
         id: "employees",
         title: "Employees",
-        icon: <User size={18} />, // Using 'User' (single) icon
+        icon: <User size={18} />,
         // path: "/admin/employees", // Optional: Parent path
         children: [
           {
             id: "employee-list",
             title: "Employee List",
-            path: "/admin/employees/list",
+            path: "/employees/list",
           },
           {
             id: "roles-permissions",
             title: "Roles & Permissions",
-            path: "/admin/employees/roles",
+            path: "/employees/roles",
           },
           {
-            id: "shifts",
-            title: "Shifts",
-            path: "/admin/employees/shifts",
+            id: "attendance",
+            title: "Attendance",
+            path: "/staff/attendance",
           },
         ],
       },

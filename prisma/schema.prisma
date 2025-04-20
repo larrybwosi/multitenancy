@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "src/generated/prisma/client"
+  // output   = "src/generated/prisma/client"
 }
 
 datasource db {
@@ -211,7 +211,7 @@ model Product {
   // NEW Physical dimensions for space calculation
   width             Float?
   height            Float?
-  depth             Float?
+  length             Float?
   dimensionUnit     String? // e.g., "cm", "inches"
   weight            Float?
   weightUnit        String? // e.g., "kg", "lbs"

@@ -1,8 +1,8 @@
-import { getCustomers } from "@/actions/customerActions";
 import { Suspense } from "react";
 import { CustomerTable } from "./components/CustomerTable";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { Users } from "lucide-react";
+import { getCustomers } from "@/actions/customers.actions";
 
 // Loading Skeleton for Table
 function LoadingSkeleton() {
@@ -33,34 +33,49 @@ function LoadingSkeleton() {
   );
 }
 
-// Define metadata (optional but good practice)
 export const metadata = {
   title: "Customer Management",
   description: "View and manage customer data.",
 };
 
-type CustomersPageProps ={
+type CustomersPageProps =Promise<{
   searchParams: {
     query?: string;
-    status?: string;
-    sortBy?: string;
+    status?: "active" | "inactive" | "all" | undefined;
+    sortBy?: "name" | "email" | "loyaltyPoints" | "createdAt" | undefined;
     sortOrder?: string;
     page?: string;
-  };
-}
+  }
+}>
 
 export default async function CustomersPage(params: CustomersPageProps) {
-  const searchParams = await params.searchParams
-  const { customers, total, totalPages } = await getCustomers({
+  const {searchParams: search} = await params
+  const searchParams = await search
+  const { data } = await getCustomers({
     query: searchParams.query,
     status: searchParams.status,
     sortBy: searchParams.sortBy,
     sortOrder: searchParams.sortOrder as "asc" | "desc",
     page: searchParams.page ? parseInt(searchParams.page) : 1,
   });
+  
+  if (!data) {
+    return (
+      <div className="container mx-auto py-6 px-4 lg:px-6">
+        <SectionHeader
+          title="Customer Management"
+          subtitle="Manage your customer data, track loyalty points, and monitor customer status."
+          icon={<Users className="h-8 w-8 text-indigo-500" />}
+          autoUpdate="2 min"
+        />
+        <LoadingSkeleton />
+      </div>
+    );
+  }
+  const { customers, totalCount, totalPages } = data
 
   return (
-    <div className="container mx-auto py-10 px-4 sm:px-6 lg:px-8">
+    <div className="container mx-auto py-6 px-4 lg:px-6">
       <div className="mb-8">
         <SectionHeader
           title="Customer Management"
@@ -70,12 +85,12 @@ export default async function CustomersPage(params: CustomersPageProps) {
           autoUpdate="2 min"
         />
       </div>
-
-      <div className=" rounded-lg p-6 shadow-sm">
+      
+      <div className=" rounded-lg shadow-sm">
         <Suspense fallback={<LoadingSkeleton />}>
           <CustomerTable
             initialCustomers={customers}
-            total={total}
+            total={totalCount}
             totalPages={totalPages}
           />
         </Suspense>

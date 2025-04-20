@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import type { CategoryInfo } from "./types"; // Import the new type
 import { getCategories } from "@/actions/category.actions";
 
-const LOCATION_ID = "YOUR_LOCATION_ID"; // IMPORTANT: Get this from session/context/env
+const LOCATION_ID = "cm9e4ynql0000bkacheb1jxcd"; // IMPORTANT: Get this from session/context/env
 
 export default async function PosPage() {
   // Fetch actual categories server-side
@@ -43,7 +43,6 @@ export default async function PosPage() {
         }
       >
         <PosClientPage
-          // No initial products needed, will fetch client-side
           categories={allCategories} // Pass fetched categories + 'All'
           locationId={LOCATION_ID} // Pass locationId down
         />

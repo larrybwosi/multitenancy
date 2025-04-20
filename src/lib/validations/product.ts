@@ -8,9 +8,7 @@ export const VariantAttributeSchema = z.object({
 export const VariantSchema = z.object({
   id: z.string().cuid().optional(), // Optional for creation
   name: z.string().min(1),
-  sku: z.string().min(1),
   barcode: z.string().optional().nullable(),
-  priceModifier: z.coerce.number(), // Coerce from string/number
   attributes: z.record(z.any()).optional(), // Basic JSON validation
   isActive: z.boolean().default(true),
   reorderPoint: z.coerce.number().int().positive().default(5),
@@ -20,7 +18,6 @@ export const VariantSchema = z.object({
 
 export const ProductSupplierSchema = z.object({
   supplierId: z.string().min(1),
-  supplierSku: z.string().optional(),
   costPrice: z.coerce.number().positive(),
   minimumOrderQuantity: z.coerce.number().int().positive().optional(),
   packagingUnit: z.string().optional(),
@@ -31,7 +28,6 @@ export const ProductSupplierSchema = z.object({
 export const ProductSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional().nullable(),
-  sku: z.string().min(1),
   barcode: z.string().optional().nullable(),
   categoryId: z.string().min(1),
   basePrice: z.coerce.number(), // Coerce from string/number
@@ -43,7 +39,7 @@ export const ProductSchema = z.object({
   // New physical dimension fields
   width: z.coerce.number().positive().optional(),
   height: z.coerce.number().positive().optional(),
-  depth: z.coerce.number().positive().optional(),
+  length: z.coerce.number().positive().optional(),
   dimensionUnit: z.string().optional(),
   weight: z.coerce.number().positive().optional(),
   weightUnit: z.string().optional(),

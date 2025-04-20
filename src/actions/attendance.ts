@@ -48,7 +48,7 @@ export async function checkInMember(
         organizationId,
         memberId,
         action: "CREATE",
-        entityType: "OTHER", // Consider adding ATTENDANCE to your AuditEntityType enum
+        entityType: "ATTENDANCE", // Consider adding ATTENDANCE to your AuditEntityType enum
         entityId: attendance.id,
         description: `Member checked in at ${locationId ? "location " + locationId : "unspecified location"}`,
       },
@@ -118,7 +118,7 @@ export async function checkOutMember(
         organizationId,
         memberId,
         action: "UPDATE",
-        entityType: "OTHER", // Consider adding ATTENDANCE to your AuditEntityType enum
+        entityType: "ATTENDANCE", // Consider adding ATTENDANCE to your AuditEntityType enum
         entityId: activeAttendance.id,
         description: `Member checked out after ${hoursWorked} hours`,
       },

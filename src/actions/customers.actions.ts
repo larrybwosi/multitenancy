@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { Customer, LoyaltyReason, Prisma } from "@prisma/client";
-import { db as prisma } from "@/lib/db";
+import { db, db as prisma } from "@/lib/db";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { invalidatePosDataCache } from "@/app/(org)/pos/actions"; 
 import { checkUserAuthorization, getServerAuthContext } from "./auth";
@@ -265,7 +265,7 @@ export async function saveCustomer(
   if (!authContext) {
     return { success: false, message: "Authentication required." };
   }
-  const { userId, organizationId } = authContext;
+  const { memberId, organizationId } = authContext;
 
   const validatedFields = CustomerFormSchema.safeParse({
     id: formData.get("id") || undefined, // Get ID if present for update
@@ -290,7 +290,7 @@ export async function saveCustomer(
     ...customerData,
     email: customerData.email || null, // Store null if email is empty string
     organizationId: organizationId, // Always set organization context
-    updatedById: userId, // Set who last updated
+    updatedById: memberId, // Set who last updated
   };
 
   try {
@@ -331,12 +331,12 @@ export async function saveCustomer(
       revalidateTag(`customer_${id}`); // Revalidate specific customer detail cache
     } else {
       // --- Create New Customer ---
-      const generateRandomString = () => Math.random().toString(36).slice(2);
+      
       savedCustomer = await prisma.customer.create({
         data: {
           ...dataToSave,
-          createdById: userId, // Set creator only on creation
-          id: `CUST_${generateRandomString()}`, // Optional: If you need a custom ID format
+          createdById: memberId,
+          id: `CUST_${crypto.randomUUID().slice(0,6)}`,
         },
       });
       successMessage = "Customer created successfully.";
@@ -607,4 +607,52 @@ export async function getAuthInfo(): Promise<
       organizationId: authContext.organizationId,
     },
   };
+}
+
+
+/**
+ * Fetches detailed information for a single customer.
+ */
+export async function getCustomerDetails(
+  id: string
+): Promise<CustomerWithDetails | null> {
+  if (!id) return null;
+  try {
+    // Get current user session
+    // const session = await getServerSession();
+    // if (!session?.user?.id || !session.session?.activeOrganizationId) {
+    //   return {
+    //     success: false,
+    //     error: "Unauthorized or no active organization",
+    //   };
+    // }
+    const customer = await db.customer.findUnique({
+      where: { id },
+      include: {
+        sales: {
+          select: {
+            id: true,
+            saleNumber: true,
+            saleDate: true,
+            finalAmount: true,
+            paymentStatus: true, 
+          },
+          orderBy: { saleDate: "desc" },
+          take: 50, // Limit number of sales shown initially
+        },
+        loyaltyTransactions: {
+          include: {
+            member: { select: { user: { select: { name: true, email: true } } } }, // Get user's name/email
+          },
+          orderBy: { transactionDate: "desc" },
+          take: 50, // Limit number of loyalty transactions shown
+        },
+      },
+    });
+    return customer;
+  } catch (error) {
+    console.error(`Failed to fetch details for customer ${id}:`, error);
+    // Don't throw, return null so the page can handle 'not found'
+    return null;
+  }
 }

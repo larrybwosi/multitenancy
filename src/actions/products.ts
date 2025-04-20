@@ -265,45 +265,50 @@ export async function addProduct(formData: FormData) {
         isActive: productData.isActive,
         width: productData.width,
         height: productData.height,
-        depth: productData.depth,
+        length: productData.length,
         dimensionUnit: productData.dimensionUnit,
         weight: productData.weight,
         weightUnit: productData.weightUnit,
         volumetricWeight: productData.volumetricWeight,
         defaultLocation: { connect: { id: defaultLocationId } },
+        sku: `PROD-${crypto.randomUUID().slice(0, 6)}`,
+        barcode: productData.barcode? productData.barcode : undefined,
         variants: {
           create: variants.map((v) => ({
             ...v,
             organization: { connect: { id: organizationId } },
-            priceModifier: new Prisma.Decimal(v.priceModifier),
-            attributes: (v.attributes as Prisma.InputJsonValue) ?? Prisma.JsonNull,
+            attributes:
+              (v.attributes as Prisma.InputJsonValue) ?? Prisma.JsonNull,
             reorderPoint: v.reorderPoint,
             reorderQty: v.reorderQty,
             isActive: v.isActive,
             lowStockAlert: v.lowStockAlert,
-            barcode: v.barcode,
+            barcode: v.barcode? v.barcode : undefined,
             name: v.name,
-            sku: v.sku,
+            sku: `VAR-${crypto.randomUUID().slice(0, 6)}`,
           })),
         },
-        suppliers: suppliers && suppliers.length > 0 ? {
-          create: suppliers.map(s => ({
-            supplier: { connect: { id: s.supplierId } },
-            supplierSku: s.supplierSku,
-            costPrice: new Prisma.Decimal(s.costPrice),
-            minimumOrderQuantity: s.minimumOrderQuantity,
-            packagingUnit: s.packagingUnit,
-            isPreferred: s.isPreferred,
-          }))
-        } : undefined,
+        suppliers:
+          suppliers && suppliers.length > 0
+            ? {
+                create: suppliers.map((s) => ({
+                  supplier: { connect: { id: s.supplierId } },
+                  supplierSku: `SUP-${crypto.randomUUID().slice(0, 8)}`,
+                  costPrice: new Prisma.Decimal(s.costPrice),
+                  minimumOrderQuantity: s.minimumOrderQuantity,
+                  packagingUnit: s.packagingUnit,
+                  isPreferred: s.isPreferred,
+                })),
+              }
+            : undefined,
       },
-      include: { 
+      include: {
         variants: true,
         suppliers: {
           include: {
-            supplier: true
-          }
-        }
+            supplier: true,
+          },
+        },
       },
     });
 
@@ -435,7 +440,7 @@ export async function updateProduct(formData: FormData) {
           isActive: productData.isActive,
           width: productData.width,
           height: productData.height,
-          depth: productData.depth,
+          length: productData.length,
           dimensionUnit: productData.dimensionUnit,
           weight: productData.weight,
           weightUnit: productData.weightUnit,
@@ -455,10 +460,9 @@ export async function updateProduct(formData: FormData) {
             productId: id,
             organizationId,
             name: v.name,
-            sku: v.sku,
+            sku: `VARIANT-${crypto.randomUUID().slice(0, 8)}`,
             barcode: v.barcode,
             isActive: v.isActive,
-            priceModifier: new Prisma.Decimal(v.priceModifier),
             attributes: (v.attributes as Prisma.InputJsonValue) ?? Prisma.JsonNull,
             reorderPoint: v.reorderPoint,
             reorderQty: v.reorderQty,
@@ -474,11 +478,10 @@ export async function updateProduct(formData: FormData) {
             where: { id: v.id, organizationId },
             data: {
               name: v.name,
-              sku: v.sku,
               barcode: v.barcode,
               isActive: v.isActive,
-              priceModifier: new Prisma.Decimal(v.priceModifier),
-              attributes: (v.attributes as Prisma.InputJsonValue) ?? Prisma.JsonNull,
+              attributes:
+                (v.attributes as Prisma.InputJsonValue) ?? Prisma.JsonNull,
               reorderPoint: v.reorderPoint,
               reorderQty: v.reorderQty,
               lowStockAlert: v.lowStockAlert,
@@ -493,7 +496,7 @@ export async function updateProduct(formData: FormData) {
           data: suppliersToCreate.map((s) => ({
             productId: id,
             supplierId: s.supplierId,
-            supplierSku: s.supplierSku,
+            supplierSku: `SUP-${crypto.randomUUID().slice(0, 6)}`,
             costPrice: new Prisma.Decimal(s.costPrice),
             minimumOrderQuantity: s.minimumOrderQuantity,
             packagingUnit: s.packagingUnit,
@@ -512,7 +515,6 @@ export async function updateProduct(formData: FormData) {
             },
           },
           data: {
-            supplierSku: s.supplierSku,
             costPrice: new Prisma.Decimal(s.costPrice),
             minimumOrderQuantity: s.minimumOrderQuantity,
             packagingUnit: s.packagingUnit,

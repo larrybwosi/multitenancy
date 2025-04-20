@@ -14,7 +14,7 @@ const resources = [
     title: "You Can Lead Better Team With Dealio",
     category: "Article",
     image:
-      "/image3.jpg",
+      "https://cdn.sanity.io/files/13g5zfv2/production/3822a51b37a72cc60cd1a71995dd68e9ede80714.jpg?fm=webp&q=75&auto=format",
   },
   {
     id: 3,

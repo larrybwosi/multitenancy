@@ -3,8 +3,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import OverviewTab from "./components/overview-tab";
 import PastBatchesTab from "./components/past-batches-tab";
 import {
-  getProducts,
-  getCategories,
   getStockBatches,
   getPastStockBatches,
 } from "@/actions/stock.actions";
@@ -22,6 +20,8 @@ import {
   RefreshCw,
   AlertCircle,
 } from "lucide-react";
+import { getProducts } from "@/actions/products";
+import { getCategories } from "@/actions/category.actions";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +40,6 @@ async function StockPageData() {
   // Enhanced error handling with better UI
   if (
     productData.error ||
-    categoryData.error ||
     activeBatchesData.error ||
     pastBatchesData.error
   ) {
@@ -125,8 +124,8 @@ async function StockPageData() {
           </CardHeader>
           <CardContent className="p-6">
             <OverviewTab
-              initialProducts={productData.products ?? []}
-              initialBatches={activeBatchesData.batches ?? []}
+              initialProducts={productData.data ?? []}
+              initialBatches={activeBatchesData.data ?? []}
             />
           </CardContent>
         </Card>

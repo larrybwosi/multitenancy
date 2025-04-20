@@ -17,19 +17,23 @@ const SigninPage = () => {
 
   const slides = [
     {
-      image: '/image4.jpeg',
-      title: 'Financial Management Made Easy',
-      description: 'Track expenses, send invoices, and manage your finances all in one place.',
+      image: "/image4.jpeg",
+      title: "Financial Management Made Easy",
+      description:
+        "Track expenses, send invoices, and manage your finances all in one place.",
     },
     {
-      image: '/image3.jpeg',
-      title: 'Secure Payments',
-      description: 'Process payments securely and get paid faster with multiple payment options.',
+      image:
+        "https://cdn.sanity.io/files/13g5zfv2/production/3822a51b37a72cc60cd1a71995dd68e9ede80714.jpg?fm=webp&q=75&auto=format",
+      title: "Secure Payments",
+      description:
+        "Process payments securely and get paid faster with multiple payment options.",
     },
     {
-      image: '/image6.png',
-      title: 'Business Insights',
-      description: 'Get valuable insights into your business with detailed analytics and reports.',
+      image: "/image6.png",
+      title: "Business Insights",
+      description:
+        "Get valuable insights into your business with detailed analytics and reports.",
     },
   ];
 
