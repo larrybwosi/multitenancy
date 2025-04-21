@@ -87,7 +87,6 @@ export const sidebarSectionsData: SectionItem[] = [
       {
         
         title: "Products",
-        path: "/products",
         icon: <Package size={18} />,
         children: [
           { title: "Add Product", path: "/products/add", icon: <PackagePlus size={18} /> },

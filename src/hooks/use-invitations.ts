@@ -97,4 +97,5 @@ export function useResendInvitation() {
     onError: () => {
       toast.error("Failed to resend invitation");
     },
-  });
+  })
+}

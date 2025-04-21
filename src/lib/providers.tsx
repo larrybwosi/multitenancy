@@ -34,6 +34,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
       })
   );
+  
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -43,10 +44,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
           {/* Sidebar on the left - Pass state and toggle function */}
           <Sidebar
             appName="Dealio"
-            hotelName="Grand Sylhet Hotel"
             hotelAddress="2 admins online"
             sections={sidebarSectionsData}
-            currentRoute={"/manage-staff/attendance"}
             user={{
               name: session?.user?.name || "Larry Dean",
               role: session?.user?.role || "Super Admin",

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { ChevronDown, ChevronUp, Eye, AlertTriangle, CheckCircle, AlertCircle } from "lucide-react"
 import { StockLevelDetailsDialog } from "./stock-level-details-dialog"
+import Image from "next/image"
 
 interface StockLevel {
   productId: string
@@ -124,8 +125,10 @@ export function StockLevelsList({ stockLevels, selectedLocation }: Props) {
                   <TableCell>
                     <div className="flex items-center gap-2">
                       {level.imageUrls?.[0] && (
-                        <img
+                        <Image
                           src={level.imageUrls[0]}
+                          width={32}
+                          height={32}
                           alt={level.productName}
                           className="h-8 w-8 rounded-md object-cover"
                         />

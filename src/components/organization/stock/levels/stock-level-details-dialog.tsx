@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
+import Image from "next/image"
 
 interface StockLevel {
   productId: string
@@ -67,7 +68,7 @@ export function StockLevelDetailsDialog({ open, onOpenChange, product }: Props) 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="w-auto">
         <DialogHeader>
           <DialogTitle>{product.productName}</DialogTitle>
           <DialogDescription>
@@ -194,9 +195,11 @@ export function StockLevelDetailsDialog({ open, onOpenChange, product }: Props) 
                   <h4 className="text-sm font-medium mb-2">Product Images</h4>
                   <div className="grid grid-cols-4 gap-4">
                     {product.imageUrls.map((url, index) => (
-                      <img
+                      <Image
                         key={index}
                         src={url}
+                        width={100}
+                        height={100}
                         alt={`${product.productName} - ${index + 1}`}
                         className="aspect-square rounded-md object-cover"
                       />

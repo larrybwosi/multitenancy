@@ -64,6 +64,10 @@ export async function GET(request: NextRequest) {
       where: productWhere,
       include: {
         category: true,
+          stockBatches: {
+            select: { currentQuantity: true },
+            where: { variantId: null, currentQuantity: { gt: 0 } },
+          },
         variants: {
           include: {
             variantStocks: {
@@ -96,10 +100,16 @@ export async function GET(request: NextRequest) {
     const stockLevels: StockLevelResponse[] = products.map(product => {
       // Calculate totals across all variants and locations
       const variantStocksRaw = product.variants.flatMap(v => v.variantStocks)
-      const totalQuantity = variantStocksRaw.reduce(
+      
+      const baseStock = product.stockBatches.reduce(
+        (sum, batch) => sum + batch.currentQuantity,
+        0
+      );
+      const variantStocksTotal = variantStocksRaw.reduce(
         (sum: number, vs) => sum + vs.currentStock,
         0
       )
+      const totalQuantity = baseStock + variantStocksTotal
 
       const variantStocks = locations.map(location => {
         const variantStocksInLocation = variantStocksRaw

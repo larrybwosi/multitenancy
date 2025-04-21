@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -49,10 +50,6 @@ interface StockLevel {
 }
 
 export function StockLevelsPage() {
-  const [stockLevels, setStockLevels] = useState<StockLevel[]>([])
-  const [locations, setLocations] = useState<Location[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
-  const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedLocation, setSelectedLocation] = useState("all")
   const [selectedCategory, setSelectedCategory] = useState("all")
@@ -61,15 +58,28 @@ export function StockLevelsPage() {
   const [sortOrder, setSortOrder] = useState("asc")
   const [viewMode, setViewMode] = useState("list")
   const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [error, setError] = useState<string | null>(null)
-  const [isRetrying, setIsRetrying] = useState(false)
+  const limit = 50
 
-  const fetchStockLevels = useMemo(() => async () => {
-    setLoading(true)
-    setError(null)
-    
-    try {
+  const {
+    data,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isRefetching,
+  } = useQuery({
+    queryKey: [
+      'stockLevels',
+      selectedLocation,
+      selectedCategory,
+      stockStatus,
+      searchQuery,
+      sortBy,
+      sortOrder,
+      page,
+      limit
+    ],
+    queryFn: async ():Promise<{ stockLevels: StockLevel[]; locations: Location[]; categories: Category[] }> => {
       const queryParams = new URLSearchParams({
         warehouseId: selectedLocation,
         category: selectedCategory,
@@ -78,32 +88,27 @@ export function StockLevelsPage() {
         sortBy,
         sortOrder,
         page: page.toString(),
-        limit: "50"
+        limit: limit.toString()
       }).toString()
 
       const response = await fetch(`/api/stock/levels?${queryParams}`)
-      const data = await response.json()
-      
-
-      setStockLevels(data.stockLevels || [])
-      setLocations(data.locations || [])
-      setCategories(data.categories || [])
-      setTotalPages(Math.ceil((data.pagination?.total || 0) / (data.pagination?.limit || 50)))
-    } catch (error) {
-      console.error("Error fetching stock levels:", error)
-      setError(error instanceof Error ? error.message : "An unknown error occurred")
-      toast.error("Error loading stock data",{
-        description: error instanceof Error ? error.message : "An unknown error occurred",
+      if (!response.ok) {
+        throw new Error('Failed to fetch stock levels')
+      }
+      return response.json()
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    onError: (error: Error) => {
+      toast.error("Error loading stock data", {
+        description: error.message,
       })
-    } finally {
-      setLoading(false)
-      setIsRetrying(false)
     }
-  }, [selectedLocation, selectedCategory, stockStatus, searchQuery, sortBy, sortOrder, page])
+  })
 
-  useEffect(() => {
-    fetchStockLevels()
-  }, [fetchStockLevels])
+  const stockLevels = data?.stockLevels || []
+  const locations = data?.locations || []
+  const categories = data?.categories || []
+  const totalPages = Math.ceil((data?.pagination?.total || 0) / limit)
 
   const toggleSortOrder = () => {
     setSortOrder(sortOrder === "asc" ? "desc" : "asc")
@@ -122,37 +127,46 @@ export function StockLevelsPage() {
   }
 
   const handleRetry = () => {
-    setIsRetrying(true)
-    fetchStockLevels()
+    refetch()
+  }
+
+  const clearFilters = () => {
+    setSearchQuery("")
+    setSelectedLocation("all")
+    setSelectedCategory("all")
+    setStockStatus("all")
+    setPage(1)
   }
 
   const renderContent = () => {
-    if (loading) {
+    if (isLoading) {
       return (
         <div className="flex flex-col justify-center items-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">{isRetrying ? "Retrying..." : "Loading stock levels..."}</p>
+          <p className="text-muted-foreground">
+            {isRefetching ? "Refreshing data..." : "Loading stock levels..."}
+          </p>
         </div>
       )
     }
 
-    if (error) {
+    if (isError) {
       return (
         <div className="py-6">
           <Alert variant="destructive" className="mb-6">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>{error?.message || "Failed to load stock data"}</AlertDescription>
           </Alert>
           <div className="flex justify-center">
             <Button 
               variant="outline"
               onClick={handleRetry}
-              disabled={isRetrying}
+              disabled={isRefetching}
               className="flex items-center gap-2"
             >
-              <RefreshCw className={`h-4 w-4 ${isRetrying ? 'animate-spin' : ''}`} />
-              {isRetrying ? "Retrying..." : "Retry"}
+              <RefreshCw className={`h-4 w-4 ${isRefetching ? 'animate-spin' : ''}`} />
+              {isRefetching ? "Retrying..." : "Retry"}
             </Button>
           </div>
         </div>
@@ -170,19 +184,12 @@ export function StockLevelsPage() {
               : "There are no products in your inventory yet"}
           </p>
           {(searchQuery || selectedLocation !== "all" || selectedCategory !== "all" || stockStatus !== "all") && (
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setSearchQuery("")
-                  setSelectedLocation("all")
-                  setSelectedCategory("all")
-                  setStockStatus("all")
-                }}
-              >
-                Clear filters
-              </Button>
-            </div>
+            <Button 
+              variant="outline" 
+              onClick={clearFilters}
+            >
+              Clear filters
+            </Button>
           )}
         </div>
       )
@@ -280,7 +287,7 @@ export function StockLevelsPage() {
               </TabsTrigger>
             </TabsList>
             <div className="text-sm text-muted-foreground">
-              Showing {stockLevels.length} products
+              Showing {stockLevels.length} of {data?.pagination?.total || 0} products
             </div>
           </div>
 
@@ -298,7 +305,7 @@ export function StockLevelsPage() {
                       variant="outline"
                       size="sm"
                       onClick={goToPrevPage}
-                      disabled={page === 1}
+                      disabled={page === 1 || isLoading}
                     >
                       Previous
                     </Button>
@@ -309,7 +316,7 @@ export function StockLevelsPage() {
                       variant="outline"
                       size="sm"
                       onClick={goToNextPage}
-                      disabled={page === totalPages}
+                      disabled={page === totalPages || isLoading}
                     >
                       Next
                     </Button>

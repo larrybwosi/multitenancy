@@ -16,6 +16,7 @@ interface ServerAuthContextResult {
   memberId: string; // Member ID specific to the organization
   organizationId: string;
   role?: MemberRole;
+  organizationName?: string | null;
   organizationSlug?: string | null;
   organizationDescription?: string | null;
   activeLocation?: string | null;
@@ -29,6 +30,7 @@ export async function getMemberAndOrgDetails(
   memberId: string | null;
   role?: MemberRole;
   organizationSlug?: string | null;
+  organizationName?: string | null;
   organizationDescription?: string | null;
 }> {
   if (!userId || !organizationId) {
@@ -47,6 +49,7 @@ export async function getMemberAndOrgDetails(
           select: {
             slug: true,
             description: true,
+            name: true,
           },
         },
       },
@@ -133,6 +136,7 @@ async function getServerAuthContext(): Promise<ServerAuthContextResult> {
           memberId: details.memberId,
           organizationId: activeOrgId,
           role: details.role,
+          organizationName: details.organizationName,
           organizationSlug: details.organizationSlug,
           organizationDescription: details.organizationDescription,
           activeLocation: activeLocation?.id,

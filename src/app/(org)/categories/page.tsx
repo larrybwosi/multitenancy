@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { CategoryTable } from "./components/table";
 import { SectionHeader } from "@/components/ui/SectionHeader";
-import { Group } from "lucide-react";
+import { FolderKanban } from "lucide-react";
 import {
   getCategoriesWithStats,
   getCategoryOptions,
@@ -60,11 +60,11 @@ export default async function CategoriesPage(params: {
   const categoryOptions = categoryOptionsData.value;
 
   return (
-    <div className="container mx-auto py-10">
+    <div className="px-4 mx-auto py-10">
       <SectionHeader
         title="Categories"
         subtitle="Manage your categories efficiently and effectively"
-        icon={<Group className="h-8 w-8 text-indigo-500" />}
+        icon={<FolderKanban className="h-8 w-8 text-indigo-500" />}
         autoUpdate="2 min"
       />
 
