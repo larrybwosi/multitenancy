@@ -1,4 +1,3 @@
-'use server'
 import { createClient } from "next-sanity";
 
 const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID;
@@ -10,8 +9,8 @@ if (!projectId || !dataset || !apiToken) {
 }
 
 export const client = createClient({
-  projectId: projectId || "dummy_id",
-  dataset: dataset || "production",
+  projectId,
+  dataset,
   apiVersion: "1", // Use current date or desired API version
   token: apiToken, // Token with write permissions needed for asset uploads
   useCdn: false, // `false` ensures fresh data & necessary for writes
