@@ -3,6 +3,7 @@ import { signIn, signUp } from '@/lib/auth/authClient';
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { getServerAuthContext } from '@/actions/auth';
 
 const SignupPage = () => {
   const [name, setName] = useState('');
@@ -66,7 +67,7 @@ const SignupPage = () => {
       const { data, error } = await signUp.email({
         email,
         password,
-        name, // Added name to the signup payload
+        name,
       });
 
       if (error) {
@@ -77,7 +78,14 @@ const SignupPage = () => {
         description: "Your account has been created successfully.",
       });
 
-      router.push("/dashboard");
+      const {organizationId } = await getServerAuthContext()
+      if (data?.user && organizationId) {
+        router.push('/dashboard');
+      }
+      if (data.user && !organizationId){
+        router.push('/create')
+      }
+      
     } catch (error: any) {
       console.error("Signup error:", error);
       toast.error("Signup failed", {

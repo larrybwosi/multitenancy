@@ -17,6 +17,12 @@ export const auth = betterAuth({
     minPasswordLength: 8,
     autoSignIn: true,
   },
+  socialProviders: {
+    google: { 
+      clientId: process.env.GOOGLE_CLIENT_ID as string, 
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string, 
+    }, 
+  },
   secret: process.env.BETTER_AUTH_SECRET,
   appName: "Dealio POS",
   account: {
@@ -32,7 +38,7 @@ export const auth = betterAuth({
       enabled: true,
       maxAge: 5 * 60 * 60,
     },
-    // preserveSessionInDatabase: true,
+    preserveSessionInDatabase: true,
   },
   databaseHooks: {
     session: {

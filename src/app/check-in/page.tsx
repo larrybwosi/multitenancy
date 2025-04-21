@@ -1,5 +1,5 @@
 'use client'
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   User,
   Lock,
@@ -48,7 +48,7 @@ const CheckInPage = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password, locationId: LOCATION_ID }),
+        body: JSON.stringify({ locationId: LOCATION_ID }),
       });
       const data = await result.json();
       console.log(data);

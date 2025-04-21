@@ -10,6 +10,8 @@ import type {
 } from "@/lib/types"; 
 import { getServerAuthContext } from "./auth";
 import { revalidatePath } from "next/cache";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 /**
  * Creates a new organization and assigns the current user as the owner.
@@ -20,7 +22,11 @@ import { revalidatePath } from "next/cache";
 export async function createOrganization(
   data: CreateOrganizationInput
 ): Promise<Organization> {
-  const { userId } = await getServerAuthContext();
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user?.id) {
+    throw new Error("User not authenticated.");
+  }
+  const userId = session.user.id;
   const {
     name,
     description,
@@ -82,7 +88,7 @@ export async function createOrganization(
               ? new Prisma.Decimal(defaultTaxRate)
               : null,
             inventoryPolicy,
-            lowStockThreshold,
+            lowStockThreshold: parseInt(lowStockThreshold.toString()),
             negativeStock,
           },
         },

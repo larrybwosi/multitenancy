@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 import prisma from "@/lib/db";
-import { CreateSaleInputSchema, CreateSaleInput } from "@/lib/schemas";
 import { Prisma } from "@prisma/client";
 import Decimal from "decimal.js"; // Import Decimal.js for precise calculations
 
