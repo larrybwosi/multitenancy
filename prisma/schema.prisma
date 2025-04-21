@@ -196,27 +196,28 @@ model Product {
   id           String   @id @default(cuid())
   name         String
   description  String?
-  sku          String   @unique // Stock Keeping Unit
+  sku          String   @unique
   barcode      String?  @unique
   categoryId   String
   category     Category @relation(fields: [categoryId], references: [id])
-  basePrice    Decimal  @db.Decimal(10, 2)
+  basePrice    Decimal  @db.Decimal(10, 2) // Suggested retail price
+  baseCost     Decimal? @db.Decimal(10, 2) // Last known/estimated cost
   reorderPoint Int      @default(5)
   isActive     Boolean  @default(true)
   imageUrls    String[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  customFields Json? // Added for customization
+  customFields Json? // For customization
 
   // NEW Physical dimensions for space calculation
   width             Float?
   height            Float?
   length             Float?
-  dimensionUnit     String? // e.g., "cm", "inches"
+  dimensionUnit     MeasurementUnit?
   weight            Float?
-  weightUnit        String? // e.g., "kg", "lbs"
+  weightUnit        MeasurementUnit?
   volumetricWeight  Float? // Calculated dimensional weight
-  // NEW Default storage settings
+
   defaultLocationId String? // Default stocking location
   defaultLocation   InventoryLocation? @relation("ProductDefaultLocation", fields: [defaultLocationId], references: [id], onDelete: SetNull)
 
@@ -246,7 +247,7 @@ model ProductVariant {
   name          String // Name for the variant (e.g., "Red", "Large")
   sku           String  @unique
   barcode       String? @unique
-  priceModifier Decimal @default(0) @db.Decimal(10, 2) // Added price modifier
+  priceModifier Decimal @default(0) @db.Decimal(10, 2) // Adjustment from base price
   attributes    Json // e.g., {"color": "Red", "size": "L"}
   isActive      Boolean @default(true)
 
@@ -298,6 +299,7 @@ model Supplier {
   // Expense relations
   expenses          Expense[]
   recurringExpenses RecurringExpense[]
+  stockBatches       StockBatch[]
 
   @@unique([organizationId, name]) // Enforce uniqueness per organization
   @@index([name]) // Keep general index if needed, maybe remove if @@unique above is sufficient
@@ -749,6 +751,11 @@ model StockBatch {
   adjustments    StockAdjustment[] // Adjustments specifically affecting this batch
   movements      StockMovement[] // Track movements involving this batch
 
+  supplierId     String?
+  supplier       Supplier?      @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  
+  landedCost      Decimal? @db.Decimal(10, 2) // Total cost including shipping, duties, etc.
+  batchSalePrice  Decimal? @db.Decimal(10, 2) // Optional batch-specific sale price
   @@index([productId, variantId])
   @@index([expiryDate])
   @@index([receivedDate])
@@ -802,6 +809,7 @@ model StockAdjustment {
   adjustmentDate DateTime              @default(now())
   createdAt      DateTime              @default(now())
   updatedAt      DateTime              @updatedAt
+  referenceNumber String? // Optional reference number for tracking
 
   // Relations
   movement       StockMovement? // Link to corresponding movement record
@@ -1097,8 +1105,8 @@ enum MeasurementUnit {
   CUBIC_FEET // ft³ - Volume
   SQUARE_METER // m² - Area
   SQUARE_FEET // ft² - Area
-  LINEAR_METER // m - Length (for shelving)
-  LINEAR_FEET // ft - Length (for shelving)
+  METER // m - Length (for shelving)
+  FEET // ft - Length (for shelving)
   COUNT // Number of positions/slots
   WEIGHT_KG // Weight capacity in kg
   WEIGHT_LB // Weight capacity in lbs

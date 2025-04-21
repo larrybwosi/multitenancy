@@ -1,5 +1,6 @@
 'use server'
-import { PrismaClient, Notification, NotificationType, Prisma } from '@prisma/client';
+import { db } from '@/lib/db';
+import { Notification, NotificationType, Prisma } from '@prisma/client';
 
 // Define the type for create notification input
 export type CreateNotificationInput = {
@@ -26,20 +27,18 @@ export type GetNotificationsParams = {
 
 /**
  * Creates a new notification
- * @param prisma - PrismaClient instance
  * @param data - The notification data to create
  * @returns The created notification
  * @throws Error if neither userId nor recipientEmail is provided
  */
 export async function createNotification(
-  prisma: PrismaClient,
   data: CreateNotificationInput
 ): Promise<Notification> {
   if (!data.userId && !data.recipientEmail) {
     throw new Error('Either userId or recipientEmail must be provided');
   }
 
-  return prisma.notification.create({
+  return await db.notification.create({
     data: {
       type: data.type,
       title: data.title,
@@ -55,12 +54,10 @@ export async function createNotification(
 
 /**
  * Gets notifications based on filter parameters
- * @param prisma - PrismaClient instance
  * @param params - Query parameters to filter notifications
  * @returns Array of notifications matching the criteria
  */
 export async function getNotifications(
-  prisma: PrismaClient,
   params: GetNotificationsParams
 ): Promise<{
   notifications: Notification[];
@@ -87,7 +84,7 @@ export async function getNotifications(
   if (type) whereClause.type = type;
 
   // Get total count for pagination
-  const total = await prisma.notification.count({
+  const total = await db.notification.count({
     where: whereClause,
   });
 
@@ -95,13 +92,13 @@ export async function getNotifications(
   let unreadCount;
   if (userId || recipientEmail) {
     const unreadWhereClause = { ...whereClause, read: false };
-    unreadCount = await prisma.notification.count({
+    unreadCount = await db.notification.count({
       where: unreadWhereClause,
     });
   }
 
   // Get paginated notifications
-  const notifications = await prisma.notification.findMany({
+  const notifications = await db.notification.findMany({
     where: whereClause,
     skip,
     take: limit,
@@ -140,15 +137,13 @@ export async function getNotifications(
 
 /**
  * Gets a single notification by ID
- * @param prisma - PrismaClient instance
  * @param id - The notification ID
  * @returns The notification or null if not found
  */
 export async function getNotificationById(
-  prisma: PrismaClient,
   id: string
 ): Promise<Notification | null> {
-  return prisma.notification.findUnique({
+  return await db.notification.findUnique({
     where: { id },
     include: {
       user: {
@@ -176,17 +171,15 @@ export async function getNotificationById(
 
 /**
  * Marks a notification as read
- * @param prisma - PrismaClient instance
  * @param id - The notification ID to mark as read
  * @returns The updated notification
  * @throws Error if notification not found
  */
 export async function markNotificationRead(
-  prisma: PrismaClient,
   id: string
 ): Promise<Notification> {
   try {
-    return await prisma.notification.update({
+    return await db.notification.update({
       where: { id },
       data: { read: true },
     });
@@ -198,13 +191,11 @@ export async function markNotificationRead(
 
 /**
  * Marks all notifications as read for a user or email
- * @param prisma - PrismaClient instance
  * @param params - Object containing either userId or recipientEmail
  * @returns Count of updated notifications
  * @throws Error if neither userId nor recipientEmail is provided
  */
 export async function markAllNotificationsRead(
-  prisma: PrismaClient,
   params: {
     userId?: string;
     recipientEmail?: string;
@@ -223,7 +214,7 @@ export async function markAllNotificationsRead(
   if (userId) whereClause.userId = userId;
   if (recipientEmail) whereClause.recipientEmail = recipientEmail;
 
-  const result = await prisma.notification.updateMany({
+  const result = await db.notification.updateMany({
     where: whereClause,
     data: { read: true },
   });
@@ -233,16 +224,14 @@ export async function markAllNotificationsRead(
 
 /**
  * Deletes a notification by ID
- * @param prisma - PrismaClient instance
  * @param id - The notification ID to delete
  * @returns Boolean indicating if deletion was successful
  */
 export async function deleteNotification(
-  prisma: PrismaClient,
   id: string
 ): Promise<boolean> {
   try {
-    await prisma.notification.delete({
+    await db.notification.delete({
       where: { id },
     });
     return true;
@@ -259,7 +248,6 @@ export async function deleteNotification(
  * @returns Count of deleted notifications
  */
 export async function deleteAllNotifications(
-  prisma: PrismaClient,
   params: {
     userId?: string;
     recipientEmail?: string;
@@ -280,7 +268,7 @@ export async function deleteAllNotifications(
   if (read !== undefined) whereClause.read = read;
   if (olderThan) whereClause.createdAt = { lt: olderThan };
 
-  const result = await prisma.notification.deleteMany({
+  const result = await db.notification.deleteMany({
     where: whereClause,
   });
 
@@ -294,7 +282,6 @@ export async function deleteAllNotifications(
  * @returns Object with counts by notification type
  */
 export async function getNotificationCounts(
-  prisma: PrismaClient,
   params: {
     userId?: string;
     recipientEmail?: string;
@@ -311,7 +298,7 @@ export async function getNotificationCounts(
   if (userId) whereClause.userId = userId;
   if (recipientEmail) whereClause.recipientEmail = recipientEmail;
 
-  const notifications = await prisma.notification.groupBy({
+  const notifications = await db.notification.groupBy({
     by: ['type'],
     where: whereClause,
     _count: {

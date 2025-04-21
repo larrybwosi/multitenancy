@@ -23,7 +23,7 @@ export async function createInvitation({
   inviteeEmail,
   role,
 }: CreateInvitationArgs) {
-  const { userId, organizationId, role: inviterRole } = await getServerAuthContext();
+  const { userId, memberId, organizationId, role: inviterRole } = await getServerAuthContext();
   try {
     
     const session = await auth.api.getSession({ headers: await headers() });
@@ -119,7 +119,7 @@ export async function createInvitation({
       description: `${inviterMembership.user.name || inviterMembership.user.email} has invited you to join ${inviterMembership.organization.name} as a ${role.toLowerCase()}.`,
       recipientEmail: inviteeEmail,
       link: acceptUrl,
-      senderId: userId,
+      senderId: memberId,
       details: {
         organizationId,
         organizationName: inviterMembership.organization.name,

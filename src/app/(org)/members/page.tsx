@@ -65,7 +65,7 @@ export default function MembersPage() {
             Refresh
           </Button>
           <Button asChild>
-            <Link href="/organization/invite">
+            <Link href="/invite">
               <UserPlus className="mr-2 h-4 w-4" />
               Invite Member
             </Link>

@@ -13,7 +13,7 @@ import { CustomBadge } from "@/components/ui/CustomBadge"; // Use custom badge
 import { formatDate } from "@/lib/utils"; // Adjust path
 
 type LoyaltyTransactionWithUser = Prisma.LoyaltyTransactionGetPayload<{
-  include: { user: { select: { user:  { select: { name: true; email: true } } } } };
+  include: { member: { select: { user:  { select: { name: true; email: true } } } } };
 }>;
 
 interface LoyaltyHistoryTableProps {
@@ -70,7 +70,7 @@ export function LoyaltyHistoryTable({
                   </CustomBadge>
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
-                  {tx.user?.user?.name || tx.user?.user?.email || "System/Unknown"}
+                  {tx.member?.user?.name || tx.member?.user?.email || "System/Unknown"}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
                   {tx.notes || "-"}

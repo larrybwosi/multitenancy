@@ -237,6 +237,7 @@ export async function sendInvitationEmail(
       html: htmlTemplate,
     });
 
+    console.log(info)
     console.log("Email sent successfully:", info.messageId);
     return true;
   } catch (error) {

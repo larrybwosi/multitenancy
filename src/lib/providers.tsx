@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools'; // Optional DevTools
 
 
 import { Toaster } from "@/components/ui/sonner";
@@ -76,7 +75,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
         }}
         richColors
       />
-      <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   );
 }

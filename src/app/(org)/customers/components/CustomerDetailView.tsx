@@ -342,7 +342,7 @@ export function CustomerDetailView({
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
                     <div className="bg-muted/30 p-3 rounded-lg">
-                      <span className="font-medium text-primary block mb-1 flex items-center">
+                      <span className="font-medium text-primary block mb-1 items-center">
                         <MapPin className="h-3.5 w-3.5 mr-1.5" />
                         Address
                       </span>
@@ -359,7 +359,7 @@ export function CustomerDetailView({
                       </span>
                     </div>
                     <div className="bg-muted/30 p-3 rounded-lg flex flex-col">
-                      <span className="font-medium text-primary block mb-1 flex items-center">
+                      <span className="font-medium text-primary block mb-1  items-center">
                         <Calendar className="h-3.5 w-3.5 mr-1.5" />
                         Last Updated
                       </span>
@@ -368,7 +368,7 @@ export function CustomerDetailView({
                       </span>
                     </div>
                     <div className="bg-muted/30 p-3 rounded-lg">
-                      <span className="font-medium text-primary block mb-1 flex items-center">
+                      <span className="font-medium text-primary block mb-1 items-center">
                         <CreditCard className="h-3.5 w-3.5 mr-1.5" />
                         Purchase History
                       </span>

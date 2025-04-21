@@ -1,12 +1,9 @@
 'use client';
 
 import { useState, useTransition, useCallback, ChangeEvent } from 'react';
-import useSWR from 'swr';
 import { useRouter } from 'next/navigation'; 
 import { toast } from 'sonner'; 
-import { addProduct } from '@/actions/products';
 
-// --- UI Components (Assuming Shadcn/ui) ---
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,14 +24,7 @@ import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { VariantModal } from './variant';
-
-// --- Helper Types (Simulated Fetch Data) ---
-interface Supplier {
-  id: string;
-  name: string;
-}
-
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+import { useLocations, useSuppliers } from '@/lib/hooks/use-supplier';
 
 export default function AddProductForm() {
   const router = useRouter();
@@ -87,25 +77,19 @@ export default function AddProductForm() {
     control: form.control,
     name: "suppliers",
   });
-
-  // --- SWR Data Fetching ---
-  const { data: locationsResult, error: locationsError, isLoading: isLoadingLocations } = useSWR(
-    '/api/warehouse',
-    fetcher,{
-      revalidateOnMount: true,
-      revalidateOnFocus: false,
-      shouldRetryOnError: true
-    }
-  );
   
-  const { data: suppliersResult, error: suppliersError, isLoading: isLoadingSuppliers } = useSWR<{data?: Supplier[], error?: string }>(
-    '/api/suppliers',
-    fetcher,{
-      revalidateOnMount: true,
-      revalidateOnFocus: false,
-      shouldRetryOnError: true
-    }
-  );
+    const {
+      data: locationsResult,
+      error: locationsError,
+      isLoading: isLoadingLocations,
+    } = useLocations();
+
+    const {
+      data: suppliersResult,
+      error: suppliersError,
+      isLoading: isLoadingSuppliers,
+    } = useSuppliers();
+
   const availableSuppliers = suppliersResult?.data ?? [];
 
   const {
@@ -178,7 +162,11 @@ export default function AddProductForm() {
 
     startTransition(async () => {
       try {
-        const result = await addProduct(formData);
+        const response = await fetch("/api/products", {
+          method: "POST",
+          body: formData,
+        });
+        const result = await response.json();
 
         if (result?.error) {
             setGeneralError(result.error);
@@ -601,7 +589,7 @@ export default function AddProductForm() {
                     </Select>
                     {suppliersError && (
                       <p className="text-sm text-destructive mt-1">
-                        {suppliersError}
+                        {suppliersError.message}
                       </p>
                     )}
                   </div>
@@ -988,7 +976,7 @@ export default function AddProductForm() {
                           )}
                           {!isLoadingLocations &&
                             !locationsError &&
-                            locationsResult?.length === 0 && (
+                            locationsResult?.warehouses?.length === 0 && (
                               <SelectItem value="no-items" disabled>
                                 No locations found
                               </SelectItem>

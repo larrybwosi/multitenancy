@@ -6,6 +6,7 @@ import {
 } from "@/lib/validations/warehouse";
 import { z } from "zod";
 import { LocationType, MeasurementUnit } from "@prisma/client";
+import { revalidatePath } from "next/cache";
 
 // Response schema for a single warehouse
 const warehouseResponseSchema = z.object({
@@ -28,10 +29,6 @@ const warehouseResponseSchema = z.object({
   updatedAt: z.string(),
 });
 
-// Response schema for multiple warehouses
-const warehousesResponseSchema = z.object({
-  warehouses: z.array(warehouseResponseSchema),
-});
 
 export async function GET() {
   try {
@@ -96,7 +93,7 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json(warehouses);
+    return NextResponse.json({warehouses});
   } catch (error) {
     console.error("Error fetching warehouses:", error);
     return NextResponse.json(
@@ -108,16 +105,16 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { organizationId } = await getServerAuthContext();
+    const { memberId, organizationId } = await getServerAuthContext();
     const data = await request.json();
 
     // Validate request data using the new schema
-    const parsedData = createInventoryLocationSchema.parse(data);
+    const {name,...parsedData} = createInventoryLocationSchema.parse(data);
 
     // Create new warehouse
     const newLocation = await prisma.inventoryLocation.create({
       data: {
-        name: parsedData.name,
+        name,
         description: parsedData.description,
         locationType: parsedData.locationType,
         address: parsedData.address,
@@ -126,10 +123,10 @@ export async function POST(request: Request) {
         capacityTracking: parsedData.capacityTracking,
         totalCapacity: parsedData.totalCapacity,
         capacityUnit: parsedData.capacityUnit,
-        managerId: parsedData.managerId,
+        managerId: memberId,
         organizationId,
         // Include any new fields from the updated schema
-        parentLocationId: parsedData.parentLocationId,
+        parentLocationId: parsedData.parentLocationId? parsedData.parentLocationId : undefined,
         customFields: JSON.stringify(parsedData.customFields),
       },
       include: {
@@ -161,6 +158,9 @@ export async function POST(request: Request) {
       updatedAt: newLocation.updatedAt.toISOString(),
     });
 
+    revalidatePath("/warehouses");
+    // revalidatePath("/warehouses/new");
+    revalidatePath("/warehouses/[id]");
     return NextResponse.json(response);
   } catch (error) {
     console.error("Error creating warehouse:", error);

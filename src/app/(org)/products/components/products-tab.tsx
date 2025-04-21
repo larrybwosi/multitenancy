@@ -8,10 +8,10 @@ import {
 } from "lucide-react";
 import AddProductDialog from "./add-product-dialog";
 import { ProductDataTable } from "./product-data-table";
-import RestockDialog from "./restock-dialog";
 import EditProductDialog from "./edit-product-dialog";
 import { productColumns, ProductWithRelations } from "./products-columns";
 import { toast } from "sonner";
+import { RestockDialog } from "./restock";
 
 interface ProductsTabProps {
   initialProducts: ProductWithRelations[];
@@ -30,7 +30,6 @@ export default function ProductsTab({
   const [selectedProductForEdit, setSelectedProductForEdit] =
     useState<ProductWithRelations | null>(null);
 
-
   const handleRestockClick = (product: ProductWithRelations) => {
     setSelectedProductForRestock(product);
     setIsRestockOpen(true);
@@ -46,7 +45,8 @@ export default function ProductsTab({
     onEdit: handleEditClick,
     onRestock: handleRestockClick,
   });
-  
+
+
 
   return (
     <div className="px-6">
@@ -94,28 +94,12 @@ export default function ProductsTab({
 
       {selectedProductForRestock && (
         <RestockDialog
-          isOpen={isRestockOpen}
-          setIsOpen={setIsRestockOpen}
-          product={selectedProductForRestock}
-          onSuccess={(message) =>
-            toast.success("Restock Complete", {
-              description: message,
-              action: {
-                label: "View Stock",
-                onClick: () => {},
-              },
-            })
-          }
-          onError={(message) =>
-            toast.error("Restock Failed", {
-              description: message,
-              action: {
-                label: "Retry",
-                onClick: () => setIsRestockOpen(true),
-              },
-            })
-          }
-          onClose={() => setSelectedProductForRestock(null)}
+          productId={selectedProductForRestock?.id}
+          open={isRestockOpen}
+          onOpenChange={setIsRestockOpen}
+          onSuccess={() => {
+            // Refresh your product data here
+          }}
         />
       )}
 
