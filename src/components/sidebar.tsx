@@ -1,5 +1,5 @@
-'use client';
-import React, { useState, } from 'react';
+"use client";
+import React, { useState } from "react";
 import {
   ChevronDown,
   ChevronUp,
@@ -9,40 +9,32 @@ import {
   HelpCircle,
   LogOut,
   PanelLeftClose,
-} from 'lucide-react';
-import Image from 'next/image';
-import { useRouter } from 'next/navigation';
-import { signOut } from '@/lib/auth/authClient';
-import Link from 'next/link';
+} from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { signOut } from "@/lib/auth/authClient";
+import { usePathname } from "next/navigation";
 
-// --- Type Definitions ---
-
-// Route item remains the same
 export interface RouteItem {
-  id: string;
   title: string;
-  icon?: React.ReactNode; // Made optional, especially for children
+  icon?: React.ReactNode;
   path?: string;
   children?: RouteItem[];
   badge?: number;
-  // 'section' property is no longer needed here if sections are passed structurally
+  isChecked?: boolean; // New property for checkbox state
 }
 
-// New type for a section
 export interface SectionItem {
-  id: string; // Unique ID for the section (for keys and state)
-  title: string; // Display title for the section header
-  routes: RouteItem[]; // Routes belonging to this section
-  initiallyExpanded?: boolean; // Optional: control initial state
+  title: string;
+  routes: RouteItem[];
+  initiallyExpanded?: boolean;
 }
 
-// Updated Sidebar Props
 interface SidebarProps {
   appName: string;
   hotelName: string;
   hotelAddress: string;
-  sections: SectionItem[]; // Use the new SectionItem array
-  currentRoute: string;
+  sections: SectionItem[];
   user: {
     name: string;
     role: string;
@@ -50,62 +42,61 @@ interface SidebarProps {
   };
 }
 
-// --- Helper Functions ---
-
-// Helper to determine if a route or its children are active (recursive)
 const isRouteOrChildActive = (
   route: RouteItem,
-  currentRoute: string
+  currentPath: string
 ): boolean => {
-  if (route.path === currentRoute) return true;
+  if (route.path === currentPath) return true;
   if (route.children) {
-    return route.children.some((child) => isRouteOrChildActive(child, currentRoute));
+    return route.children.some((child) =>
+      isRouteOrChildActive(child, currentPath)
+    );
   }
   return false;
 };
 
-// Helper to check if any route within a section is active
-const isSectionActive = (section: SectionItem, currentRoute: string): boolean => {
-    return section.routes.some(route => isRouteOrChildActive(route, currentRoute));
-}
+const isSectionActive = (
+  section: SectionItem,
+  currentPath: string
+): boolean => {
+  return section.routes.some((route) =>
+    isRouteOrChildActive(route, currentPath)
+  );
+};
 
-
-// --- The Main Sidebar Component ---
 const Sidebar: React.FC<SidebarProps> = ({
   appName,
   hotelName,
   hotelAddress,
   sections,
-  currentRoute,
   user,
 }) => {
-
-  // State to track which *menu items* (routes with children) are expanded
-  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>(() => {
-    const initialState: Record<string, boolean> = {};
-    sections.forEach(section => {
-        section.routes.forEach(route => {
-            if (route.children && isRouteOrChildActive(route, currentRoute)) {
-              initialState[route.id] = true;
-            }
+  const currentPath = usePathname();
+  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>(
+    () => {
+      const initialState: Record<string, boolean> = {};
+      sections.forEach((section) => {
+        section.routes.forEach((route) => {
+          if (route.children && isRouteOrChildActive(route, currentPath)) {
+            initialState[route.title] = true;
+          }
         });
-    });
-    return initialState;
-  });
-  const router = useRouter()
+      });
+      return initialState;
+    }
+  );
 
-  // State to track which *sections* are expanded
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(() => {
+  const [expandedSections, setExpandedSections] = useState<
+    Record<string, boolean>
+  >(() => {
     const initialState: Record<string, boolean> = {};
-    sections.forEach(section => {
-        // Expand if initially requested OR if it contains the active route
-        initialState[section.id] = section.initiallyExpanded || isSectionActive(section, currentRoute);
+    sections.forEach((section) => {
+      initialState[section.title] =
+        section.initiallyExpanded || isSectionActive(section, currentPath);
     });
     return initialState;
   });
 
-
-  // Toggle expanded state for a menu item (route with children)
   const toggleMenu = (menuId: string) => {
     setExpandedMenus((prev) => ({
       ...prev,
@@ -113,87 +104,108 @@ const Sidebar: React.FC<SidebarProps> = ({
     }));
   };
 
-  // Toggle expanded state for a section
   const toggleSection = (sectionId: string) => {
     setExpandedSections((prev) => ({
-        ...prev,
-        [sectionId]: !prev[sectionId],
+      ...prev,
+      [sectionId]: !prev[sectionId],
     }));
   };
 
-
-  // REMOVED: useMemo hook for hardcoded sections is no longer needed
-
-  // Render a single route item (parent or child)
   const renderRouteItem = (route: RouteItem, level = 0) => {
-    const isActive = route.path === currentRoute;
-    // Check if a direct child is the active route
-    const isDirectChildActive = route.children ? route.children.some(child => child.path === currentRoute) : false;
-    const isMenuExpanded = !!expandedMenus[route.id]; // Use !! to ensure boolean
+    const isActive = route.path === currentPath;
+    const isDirectChildActive = route.children
+      ? route.children.some((child) => child.path === currentPath)
+      : false;
+    const isMenuExpanded = !!expandedMenus[route.title];
     const hasChildren = route.children && route.children.length > 0;
-    // Highlight parent if a child is active AND the parent menu is expanded
     const isParentHighlighted = isDirectChildActive && isMenuExpanded;
 
-    const itemPaddingLeft = level === 0 ? 'pl-3 pr-3' : `pl-9 pr-3`; // Indentation for children
-
-    // Common classes
+    const itemPaddingLeft = level === 0 ? "pl-4 pr-4" : `pl-10 pr-4`;
     const baseClasses = `flex items-center w-full text-sm cursor-pointer group ${itemPaddingLeft} py-2.5`;
     const inactiveClasses = `text-neutral-600 hover:text-neutral-900 hover:bg-gray-100 border-l-2 border-transparent`;
-    // Active state applies only if the item itself is the current route
-    const activeClasses = `text-neutral-900 bg-gray-100 font-medium border-l-2 border-neutral-800`;
-     // Special style for parent when its direct child is active and the menu is expanded
-    const parentActiveClasses = `text-neutral-900 hover:text-neutral-900 hover:bg-gray-100 border-l-2 border-transparent font-medium`;
+    const activeClasses = `text-neutral-900 bg-blue-50 font-medium border-l-2 border-blue-500`;
+    const parentActiveClasses = `text-neutral-900 hover:text-neutral-900 hover:bg-blue-50 border-l-2 border-transparent font-medium`;
 
     let itemClasses = `${baseClasses} `;
     if (isActive) {
-        itemClasses += activeClasses;
+      itemClasses += activeClasses;
     } else if (level === 0 && isParentHighlighted) {
-        itemClasses += parentActiveClasses;
+      itemClasses += parentActiveClasses;
     } else {
-        itemClasses += inactiveClasses;
+      itemClasses += inactiveClasses;
     }
 
-
-    // Icon classes - Highlight icon if item is active OR if it's a highlighted parent
-    const iconClasses = `w-5 h-5 mr-3 ${isActive || (level === 0 && isParentHighlighted) ? 'text-neutral-700' : 'text-neutral-400 group-hover:text-neutral-600'}`;
+    const iconClasses = `w-5 h-5 mr-3 ${isActive || (level === 0 && isParentHighlighted) ? "text-blue-500" : "text-neutral-400 group-hover:text-neutral-600"}`;
 
     return (
-      <div key={route.id} className="w-full">
-        <div
-          className={itemClasses}
-          onClick={() => {
-            if (hasChildren) {
-              toggleMenu(route.id); // Toggle submenu
-            } else if (route.path) {
-              router.push(route.path); // Navigate
-            }
-          }}
-        >
-          {/* Render Icon only for top-level or if explicitly provided for child */}
-          {/* Icon container ensures alignment even if icon is missing */}
-          <div className={`${iconClasses} flex-shrink-0`}>
-            {route.icon ? route.icon : (level > 0 ? <div className="w-5 h-5"></div> : null) /* Placeholder for alignment */}
+      <div key={route.title} className="w-full">
+        {route.path ? (
+          <Link href={route.path} className={itemClasses}>
+            <div className={`${iconClasses} flex-shrink-0`}>
+              {route.icon ? (
+                route.icon
+              ) : level > 0 ? (
+                <div className="w-5 h-5"></div>
+              ) : null}
+            </div>
+            <span className="flex-1 truncate">{route.title}</span>
+
+            {/* Checkbox for items that have isChecked property */}
+            {route.isChecked !== undefined && (
+              <input
+                type="checkbox"
+                checked={route.isChecked}
+                className="ml-2 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                onClick={(e) => e.stopPropagation()}
+                readOnly
+              />
+            )}
+
+            {route.badge != null && (
+              <div className="ml-2 rounded-full bg-red-500 text-white w-5 h-5 flex items-center justify-center text-xs flex-shrink-0">
+                {route.badge}
+              </div>
+            )}
+            {hasChildren && (
+              <div className="ml-1 text-neutral-400">
+                {isMenuExpanded ? (
+                  <ChevronUp size={16} />
+                ) : (
+                  <ChevronDown size={16} />
+                )}
+              </div>
+            )}
+          </Link>
+        ) : (
+          <div
+            className={itemClasses}
+            onClick={() => hasChildren && toggleMenu(route.title)}
+          >
+            <div className={`${iconClasses} flex-shrink-0`}>
+              {route.icon ? (
+                route.icon
+              ) : level > 0 ? (
+                <div className="w-5 h-5"></div>
+              ) : null}
+            </div>
+            <span className="flex-1 truncate">{route.title}</span>
+            {route.badge != null && (
+              <div className="ml-2 rounded-full bg-red-500 text-white w-5 h-5 flex items-center justify-center text-xs flex-shrink-0">
+                {route.badge}
+              </div>
+            )}
+            {hasChildren && (
+              <div className="ml-1 text-neutral-400">
+                {isMenuExpanded ? (
+                  <ChevronUp size={16} />
+                ) : (
+                  <ChevronDown size={16} />
+                )}
+              </div>
+            )}
           </div>
+        )}
 
-
-          <span className="flex-1 truncate">{route.title}</span>
-
-          {/* Badge */}
-          {route.badge != null && ( // Check for null/undefined explicitly
-            <div className="ml-2 rounded-full bg-red-500 text-white w-5 h-5 flex items-center justify-center text-xs flex-shrink-0">
-              {route.badge}
-            </div>
-          )}
-
-          {/* Chevron for expandable items */}
-          {hasChildren && (
-            <div className="ml-1 text-neutral-400">
-              {isMenuExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </div>
-          )}
-        </div>
-
-        {/* Render children if expanded */}
         {hasChildren && isMenuExpanded && (
           <div className="mt-1">
             {route.children!.map((child) => renderRouteItem(child, level + 1))}
@@ -204,83 +216,122 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <div className="h-screen w-64 bg-gray-50 border-r border-neutral-200 flex flex-col">
+    <div className="h-screen w-64 bg-white border-r border-neutral-200 flex flex-col shadow-sm">
       {/* App Header */}
-      <div className="px-4 py-3 flex items-center border-b border-neutral-200">
-        <span className="font-bold text-lg text-neutral-800">{appName}™</span>
+      <div className="px-5 py-4 flex items-center border-b border-neutral-200 bg-white">
+        <span className="font-bold text-xl text-neutral-800">{appName}™</span>
         <div className="ml-auto">
-            <PanelLeftClose size={20} className="text-neutral-400" />
+          <PanelLeftClose
+            size={20}
+            className="text-neutral-400 hover:text-neutral-600 cursor-pointer"
+          />
         </div>
       </div>
 
       {/* Hotel Info */}
-      <div className="px-4 py-3 border-b border-neutral-200 hover:bg-gray-100 cursor-pointer">
+      <div className="px-5 py-3 border-b border-neutral-200 hover:bg-gray-50 cursor-pointer bg-white">
         <div className="flex items-center">
-          <div className="w-7 h-7 bg-green-600 text-white flex items-center justify-center rounded-full text-sm font-medium mr-2.5 flex-shrink-0">
-             {hotelName ? hotelName.charAt(0).toUpperCase() : 'H'}
+          <div className="w-8 h-8 bg-blue-600 text-white flex items-center justify-center rounded-full text-sm font-medium mr-3 flex-shrink-0">
+            {hotelName ? hotelName.charAt(0).toUpperCase() : "H"}
           </div>
           <div className="flex-1 overflow-hidden">
             <div className="text-sm font-semibold text-neutral-800 truncate">
               {hotelName}
             </div>
-            <div className="text-xs text-neutral-500 truncate">{hotelAddress}</div>
+            <div className="text-xs text-neutral-500 truncate">
+              {hotelAddress}
+            </div>
           </div>
           <div className="ml-2">
-            <ChevronDown size={16} className="text-neutral-400" />
+            <ChevronDown
+              size={16}
+              className="text-neutral-400 hover:text-neutral-600"
+            />
           </div>
         </div>
       </div>
 
-      {/* Navigation - Iterating over sections prop */}
-      <div className="flex-1 overflow-y-auto pt-3">
+      {/* Navigation */}
+      <div className="flex-1 overflow-y-auto pt-3 pb-4 bg-gray-50">
         {sections.map((section) => {
-            const isSectionExpanded = !!expandedSections[section.id];
-            return (
-              <div key={section.id} className="mb-4">
-                {/* Section Header - Now clickable */}
-                <div
-                    className="px-4 py-2 flex items-center justify-between cursor-pointer group"
-                    onClick={() => toggleSection(section.id)}
-                >
-                  <div className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider group-hover:text-neutral-500">
-                    {section.title}
-                  </div>
-                  {/* Toggle icon based on section expansion state */}
-                  {isSectionExpanded ? (
-                      <Minus size={16} className="text-neutral-400 group-hover:text-neutral-600" />
-                  ) : (
-                      <Plus size={16} className="text-neutral-400 group-hover:text-neutral-600" />
-                  )}
+          const isSectionExpanded = !!expandedSections[section.title];
+          return (
+            <div key={section.title} className="mb-3">
+              <div
+                className="px-5 py-2 flex items-center justify-between cursor-pointer group hover:bg-gray-100 rounded mx-2"
+                onClick={() => toggleSection(section.title)}
+              >
+                <div className="text-xs font-medium text-neutral-500 uppercase tracking-wider group-hover:text-neutral-600">
+                  {section.title}
                 </div>
-
-                {/* Section Routes - Conditionally rendered */}
-                {isSectionExpanded && (
-                    <div className="mt-1 space-y-0.5">
-                      {section.routes.map((route) => renderRouteItem(route, 0))}
-                    </div>
+                {isSectionExpanded ? (
+                  <Minus
+                    size={16}
+                    className="text-neutral-400 group-hover:text-neutral-600"
+                  />
+                ) : (
+                  <Plus
+                    size={16}
+                    className="text-neutral-400 group-hover:text-neutral-600"
+                  />
                 )}
               </div>
-            );
+
+              {isSectionExpanded && (
+                <div className="mt-1 space-y-0.5 mx-2">
+                  {section.routes.map((route) => renderRouteItem(route, 0))}
+                </div>
+              )}
+            </div>
+          );
         })}
       </div>
 
       {/* Bottom Actions */}
-      <div className="border-t border-neutral-200 mt-auto">
-        <Link href={'/notifications'} className="px-4 py-2.5 flex items-center text-neutral-600 hover:text-neutral-900 cursor-pointer hover:bg-gray-100 group">
-          <Bell size={20} className="text-neutral-400 group-hover:text-neutral-600 mr-3" />
+      <div className="border-t border-neutral-200 mt-auto bg-white">
+        <Link
+          href={"/notifications"}
+          className={`px-5 py-2.5 flex items-center cursor-pointer hover:bg-gray-50 group ${
+            currentPath === "/notifications"
+              ? "bg-blue-50 text-blue-600"
+              : "text-neutral-600 hover:text-neutral-900"
+          }`}
+        >
+          <Bell
+            size={20}
+            className={`mr-3 ${
+              currentPath === "/notifications"
+                ? "text-blue-500"
+                : "text-neutral-400 group-hover:text-neutral-600"
+            }`}
+          />
           <span className="text-sm">Notifications</span>
           <div className="ml-auto rounded-full bg-red-500 text-white w-5 h-5 flex items-center justify-center text-xs">
             5
           </div>
         </Link>
-         <div className="px-4 py-2.5 flex items-center text-neutral-600 hover:text-neutral-900 cursor-pointer hover:bg-gray-100 group">
-          <HelpCircle size={20} className="text-neutral-400 group-hover:text-neutral-600 mr-3" />
+        <Link
+          href={"/support"}
+          className={`px-5 py-2.5 flex items-center cursor-pointer hover:bg-gray-50 group ${
+            currentPath === "/support"
+              ? "bg-blue-50 text-blue-600"
+              : "text-neutral-600 hover:text-neutral-900"
+          }`}
+        >
+          <HelpCircle
+            size={20}
+            className={`mr-3 ${
+              currentPath === "/support"
+                ? "text-blue-500"
+                : "text-neutral-400 group-hover:text-neutral-600"
+            }`}
+          />
           <span className="text-sm">Support</span>
-        </div>
+        </Link>
       </div>
 
       {/* User Profile */}
-      <div className="px-4 py-3 border-t border-neutral-200 flex items-center">
+      <div className="px-5 py-3 border-t border-neutral-200 flex items-center bg-white">
         {user.avatar ? (
           <Image
             src={user.avatar}
@@ -290,18 +341,24 @@ const Sidebar: React.FC<SidebarProps> = ({
             className="w-8 h-8 rounded-full object-cover"
           />
         ) : (
-          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-neutral-500 font-medium flex-shrink-0">
-            {user.name ? user.name.charAt(0).toUpperCase() : '?'}
+          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-medium flex-shrink-0">
+            {user.name ? user.name.charAt(0).toUpperCase() : "?"}
           </div>
         )}
-        <div className="ml-2.5 overflow-hidden">
-          <div className="text-sm font-medium text-neutral-800 truncate">{user.name}</div>
+        <div className="ml-3 overflow-hidden">
+          <div className="text-sm font-medium text-neutral-800 truncate">
+            {user.name}
+          </div>
           <div className="text-xs text-neutral-500 truncate">{user.role}</div>
         </div>
-        <LogOut size={18} onClick={async() => {
-          await signOut();
-          router.push('/check-in');
-        }} className="ml-auto text-neutral-400 hover:text-neutral-600 cursor-pointer" />
+        <LogOut
+          size={18}
+          onClick={async () => {
+            await signOut();
+            window.location.href = "/check-in";
+          }}
+          className="ml-auto text-neutral-400 hover:text-neutral-600 cursor-pointer"
+        />
       </div>
     </div>
   );
