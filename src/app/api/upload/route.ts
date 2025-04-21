@@ -1,4 +1,4 @@
-import { client } from "@/lib/sanity"
+import { client } from "@/lib/sanity/client"
 import { NextResponse } from "next/server"
 import { v4 as uuidv4 } from "uuid"
 
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     }
 
     // Upload to Sanity
-    //@ts-ignore
+    //@ts-expect-error this is fine
     const result = await client.assets.upload(assetType, buffer, {
       filename: fileName,
       contentType: fileType,

@@ -63,7 +63,7 @@ const SigninPage = () => {
         description: "You have been logged in successfully.",
       });
 
-      router.push("/");
+      router.push("/user-profile");
     } catch (error) {
       console.error("Error logging in:", error);
       toast.error("Error", {
