@@ -1,163 +1,94 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { getServerAuthContext } from "@/actions/auth";
+import { Prisma } from "@prisma/client";
+import { db } from "@/lib/db";
 
-// Mock expense categories
-const expenseCategories = [
-  "Salaries",
-  "Rent",
-  "Utilities",
-  "Marketing",
-  "Office Supplies",
-  "Software",
-  "Travel",
-  "Meals & Entertainment",
-  "Professional Services",
-  "Insurance",
-  "Taxes",
-  "Other Expenses",
-]
+// Schema for query parameters
+const QuerySchema = z.object({
+  page: z.coerce.number().default(1),
+  limit: z.coerce.number().default(10),
+  search: z.string().optional(),
+  sortBy: z.string().optional(),
+  sortOrder: z.enum(["asc", "desc"]).optional(),
+});
 
-// Mock expense data
-const mockExpenses = Array.from({ length: 40 }, (_, i) => {
-  const id = `exp_${String(i + 1).padStart(3, "0")}`
-  const category = expenseCategories[Math.floor(Math.random() * expenseCategories.length)]
+export async function GET(
+  req: NextRequest,
+) {
+  try {
+    // Get server context for authentication and authorization
+    const { organizationId } = await getServerAuthContext();
 
-  // Generate a random date within the last 90 days
-  const date = new Date()
-  date.setDate(date.getDate() - Math.floor(Math.random() * 90))
+    // Parse query parameters
+    const url = new URL(req.url);
+    const queryParams = Object.fromEntries(url.searchParams.entries());
+    const { page, limit, search, sortBy, sortOrder } =
+      QuerySchema.parse(queryParams);
 
-  // Generate a random amount between 50 and 5000
-  const amount = Number.parseFloat((Math.random() * 4950 + 50).toFixed(2))
+    // Calculate pagination
+    const skip = (page - 1) * limit;
 
-  // Generate a description based on the category
-  let description = ""
-  if (category === "Salaries") {
-    description = `Employee Salary - ${["January", "February", "March", "April", "May"][Math.floor(Math.random() * 5)]}`
-  } else if (category === "Rent") {
-    description = `Office Rent - ${["January", "February", "March", "April", "May"][Math.floor(Math.random() * 5)]}`
-  } else if (category === "Utilities") {
-    description = `${["Electricity", "Water", "Gas", "Internet"][Math.floor(Math.random() * 4)]} Bill`
-  } else if (category === "Software") {
-    description = `${["CRM", "Accounting", "Design", "Project Management"][Math.floor(Math.random() * 4)]} Software Subscription`
-  } else {
-    description = `${category} - Invoice #${Math.floor(Math.random() * 10000)}`
+    // Build where condition for search
+    const where: Prisma.RecurringExpenseWhereInput = {
+      organizationId: organizationId,
+    };
+
+    if (search) {
+      where.OR = [
+        { description: { contains: search, mode: "insensitive" } },
+        { category: { name: { contains: search, mode: "insensitive" }} },
+      ];
+    }
+
+    function isValidOrderByKey(
+      key: string
+    ): key is keyof Prisma.RecurringExpenseOrderByWithRelationInput {
+      return key in Prisma.RecurringExpenseOrderByWithRelationInput;
+    }
+    // Build order by condition
+    const orderBy: Prisma.RecurringExpenseOrderByWithRelationInput = {};
+    if (sortBy && isValidOrderByKey(sortBy)) {
+      orderBy[sortBy] = sortOrder || "asc";
+    } else {
+      orderBy.createdAt = "desc";
+    }
+
+    // Fetch recurring expenses
+    const [expenses, total] = await Promise.all([
+      db.recurringExpense.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy,
+        select: {
+          id: true,
+          description: true,
+          amount: true,
+          category: true,
+          frequency: true,
+          nextDueDate: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+      db.recurringExpense.count({ where }),
+    ]);
+
+    return NextResponse.json({
+      expenses,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching recurring expenses:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch recurring expenses" },
+      { status: 500 }
+    );
   }
-
-  // Determine if it's a recurring expense
-  const isRecurring = Math.random() > 0.7
-
-  return {
-    id,
-    description,
-    amount,
-    date: date.toISOString().split("T")[0],
-    category,
-    paymentMethod: ["Cash", "Credit Card", "Bank Transfer", "Check"][Math.floor(Math.random() * 4)],
-    status: ["Paid", "Pending", "Overdue"][Math.floor(Math.random() * 3)],
-    notes: Math.random() > 0.7 ? `Additional notes for expense ${id}` : "",
-    attachments:
-      Math.random() > 0.8
-        ? [
-            {
-              id: `att_${i}`,
-              name: `receipt-${i}.pdf`,
-              url: `https://example.com/receipts/receipt-${i}.pdf`,
-              size: `${Math.floor(Math.random() * 1000) + 100}KB`,
-            },
-          ]
-        : [],
-    vendor: `Vendor ${Math.floor(Math.random() * 20) + 1}`,
-    isRecurring,
-    recurringDetails: isRecurring
-      ? {
-          frequency: ["Monthly", "Quarterly", "Annually"][Math.floor(Math.random() * 3)],
-          nextDate: new Date(date.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-          endDate:
-            Math.random() > 0.5
-              ? new Date(date.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
-              : null,
-        }
-      : null,
-  }
-})
-
-export async function GET(request: Request) {
-  // Get query parameters
-  const { searchParams } = new URL(request.url)
-  const page = Number.parseInt(searchParams.get("page") || "1")
-  const limit = Number.parseInt(searchParams.get("limit") || "10")
-  const category = searchParams.get("category")
-  const startDate = searchParams.get("startDate")
-  const endDate = searchParams.get("endDate")
-  const search = searchParams.get("search")
-  const isRecurring = searchParams.get("isRecurring")
-
-  // Filter expenses based on query parameters
-  let filteredExpenses = [...mockExpenses]
-
-  if (category) {
-    filteredExpenses = filteredExpenses.filter((e) => e.category === category)
-  }
-
-  if (startDate) {
-    filteredExpenses = filteredExpenses.filter((e) => e.date >= startDate)
-  }
-
-  if (endDate) {
-    filteredExpenses = filteredExpenses.filter((e) => e.date <= endDate)
-  }
-
-  if (search) {
-    const searchLower = search.toLowerCase()
-    filteredExpenses = filteredExpenses.filter(
-      (e) =>
-        e.description.toLowerCase().includes(searchLower) ||
-        e.category.toLowerCase().includes(searchLower) ||
-        e.vendor.toLowerCase().includes(searchLower) ||
-        e.notes.toLowerCase().includes(searchLower),
-    )
-  }
-
-  if (isRecurring === "true") {
-    filteredExpenses = filteredExpenses.filter((e) => e.isRecurring)
-  } else if (isRecurring === "false") {
-    filteredExpenses = filteredExpenses.filter((e) => !e.isRecurring)
-  }
-
-  // Sort expenses by date (newest first)
-  filteredExpenses.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-
-  // Paginate expenses
-  const startIndex = (page - 1) * limit
-  const endIndex = page * limit
-  const paginatedExpenses = filteredExpenses.slice(startIndex, endIndex)
-
-  // Calculate total pages
-  const totalExpenses = filteredExpenses.length
-  const totalPages = Math.ceil(totalExpenses / limit)
-
-  return NextResponse.json({
-    expenses: paginatedExpenses,
-    pagination: {
-      page,
-      limit,
-      totalExpenses,
-      totalPages,
-    },
-    categories: expenseCategories,
-  })
-}
-
-export async function POST(request: Request) {
-  const data = await request.json()
-
-  // In a real application, you would validate the data and save it to a database
-  // For this mock API, we'll just return the data with an ID
-  const newExpense = {
-    id: `exp_${String(mockExpenses.length + 1).padStart(3, "0")}`,
-    ...data,
-    date: data.date || new Date().toISOString().split("T")[0],
-    status: data.status || "Pending",
-  }
-
-  return NextResponse.json(newExpense)
 }

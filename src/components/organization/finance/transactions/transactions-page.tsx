@@ -1,9 +1,7 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useEffect } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { PlusIcon, FilterIcon, ArrowUpDownIcon, DownloadIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,101 +12,116 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { TransactionsList } from "./transactions-list"
 import { TransactionsStats } from "./transactions-stats"
 import { CreateTransactionSheet } from "./create-transaction-sheet"
+import { useTransactions } from "@/hooks/use-transactions"
+import { TransactionCategories } from "@/types/finance"
+import { toast } from "sonner"
+import { useQueryState, parseAsString, parseAsInteger } from "nuqs"
 
 export function TransactionsPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
 
-  const [isLoading, setIsLoading] = useState(true)
-  const [transactions, setTransactions] = useState<any[]>([])
-  const [pagination, setPagination] = useState<any>({})
-  const [categories, setCategories] = useState<any>({})
-  const [isCreateSheetOpen, setIsCreateSheetOpen] = useState(false)
+  // URL state management with nuqs
+  const [type, setType] = useQueryState("type", parseAsString)
+  const [category, setCategory] = useQueryState("category", parseAsString)
+  const [startDateStr, setStartDateStr] = useQueryState("startDate", parseAsString)
+  const [endDateStr, setEndDateStr] = useQueryState("endDate", parseAsString)
+  const [search, setSearch] = useQueryState("search", parseAsString)
+  const [page, setPage] = useQueryState("page", parseAsInteger.withDefault(1))
+  const [isCreateSheetOpen, setIsCreateSheetOpen] = useQueryState("createSheet", parseAsString.withDefault(""))
 
-  // Filter states
-  const [type, setType] = useState(searchParams.get("type") || "")
-  const [category, setCategory] = useState(searchParams.get("category") || "")
-  const [startDate, setStartDate] = useState<Date | undefined>(
-    searchParams.get("startDate") ? new Date(searchParams.get("startDate") as string) : undefined,
+  // Local state for date pickers to work with DatePicker component requirements
+  const [startDateLocal, setStartDateLocal] = useState<Date | undefined>(
+    startDateStr ? new Date(startDateStr) : undefined
   )
-  const [endDate, setEndDate] = useState<Date | undefined>(
-    searchParams.get("endDate") ? new Date(searchParams.get("endDate") as string) : undefined,
+  const [endDateLocal, setEndDateLocal] = useState<Date | undefined>(
+    endDateStr ? new Date(endDateStr) : undefined
   )
-  const [search, setSearch] = useState(searchParams.get("search") || "")
-  const [page, setPage] = useState(Number.parseInt(searchParams.get("page") || "1"))
+
+  // Update local dates when URL params change
+  useEffect(() => {
+    setStartDateLocal(startDateStr ? new Date(startDateStr) : undefined)
+  }, [startDateStr])
 
   useEffect(() => {
-    fetchTransactions()
-  }, [type, category, startDate, endDate, search, page])
+    setEndDateLocal(endDateStr ? new Date(endDateStr) : undefined)
+  }, [endDateStr])
 
-  const fetchTransactions = async () => {
-    setIsLoading(true)
-    try {
-      const params = new URLSearchParams()
-      if (type) params.append("type", type)
-      if (category) params.append("category", category)
-      if (startDate) params.append("startDate", startDate.toISOString().split("T")[0])
-      if (endDate) params.append("endDate", endDate.toISOString().split("T")[0])
-      if (search) params.append("search", search)
-      params.append("page", page.toString())
-      params.append("limit", "10")
+  // Fetch transactions using TanStack Query
+  const { 
+    data, 
+    isLoading, 
+    isError, 
+    refetch 
+  } = useTransactions({
+    page,
+    type: type || undefined,
+    category: category || undefined,
+    startDate: startDateStr || undefined,
+    endDate: endDateStr || undefined,
+    search: search || undefined,
+  })
 
-      const response = await fetch(`/api/finance/transactions?${params.toString()}`)
-      const data = await response.json()
+  // Create a safe version of the transactions data
+  const transactions = data?.transactions || []
 
-      setTransactions(data.transactions)
-      setPagination(data.pagination)
-      setCategories(data.categories)
-    } catch (error) {
-      console.error("Error fetching transactions:", error)
-    } finally {
-      setIsLoading(false)
+  // Handle errors
+  useEffect(() => {
+    if (isError) {
+      toast.error("Failed to load transactions. Please try again.")
     }
-  }
+  }, [isError])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     setPage(1)
-    updateQueryParams()
   }
 
   const handleReset = () => {
-    setType("")
-    setCategory("")
-    setStartDate(undefined)
-    setEndDate(undefined)
-    setSearch("")
+    setType(null)
+    setCategory(null)
+    setStartDateStr(null)
+    setEndDateStr(null)
+    setSearch(null)
     setPage(1)
-    router.push("/organization/finance/transactions")
-  }
-
-  const updateQueryParams = () => {
-    const params = new URLSearchParams()
-    if (type) params.append("type", type)
-    if (category) params.append("category", category)
-    if (startDate) params.append("startDate", startDate.toISOString().split("T")[0])
-    if (endDate) params.append("endDate", endDate.toISOString().split("T")[0])
-    if (search) params.append("search", search)
-    params.append("page", page.toString())
-
-    router.push(`/organization/finance/transactions?${params.toString()}`)
+    router.push("/finance/transactions")
   }
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage)
-    updateQueryParams()
   }
 
   const handleTransactionCreated = () => {
-    setIsCreateSheetOpen(false)
-    fetchTransactions()
+    setIsCreateSheetOpen("")
+    refetch()
+    toast.success("Transaction created successfully")
+  }
+
+  const handleExport = () => {
+    // Implementation for exporting transactions
+    toast.info("Exporting transactions...")
+  }
+
+  const handleSort = () => {
+    // Implementation for sorting transactions
+    toast.info("Sorting options coming soon")
+  }
+
+  // Handle date changes
+  const onStartDateChange = (date: Date | undefined) => {
+    setStartDateLocal(date)
+    setStartDateStr(date ? date.toISOString().split("T")[0] : null)
+  }
+
+  const onEndDateChange = (date: Date | undefined) => {
+    setEndDateLocal(date)
+    setEndDateStr(date ? date.toISOString().split("T")[0] : null)
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Transactions</h1>
-        <Button onClick={() => setIsCreateSheetOpen(true)}>
+        <Button onClick={() => setIsCreateSheetOpen("open")} className="bg-primary hover:bg-primary/90">
           <PlusIcon className="mr-2 h-4 w-4" />
           Add Transaction
         </Button>
@@ -116,31 +129,31 @@ export function TransactionsPage() {
 
       {isLoading && !transactions.length ? (
         <div className="space-y-6">
-          <Skeleton className="h-[200px] w-full" />
-          <Skeleton className="h-[400px] w-full" />
+          <Skeleton className="h-[200px] w-full rounded-md" />
+          <Skeleton className="h-[400px] w-full rounded-md" />
         </div>
       ) : (
         <>
           <TransactionsStats transactions={transactions} />
 
-          <Card>
-            <CardHeader>
+          <Card className="border-border shadow-sm">
+            <CardHeader className="bg-muted/40">
               <CardTitle>Transactions</CardTitle>
               <CardDescription>View and manage all your financial transactions</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-6">
               <div className="space-y-4">
                 <form onSubmit={handleSearch} className="flex flex-col gap-4 md:flex-row">
                   <div className="flex-1">
                     <Input
                       placeholder="Search transactions..."
-                      value={search}
+                      value={search || ""}
                       onChange={(e) => setSearch(e.target.value)}
                       className="w-full"
                     />
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <Select value={type} onValueChange={setType}>
+                    {/* <Select value={type || ""} onValueChange={setType}>
                       <SelectTrigger className="w-[130px]">
                         <SelectValue placeholder="All Types" />
                       </SelectTrigger>
@@ -151,42 +164,27 @@ export function TransactionsPage() {
                       </SelectContent>
                     </Select>
 
-                    <Select value={category} onValueChange={setCategory}>
+                    <Select value={category || ""} onValueChange={setCategory}>
                       <SelectTrigger className="w-[150px]">
                         <SelectValue placeholder="All Categories" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Categories</SelectItem>
-                        {categories.income && (
-                          <>
-                            <SelectItem value="income" disabled className="font-semibold">
-                              Income
-                            </SelectItem>
-                            {categories.income.map((cat: string) => (
-                              <SelectItem key={cat} value={cat}>
-                                {cat}
-                              </SelectItem>
-                            ))}
-                          </>
-                        )}
-                        {categories.expense && (
-                          <>
-                            <SelectItem value="expense" disabled className="font-semibold">
-                              Expense
-                            </SelectItem>
-                            {categories.expense.map((cat: string) => (
-                              <SelectItem key={cat} value={cat}>
-                                {cat}
-                              </SelectItem>
-                            ))}
-                          </>
-                        )}
+                        <SelectItem value="">All Categories</SelectItem>
+                        {data?.categories && renderCategoryOptions(data.categories)}
                       </SelectContent>
-                    </Select>
+                    </Select> */}
 
-                    <DatePicker date={startDate} setDate={setStartDate} placeholder="Start Date" />
+                    <DatePicker 
+                      date={startDateLocal} 
+                      setDate={onStartDateChange} 
+                      placeholder="Start Date" 
+                    />
 
-                    <DatePicker date={endDate} setDate={setEndDate} placeholder="End Date" />
+                    <DatePicker 
+                      date={endDateLocal} 
+                      setDate={onEndDateChange} 
+                      placeholder="End Date" 
+                    />
 
                     <Button type="submit" variant="secondary">
                       <FilterIcon className="mr-2 h-4 w-4" />
@@ -200,11 +198,11 @@ export function TransactionsPage() {
                 </form>
 
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" onClick={handleExport}>
                     <DownloadIcon className="mr-2 h-4 w-4" />
                     Export
                   </Button>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" onClick={handleSort}>
                     <ArrowUpDownIcon className="mr-2 h-4 w-4" />
                     Sort
                   </Button>
@@ -213,7 +211,7 @@ export function TransactionsPage() {
                 <TransactionsList
                   transactions={transactions}
                   isLoading={isLoading}
-                  pagination={pagination}
+                  pagination={data?.pagination || { page: 1, limit: 10, totalTransactions: 0, totalPages: 1 }}
                   onPageChange={handlePageChange}
                 />
               </div>
@@ -223,11 +221,43 @@ export function TransactionsPage() {
       )}
 
       <CreateTransactionSheet
-        open={isCreateSheetOpen}
-        onOpenChange={setIsCreateSheetOpen}
-        categories={categories}
+        open={isCreateSheetOpen === "open"}
+        onOpenChange={(open) => setIsCreateSheetOpen(open ? "open" : "")}
+        categories={data?.categories || { income: [], expense: [] }}
         onTransactionCreated={handleTransactionCreated}
       />
     </div>
+  )
+}
+
+// Helper function to render category options
+function renderCategoryOptions(categories: TransactionCategories) {
+  return (
+    <>
+      {categories.income?.length > 0 && (
+        <>
+          <SelectItem value="income" disabled className="font-semibold">
+            Income
+          </SelectItem>
+          {categories.income.map((cat) => (
+            <SelectItem key={cat} value={cat}>
+              {cat}
+            </SelectItem>
+          ))}
+        </>
+      )}
+      {categories.expense?.length > 0 && (
+        <>
+          <SelectItem value="expense" disabled className="font-semibold">
+            Expense
+          </SelectItem>
+          {categories.expense.map((cat) => (
+            <SelectItem key={cat} value={cat}>
+              {cat}
+            </SelectItem>
+          ))}
+        </>
+      )}
+    </>
   )
 }

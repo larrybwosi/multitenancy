@@ -17,13 +17,55 @@ import { ExpensesStats } from "./expenses-stats"
 import { CreateExpenseSheet } from "./create-expense-sheet"
 import { ExpensesNavigation } from "./expenses-navigation"
 
+interface Expense {
+  id: string
+  description: string
+  amount: number
+  date?: string
+  category: string | { name: string }
+  paymentMethod?: string
+  status?: string
+  vendor?: string
+  isRecurring: boolean
+  recurringFrequency?: string
+  taxDeductible?: boolean
+  department?: string
+  createdBy?: { name: string }
+  frequency?: string
+  nextDueDate?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+interface PaginationData {
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+}
+
+interface Category {
+  id: string
+  name: string
+}
+
+interface Department {
+  id: string
+  name: string
+}
+
 export function ExpensesOverview() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
   const [isLoading, setIsLoading] = useState(true)
-  const [expenses, setExpenses] = useState<any[]>([]) // Initialize as empty array
-  const [pagination, setPagination] = useState<any>({})
+  const [expenses, setExpenses] = useState<Expense[]>([]) // Typed array
+  const [pagination, setPagination] = useState<PaginationData>({
+    total: 0,
+    page: 1,
+    limit: 10,
+    totalPages: 0,
+  })
   const [categories, setCategories] = useState<string[]>([])
   const [departments, setDepartments] = useState<string[]>([])
   const [vendors, setVendors] = useState<string[]>([])
@@ -53,85 +95,97 @@ export function ExpensesOverview() {
   const fetchExpenses = async () => {
     setIsLoading(true)
     try {
-      // For demo purposes, let's use mock data
-      // In a real application, you would fetch from your API
-      setTimeout(() => {
-        const mockExpenses = [
-          {
-            id: "1",
-            description: "Office Supplies",
-            amount: 250.75,
-            date: "2023-05-15",
-            category: "Office Supplies",
-            paymentMethod: "Credit Card",
-            status: "Paid",
-            vendor: "Office Depot",
-            isRecurring: false,
-            taxDeductible: true,
-            department: "Administration",
-            createdBy: { name: "John Doe" },
-          },
-          {
-            id: "2",
-            description: "Software Subscription",
-            amount: 99.99,
-            date: "2023-05-10",
-            category: "Software",
-            paymentMethod: "Credit Card",
-            status: "Paid",
-            vendor: "Adobe",
-            isRecurring: true,
-            recurringFrequency: "Monthly",
-            taxDeductible: true,
-            department: "IT",
-            createdBy: { name: "Jane Smith" },
-          },
-          {
-            id: "3",
-            description: "Client Lunch",
-            amount: 125.5,
-            date: "2023-05-08",
-            category: "Meals & Entertainment",
-            paymentMethod: "Corporate Card",
-            status: "Pending",
-            vendor: "Restaurant XYZ",
-            isRecurring: false,
-            taxDeductible: true,
-            department: "Sales",
-            createdBy: { name: "Mike Johnson" },
-          },
-          {
-            id: "4",
-            description: "Office Rent",
-            amount: 2500.0,
-            date: "2023-05-01",
-            category: "Rent",
-            paymentMethod: "Bank Transfer",
-            status: "Paid",
-            vendor: "ABC Properties",
-            isRecurring: true,
-            recurringFrequency: "Monthly",
-            taxDeductible: true,
-            department: "Administration",
-            createdBy: { name: "John Doe" },
-          },
-        ]
+      // Build query parameters
+      const params = new URLSearchParams()
+      params.append("page", page.toString())
+      params.append("limit", "10")
+      if (search) params.append("search", search)
+      
+      // Add filter parameters
+      if (category && category !== "all") params.append("category", category)
+      if (department && department !== "all") params.append("department", department)
+      if (vendor && vendor !== "all") params.append("vendor", vendor)
+      if (approvalStatus && approvalStatus !== "all") params.append("approvalStatus", approvalStatus)
+      if (taxDeductible && taxDeductible !== "all") params.append("taxDeductible", taxDeductible)
+      if (startDate) params.append("startDate", startDate.toISOString().split("T")[0])
+      if (endDate) params.append("endDate", endDate.toISOString().split("T")[0])
+      
+      // Add sorting
+      params.append("sortBy", "createdAt")
+      params.append("sortOrder", "desc")
 
-        setExpenses(mockExpenses)
-        setPagination({
-          totalExpenses: mockExpenses.length,
-          totalPages: 1,
-          currentPage: 1,
-        })
-        setCategories(["Office Supplies", "Software", "Meals & Entertainment", "Rent"])
-        setDepartments(["Administration", "IT", "Sales"])
-        setVendors(["Office Depot", "Adobe", "Restaurant XYZ", "ABC Properties"])
-        setApprovalStatuses(["Approved", "Pending", "Rejected"])
-        setIsLoading(false)
-      }, 1000)
+      // Fetch data from the API
+      const response = await fetch(`/api/finance/expenses?${params.toString()}`)
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch expenses')
+      }
+      
+      const data = await response.json()
+      
+      setExpenses(data.expenses)
+      setPagination(data.pagination)
+      
+      // Fetch metadata for filters
+      await fetchFilterOptions()
+
+      setIsLoading(false)
     } catch (error) {
       console.error("Error fetching expenses:", error)
       setIsLoading(false)
+    }
+  }
+
+  const fetchFilterOptions = async () => {
+    try {
+      // Fetch categories
+      const categoriesPromise = fetch('/api/finance/categories')
+        .then(res => res.ok ? res.json() : [])
+        .then(data => data.categories?.map((cat: Category) => cat.name) || [])
+        .catch(err => {
+          console.error("Error fetching categories:", err)
+          return []
+        })
+
+      // Fetch departments
+      const departmentsPromise = fetch('/api/organization/departments')
+        .then(res => res.ok ? res.json() : [])
+        .then(data => data.departments?.map((dept: Department) => dept.name) || [])
+        .catch(err => {
+          console.error("Error fetching departments:", err)
+          return []
+        })
+
+      // Fetch vendors
+      const vendorsPromise = fetch('/api/finance/expenses/vendors')
+        .then(res => res.ok ? res.json() : [])
+        .then(data => data.vendors || [])
+        .catch(err => {
+          console.error("Error fetching vendors:", err)
+          return []
+        })
+
+      // Wait for all promises to resolve
+      const [categoriesData, departmentsData, vendorsData] = await Promise.all([
+        categoriesPromise, 
+        departmentsPromise, 
+        vendorsPromise
+      ])
+
+      // Set the data to state
+      setCategories(categoriesData.length ? categoriesData : ["Office Supplies", "Software", "Meals & Entertainment", "Rent"])
+      setDepartments(departmentsData.length ? departmentsData : ["Administration", "IT", "Sales"])
+      setVendors(vendorsData.length ? vendorsData : ["Office Depot", "Adobe", "Restaurant XYZ", "ABC Properties"])
+      
+      // Approval statuses are often hardcoded as they represent application states
+      setApprovalStatuses(["Approved", "Pending", "Rejected"])
+    } catch (error) {
+      console.error("Error fetching filter options:", error)
+      // Fallback to default values in case of error
+      setCategories(["Office Supplies", "Software", "Meals & Entertainment", "Rent"])
+      setDepartments(["Administration", "IT", "Sales"])
+      setVendors(["Office Depot", "Adobe", "Restaurant XYZ", "ABC Properties"])
+      setApprovalStatuses(["Approved", "Pending", "Rejected"])
     }
   }
 
@@ -176,6 +230,7 @@ export function ExpensesOverview() {
 
   const handleExpenseCreated = () => {
     setIsCreateSheetOpen(false)
+    setPage(1)
     fetchExpenses()
   }
 
@@ -357,8 +412,8 @@ export function ExpensesOverview() {
               <CardHeader className="bg-muted/50 pb-3">
                 <CardTitle>All Expenses</CardTitle>
                 <CardDescription>
-                  {pagination?.totalExpenses
-                    ? `Showing ${expenses.length} of ${pagination.totalExpenses} expenses`
+                  {pagination?.total
+                    ? `Showing ${expenses.length} of ${pagination.total} expenses`
                     : "Manage all your organization expenses"}
                 </CardDescription>
               </CardHeader>
@@ -386,3 +441,5 @@ export function ExpensesOverview() {
     </div>
   )
 }
+
+// Enhance the expense creation logic to correctly work using the api routes  with the correct ui and inputs and validation. This should also work with recuring expenses. Create the api routes if needed, the ui should also be smooth and atractive, using tanstack for datafetching and catching.

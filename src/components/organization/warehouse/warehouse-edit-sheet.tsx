@@ -45,6 +45,9 @@ import {
   X
 } from "lucide-react"
 import { InventoryLocation } from "@prisma/client"
+import { Member } from "@prisma/client"
+import { StorageZone } from "@prisma/client"
+import { StorageUnit } from "@prisma/client"
 
 // Schema validation for form fields
 const formSchema = z.object({
@@ -73,11 +76,21 @@ interface WarehouseEditSheetProps {
   onSave: (data: FormValues) => Promise<boolean>;
 }
 
-type Warehouse = {
-  manager: {
-    name: string
-  }
-} &InventoryLocation
+type Warehouse = InventoryLocation & {
+  manager?: Member;
+  zones?: StorageZone[];
+  storageUnits?: StorageUnit[];
+  stockItems?: {
+    id: string;
+    productId: string;
+    productName: string;
+    quantity: number;
+    value: number;
+  }[];
+  productCount?: number;
+  stockValue?: number;
+}
+
 export function WarehouseEditSheet({ open, onOpenChange, warehouse, onSave }: WarehouseEditSheetProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -86,7 +99,7 @@ export function WarehouseEditSheet({ open, onOpenChange, warehouse, onSave }: Wa
     defaultValues: {
       name: warehouse?.name || "",
       location: warehouse?.location || "",
-      manager: warehouse?.manager.name || "",
+      manager: warehouse?.manager?.name || "",
       capacity: warehouse?.capacity || 0,
       status: warehouse?.isActive=== true ? "ACTIVE" : warehouse?.isActive === false ? "INACTIVE" : warehouse?.isActive || "ACTIVE",
       description: warehouse?.description || "",

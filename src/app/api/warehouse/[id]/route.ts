@@ -21,18 +21,50 @@ export async function GET(request: Request, { params }: { params: Params }) {
       );
     }
 
-    // Get warehouse with its stock batches and their products
+    // Get warehouse with comprehensive data including zones, storage units, and manager
     const location = await prisma.inventoryLocation.findFirst({
       where: {
         id,
         organizationId,
       },
       include: {
+        // Include manager details
+        manager: true,
+        
+        // Include storage zones and their units
+        zones: {
+          include: {
+            storageUnits: true,
+          },
+        },
+        
+        // Include direct storage units (not in zones)
+        storageUnits: {
+          include: {
+            stockBatches: {
+              select: {
+                currentQuantity: true,
+                product: {
+                  select: {
+                    id: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        
+        // Include stock batches with product information
         stockBatches: {
           include: {
             product: true,
+            variant: true,
+            storageUnit: true,
+            position: true,
           },
         },
+        
+        // Include variant stocks
         variantStocks: {
           include: {
             product: true,
@@ -61,32 +93,52 @@ export async function GET(request: Request, { params }: { params: Params }) {
       ...location.variantStocks.map((stock) => stock.productId),
     ]);
 
+    // Process storage units to add usage statistics
+    const storageUnits = location.storageUnits.map(unit => {
+      // Calculate capacity used based on associated stock batches
+      const capacityUsed = unit.stockBatches.reduce(
+        (sum, batch) => sum + batch.currentQuantity, 
+        0
+      );
+      
+      // Count unique products in this unit
+      const uniqueProductsInUnit = new Set(
+        unit.stockBatches.map(batch => batch.product.id)
+      );
+      
+      return {
+        ...unit,
+        capacityUsed,
+        productCount: uniqueProductsInUnit.size
+      };
+    });
+
+    // Calculate total stock value
+    const stockValue = location.stockBatches.reduce(
+      (sum, batch) =>
+        sum + batch.currentQuantity * Number(batch.purchasePrice),
+      0
+    );
+
     // Transform to match UI expectations
     return NextResponse.json({
       warehouse: {
-        id: location.id,
-        name: location.name,
-        location: location.description || "Not specified",
-        capacity: location.totalCapacity,
+        ...location,
         used: usedCapacity,
-        manager: location.managerId || "Not assigned",
-        status: location.isActive ? "ACTIVE" : "INACTIVE",
         productCount: uniqueProductIds.size,
-        lastUpdated: location.updatedAt.toISOString(),
-        description: location.description || "",
-        capacityUnit: location.capacityUnit || "units",
-        customFields: location.customFields || {},
-        stockValue: location.stockBatches.reduce(
-          (sum, batch) =>
-            sum + batch.currentQuantity * Number(batch.purchasePrice),
-          0
-        ),
+        storageUnits,
+        stockValue,
         stockItems: location.stockBatches.map((batch) => ({
           id: batch.id,
           productId: batch.productId,
           productName: batch.product.name,
           quantity: batch.currentQuantity,
           value: batch.currentQuantity * Number(batch.purchasePrice),
+          location: batch.storageUnit ? {
+            unitId: batch.storageUnit.id,
+            unitName: batch.storageUnit.name,
+            position: batch.position?.identifier || 'Unspecified'
+          } : null
         })),
       },
     });

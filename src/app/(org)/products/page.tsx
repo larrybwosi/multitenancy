@@ -1,11 +1,9 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Package2 } from "lucide-react";
 import ProductsTab from "./components/products-tab";
-import {
-  getProducts,
-} from "@/actions/products";
 import { SectionHeader } from "@/components/ui/SectionHeader";
-import { getCategories } from "./actions";
+import { getProducts } from "@/actions/products";
+import { getCategories } from "@/actions/category.actions";
 
 export default async function ProductsPage() {
   
@@ -22,7 +20,6 @@ export default async function ProductsPage() {
           title="Products"
           subtitle="Manage your products efficiently and effectively"
           icon={<Package2 className="h-8 w-8 text-blue-800" />}
-          autoUpdate="2 min"
         />
       </CardHeader>
 

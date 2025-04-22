@@ -20,13 +20,27 @@ import {
   ResponsiveContainer,
 } from "recharts"
 
+// Define the Expense interface
+interface Expense {
+  id: string
+  date: string
+  amount: number
+  category: string
+  department: string
+  description: string
+  status: string
+}
+
 interface ExpenseAnalyticsProps {
-  expenses: any[]
+  expenses: Expense[]
   activeTab: string
   timeframe: string
 }
 
 export function ExpenseAnalytics({ expenses, activeTab, timeframe }: ExpenseAnalyticsProps) {
+  // Simple comment to reference that we're using these props
+  console.log(`Rendering expense analytics for ${activeTab} with ${timeframe} timeframe`);
+  
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -417,7 +431,7 @@ export function ExpenseAnalytics({ expenses, activeTab, timeframe }: ExpenseAnal
                   <XAxis dataKey="month" />
                   <YAxis tickFormatter={(value) => `${value}%`} />
                   <Tooltip formatter={(value) => `${value}%`} />
-                  <Bar dataKey="rate" name="Growth Rate" fill={({ rate }) => (rate >= 0 ? "#82ca9d" : "#ff8042")} />
+                  <Bar dataKey="rate" name="Growth Rate" fill="#8884d8" />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>

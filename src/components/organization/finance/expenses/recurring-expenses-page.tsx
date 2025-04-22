@@ -1,10 +1,7 @@
-"use client"
-
-import type React from "react"
-
+'use client'
 import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
 import { PlusIcon, FilterIcon, DownloadIcon, SearchIcon, XIcon, CalendarIcon } from "lucide-react"
+import { useQueryState } from 'nuqs'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,11 +13,9 @@ import { CreateExpenseSheet } from "./create-expense-sheet"
 import { ExpensesNavigation } from "./expenses-navigation"
 
 export function RecurringExpensesPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
 
   const [isLoading, setIsLoading] = useState(true)
-  const [expenses, setExpenses] = useState<any[]>([]) // Initialize as empty array
+  const [expenses, setExpenses] = useState<any[]>([])
   const [pagination, setPagination] = useState<any>({
     page: 1,
     limit: 10,
@@ -33,13 +28,13 @@ export function RecurringExpensesPage() {
   const [isCreateSheetOpen, setIsCreateSheetOpen] = useState(false)
   const [isFilterExpanded, setIsFilterExpanded] = useState(false)
 
-  // Filter states
-  const [category, setCategory] = useState(searchParams.get("category") || "")
-  const [department, setDepartment] = useState(searchParams.get("department") || "")
-  const [vendor, setVendor] = useState(searchParams.get("vendor") || "")
-  const [frequency, setFrequency] = useState(searchParams.get("frequency") || "")
-  const [search, setSearch] = useState(searchParams.get("search") || "")
-  const [page, setPage] = useState(Number.parseInt(searchParams.get("page") || "1"))
+  // Replace useSearchParams with nuqs
+  const [category, setCategory] = useQueryState('category', { defaultValue: '' })
+  const [department, setDepartment] = useQueryState('department', { defaultValue: '' })
+  const [vendor, setVendor] = useQueryState('vendor', { defaultValue: '' })
+  const [frequency, setFrequency] = useQueryState('frequency', { defaultValue: '' })
+  const [search, setSearch] = useQueryState('search', { defaultValue: '' })
+  const [page, setPage] = useQueryState('page', { defaultValue: '1', parse: Number })
 
   useEffect(() => {
     fetchRecurringExpenses()
@@ -58,68 +53,15 @@ export function RecurringExpensesPage() {
       params.append("page", page.toString())
       params.append("limit", "10")
 
-      // For now, let's use mock data since we're getting an error
-      // In a real app, you'd uncomment this and use the actual API
-      // const response = await fetch(`/api/finance/expenses?${params.toString()}`)
-      // const data = await response.json()
+      const response = await fetch(`/api/finance/expenses?${params.toString()}`)
+      const data = await response.json()
 
-      // Mock data for demonstration
-      const mockExpenses = [
-        {
-          id: "1",
-          description: "Office Rent",
-          amount: 2500,
-          date: "2023-05-01",
-          category: "Rent",
-          paymentMethod: "Bank Transfer",
-          status: "Paid",
-          vendor: "ABC Properties",
-          isRecurring: true,
-          recurringDetails: {
-            frequency: "Monthly",
-            nextDate: "2023-06-01",
-            endDate: null,
-          },
-        },
-        {
-          id: "2",
-          description: "Software Subscription",
-          amount: 99.99,
-          date: "2023-05-05",
-          category: "Software",
-          paymentMethod: "Credit Card",
-          status: "Paid",
-          vendor: "SaaS Co",
-          isRecurring: true,
-          recurringDetails: {
-            frequency: "Monthly",
-            nextDate: "2023-06-05",
-            endDate: null,
-          },
-        },
-        {
-          id: "3",
-          description: "Internet Service",
-          amount: 89.99,
-          date: "2023-05-10",
-          category: "Utilities",
-          paymentMethod: "Credit Card",
-          status: "Paid",
-          vendor: "ISP Inc",
-          isRecurring: true,
-          recurringDetails: {
-            frequency: "Monthly",
-            nextDate: "2023-06-10",
-            endDate: null,
-          },
-        },
-      ]
 
-      setExpenses(mockExpenses)
-      setPagination({
+      setExpenses(data.expenses || [])
+      setPagination(data.pagination || {
         page: 1,
         limit: 10,
-        totalExpenses: mockExpenses.length,
+        totalExpenses: data.length,
         totalPages: 1,
       })
       setCategories(["Rent", "Software", "Utilities"])
@@ -143,34 +85,21 @@ export function RecurringExpensesPage() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     setPage(1)
-    updateQueryParams()
   }
 
-  const handleReset = () => {
-    setCategory("")
-    setDepartment("")
-    setVendor("")
-    setFrequency("")
-    setSearch("")
-    setPage(1)
-    router.push(`/finance/expenses/recurring`)
+  const handleReset = async () => {
+    await Promise.all([
+      setCategory(''),
+      setDepartment(''),
+      setVendor(''),
+      setFrequency(''),
+      setSearch(''),
+      setPage(1)
+    ])
   }
 
-  const updateQueryParams = () => {
-    const params = new URLSearchParams()
-    if (category) params.append("category", category)
-    if (department) params.append("department", department)
-    if (vendor) params.append("vendor", vendor)
-    if (frequency) params.append("frequency", frequency)
-    if (search) params.append("search", search)
-    params.append("page", page.toString())
-
-    router.push(`/finance/expenses/recurring?${params.toString()}`)
-  }
-
-  const handlePageChange = (newPage: number) => {
-    setPage(newPage)
-    updateQueryParams()
+  const handlePageChange = async (newPage: number) => {
+    await setPage(newPage)
   }
 
   const handleExpenseCreated = () => {

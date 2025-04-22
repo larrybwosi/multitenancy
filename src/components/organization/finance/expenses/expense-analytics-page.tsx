@@ -3,7 +3,6 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
 import { FilterIcon, DownloadIcon, XIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,54 +13,86 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ExpenseAnalytics } from "./expense-analytics"
 import { ExpensesNavigation } from "./expenses-navigation"
+import { useQueryState } from "nuqs"
+import { useQuery } from "@tanstack/react-query"
+
+// Define an Expense interface to fix the any[] type error
+interface Expense {
+  id: string
+  date: string
+  amount: number
+  category: string
+  department: string
+  description: string
+  status: string
+}
+
+interface ApiResponse {
+  expenses: Expense[]
+  metadata: {
+    timeframe: string
+    year: string
+    totalExpenses: number
+    totalAmount: number
+  }
+}
 
 export function ExpenseAnalyticsPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-
-  const [isLoading, setIsLoading] = useState(true)
-  const [expenses, setExpenses] = useState<any[]>([])
   const [isFilterExpanded, setIsFilterExpanded] = useState(false)
-  const [activeTab, setActiveTab] = useState(searchParams.get("view") || "overview")
-
-  // Filter states
-  const [timeframe, setTimeframe] = useState(searchParams.get("timeframe") || "monthly")
-  const [year, setYear] = useState(searchParams.get("year") || new Date().getFullYear().toString())
-  const [startDate, setStartDate] = useState<Date | undefined>(
-    searchParams.get("startDate") ? new Date(searchParams.get("startDate") as string) : undefined,
-  )
-  const [endDate, setEndDate] = useState<Date | undefined>(
-    searchParams.get("endDate") ? new Date(searchParams.get("endDate") as string) : undefined,
-  )
-
+  
+  // URL state using nuqs
+  const [activeTab, setActiveTab] = useQueryState("view", {
+    defaultValue: "overview"
+  })
+  
+  const [timeframe, setTimeframe] = useQueryState("timeframe", {
+    defaultValue: "monthly"
+  })
+  
+  const [year, setYear] = useQueryState("year", {
+    defaultValue: new Date().getFullYear().toString()
+  })
+  
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined)
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined)
+  
+  const [startDateParam, setStartDateParam] = useQueryState("startDate")
+  const [endDateParam, setEndDateParam] = useQueryState("endDate")
+  
+  // Sync URL state with component state for dates
   useEffect(() => {
-    fetchExpensesForAnalytics()
-  }, [timeframe, year, startDate, endDate])
+    if (startDateParam) {
+      setStartDate(new Date(startDateParam))
+    }
+    if (endDateParam) {
+      setEndDate(new Date(endDateParam))
+    }
+  }, [startDateParam, endDateParam])
 
-  const fetchExpensesForAnalytics = async () => {
-    setIsLoading(true)
-    try {
+  // Use Tanstack Query for data fetching with caching
+  const { data, isLoading, error } = useQuery<ApiResponse>({
+    queryKey: ['expenseAnalytics', timeframe, year, startDateParam, endDateParam],
+    queryFn: async () => {
       const params = new URLSearchParams()
-      params.append("timeframe", timeframe)
-      params.append("year", year)
-      if (startDate) params.append("startDate", startDate.toISOString().split("T")[0])
-      if (endDate) params.append("endDate", endDate.toISOString().split("T")[0])
+      params.append("timeframe", timeframe || "monthly")
+      params.append("year", year || new Date().getFullYear().toString())
+      if (startDateParam) params.append("startDate", startDateParam)
+      if (endDateParam) params.append("endDate", endDateParam)
       params.append("limit", "1000") // Get more data for analytics
 
       const response = await fetch(`/api/finance/expenses/analytics?${params.toString()}`)
-      const data = await response.json()
-
-      setExpenses(data.expenses)
-    } catch (error) {
-      console.error("Error fetching expenses for analytics:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
+      if (!response.ok) {
+        throw new Error('Failed to fetch expense analytics data')
+      }
+      return response.json()
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+  })
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    updateQueryParams()
+    updateDates()
   }
 
   const handleReset = () => {
@@ -69,37 +100,39 @@ export function ExpenseAnalyticsPage() {
     setYear(new Date().getFullYear().toString())
     setStartDate(undefined)
     setEndDate(undefined)
-    router.push(`/finance/expenses/analytics?view=${activeTab}`)
+    setStartDateParam(null)
+    setEndDateParam(null)
   }
 
-  const updateQueryParams = () => {
-    const params = new URLSearchParams()
-    params.append("view", activeTab)
-    params.append("timeframe", timeframe)
-    params.append("year", year)
-    if (startDate) params.append("startDate", startDate.toISOString().split("T")[0])
-    if (endDate) params.append("endDate", endDate.toISOString().split("T")[0])
-
-    router.push(`/finance/expenses/analytics?${params.toString()}`)
-  }
-
-  const handleTabChange = (value: string) => {
-    setActiveTab(value)
-    const params = new URLSearchParams(searchParams)
-    params.set("view", value)
-    router.push(`/finance/expenses/analytics?${params.toString()}`)
+  const updateDates = () => {
+    if (startDate) {
+      setStartDateParam(startDate.toISOString().split("T")[0])
+    } else {
+      setStartDateParam(null)
+    }
+    
+    if (endDate) {
+      setEndDateParam(endDate.toISOString().split("T")[0])
+    } else {
+      setEndDateParam(null)
+    }
   }
 
   const getActiveFiltersCount = () => {
     let count = 0
     if (timeframe !== "monthly") count++
     if (year !== new Date().getFullYear().toString()) count++
-    if (startDate) count++
-    if (endDate) count++
+    if (startDateParam) count++
+    if (endDateParam) count++
     return count
   }
 
   const activeFiltersCount = getActiveFiltersCount()
+
+  // Handle error state
+  if (error) {
+    console.error("Error fetching expense analytics:", error)
+  }
 
   return (
     <div className="space-y-6">
@@ -159,7 +192,7 @@ export function ExpenseAnalyticsPage() {
             >
               <form onSubmit={handleSearch} className="space-y-4">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
-                  <Select value={timeframe} onValueChange={setTimeframe}>
+                  <Select value={timeframe || "monthly"} onValueChange={setTimeframe}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select timeframe" />
                     </SelectTrigger>
@@ -172,7 +205,7 @@ export function ExpenseAnalyticsPage() {
                     </SelectContent>
                   </Select>
 
-                  <Select value={year} onValueChange={setYear}>
+                  <Select value={year || new Date().getFullYear().toString()} onValueChange={setYear}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select year" />
                     </SelectTrigger>
@@ -199,24 +232,40 @@ export function ExpenseAnalyticsPage() {
             </CardContent>
           </Card>
 
-          <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="overview" className="transition-all">
-                Overview
-              </TabsTrigger>
-              <TabsTrigger value="categories" className="transition-all">
-                Categories
-              </TabsTrigger>
-              <TabsTrigger value="departments" className="transition-all">
-                Departments
-              </TabsTrigger>
-              <TabsTrigger value="trends" className="transition-all">
-                Trends
-              </TabsTrigger>
-            </TabsList>
+          {error ? (
+            <Card className="p-8 text-center">
+              <h3 className="text-lg font-medium">Error loading expense data</h3>
+              <p className="text-muted-foreground mt-2">
+                There was an error loading the analytics data. Please try again later.
+              </p>
+              <Button onClick={() => window.location.reload()} className="mt-4">
+                Retry
+              </Button>
+            </Card>
+          ) : (
+            <Tabs value={activeTab || "overview"} onValueChange={setActiveTab} className="space-y-6">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="overview" className="transition-all">
+                  Overview
+                </TabsTrigger>
+                <TabsTrigger value="categories" className="transition-all">
+                  Categories
+                </TabsTrigger>
+                <TabsTrigger value="departments" className="transition-all">
+                  Departments
+                </TabsTrigger>
+                <TabsTrigger value="trends" className="transition-all">
+                  Trends
+                </TabsTrigger>
+              </TabsList>
 
-            <ExpenseAnalytics expenses={expenses} activeTab={activeTab} timeframe={timeframe} />
-          </Tabs>
+              <ExpenseAnalytics 
+                expenses={data?.expenses || []} 
+                activeTab={activeTab || "overview"} 
+                timeframe={timeframe || "monthly"} 
+              />
+            </Tabs>
+          )}
         </>
       )}
     </div>
