@@ -80,7 +80,7 @@ const SigninPage = () => {
     try {
       await signIn.social({provider:'google'});
 
-      router.push('/dashboard')
+      router.push('/user-profile');
     } catch (error) {
       console.error("Error with Google sign in:", error);
       toast.error("Error", {

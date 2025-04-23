@@ -1,6 +1,8 @@
 "use client";
 
-import { CartItem, CustomerSearchResult } from "../types"; // Adjust path
+import { useState } from "react";
+import Image from "next/image";
+import { CartItem, CustomerSearchResult } from "../types";
 import {
   Plus,
   Minus,
@@ -12,7 +14,6 @@ import {
   Package,
 } from "lucide-react";
 
-// Import Shadcn Components
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,12 +25,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { useState } from "react";
-import { PaymentMethod } from "@prisma/client";
-import Image from "next/image";
+import { PaymentMethod } from "@/lib/types";
 
 interface OrderPanelProps {
   cart: CartItem[];
@@ -62,21 +61,16 @@ export default function OrderPanel({
   onProcessSale,
   isProcessing,
 }: OrderPanelProps) {
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
-    PaymentMethod.CASH
-  ); // Default payment
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.CASH);
 
-  const subtotal = cart.reduce(
-    (total, item) => total + item.price * item.quantity,
-    0
-  );
+  const subtotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
   const taxRate = 0.12; // TODO: Make dynamic
   const tax = subtotal * taxRate;
   const discount = 0; // TODO: Implement discount logic
   const total = subtotal - discount + tax;
 
   const handlePaymentMethodChange = (value: string) => {
-    setPaymentMethod(value as PaymentMethod); // Assume value matches enum keys
+    setPaymentMethod(value as PaymentMethod);
   };
 
   const handlePay = () => {
@@ -203,8 +197,8 @@ export default function OrderPanel({
                   {!!item.imageUrls?.length ? (
                     <Image
                       src={item.imageUrls[0]}
-											width={48}
-											height={48}
+                      width={48}
+                      height={48}
                       alt={item.name}
                       className="w-full h-full object-cover"
                     />
@@ -294,12 +288,11 @@ export default function OrderPanel({
               <SelectValue placeholder="Payment Method" />
             </SelectTrigger>
             <SelectContent>
-              {/* Get options from PaymentMethod enum */}
-              {Object.values(PaymentMethod).map((method) => (
-                <SelectItem key={method} value={method}>
-                  {method}
-                </SelectItem>
-              ))}
+              <SelectItem value={PaymentMethod.CASH}>Cash</SelectItem>
+              <SelectItem value={PaymentMethod.CARD_TERMINAL}>Card (Terminal)</SelectItem>
+              <SelectItem value={PaymentMethod.MOBILE_MONEY}>Mobile Money</SelectItem>
+              <SelectItem value={PaymentMethod.VOUCHER}>Voucher</SelectItem>
+              <SelectItem value={PaymentMethod.OTHER}>Other</SelectItem>
             </SelectContent>
           </Select>
           <Button
@@ -320,7 +313,7 @@ export default function OrderPanel({
         >
           {isProcessing
             ? "Processing..."
-            : `Pay ${paymentMethod} $${total.toFixed(2)}`}
+            : `Pay ${paymentMethod.toLowerCase().replace('_', ' ')} $${total.toFixed(2)}`}
         </Button>
       </div>
     </div>

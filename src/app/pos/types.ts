@@ -31,6 +31,7 @@ export interface CartItem {
   unitPrice: string;
   totalPrice: string;
   variantId?: string | null;
+  imageUrls?: string[] | null;
 }
 
 /**

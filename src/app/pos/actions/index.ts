@@ -1,3 +1,4 @@
+import { getServerAuthContext } from "@/actions/auth";
 import { db } from "@/lib/db";
 import redis from "@/lib/redis";
 import { Customer, Product } from "@prisma/client";
@@ -11,7 +12,7 @@ export async function getPosData(): Promise<{
 }> {
   // Try cache first
   const cached = await redis.get(CACHE_KEY);
-  if (cached) return cached;
+  if (cached) return cached as { products: Product[]; customers: Customer[] };
 
   try {
     // Fetch fresh data
@@ -28,9 +29,10 @@ export async function getPosData(): Promise<{
 }
 
 async function fetchFreshPosData() {
+  const {organizationId} = await getServerAuthContext();
   const [productsData, customersData] = await Promise.all([
     db.product.findMany({
-      where: { isActive: true },
+      where: { isActive: true, organizationId },
       select: {
         id: true,
         name: true,
@@ -42,7 +44,7 @@ async function fetchFreshPosData() {
       orderBy: { name: "asc" },
     }),
     db.customer.findMany({
-      where: { isActive: true },
+      where: { isActive: true, organizationId },
       select: {
         id: true,
         name: true,

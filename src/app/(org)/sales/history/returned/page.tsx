@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useQueryState } from "nuqs";
 import { format } from "date-fns";
 import { Download, Eye, PackageCheck, PackageX } from "lucide-react";
@@ -26,7 +26,6 @@ import { Pagination } from "@/components/pagination";
 
 export default function ReturnsPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
   const [returns, setReturns] = useState<Return[]>([]);
   const [totalCount, setTotalCount] = useState(0);

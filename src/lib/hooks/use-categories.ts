@@ -21,6 +21,7 @@ export function useCategories(params: GetCategoriesWithStatsParams = {}) {
         totalPages: number;
       };
     },
+    refetchOnMount:false
   });
 }
 

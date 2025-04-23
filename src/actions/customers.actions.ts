@@ -4,7 +4,7 @@ import { z } from "zod";
 import { Customer, LoyaltyReason, Prisma } from "@prisma/client";
 import { db, db as prisma } from "@/lib/db";
 import { revalidatePath, revalidateTag } from "next/cache";
-import { invalidatePosDataCache } from "@/app/(org)/pos/actions"; 
+import { invalidatePosDataCache } from "@/app/pos/actions"; 
 import { checkUserAuthorization, getServerAuthContext } from "./auth";
 
 // --- Helper Types ---
@@ -618,16 +618,9 @@ export async function getCustomerDetails(
 ): Promise<CustomerWithDetails | null> {
   if (!id) return null;
   try {
-    // Get current user session
-    // const session = await getServerSession();
-    // if (!session?.user?.id || !session.session?.activeOrganizationId) {
-    //   return {
-    //     success: false,
-    //     error: "Unauthorized or no active organization",
-    //   };
-    // }
+  const {organizationId} = await getServerAuthContext();
     const customer = await db.customer.findUnique({
-      where: { id },
+      where: { id, organizationId },
       include: {
         sales: {
           select: {

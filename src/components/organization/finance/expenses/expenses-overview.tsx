@@ -441,5 +441,3 @@ export function ExpensesOverview() {
     </div>
   )
 }
-
-// Enhance the expense creation logic to correctly work using the api routes  with the correct ui and inputs and validation. This should also work with recuring expenses. Create the api routes if needed, the ui should also be smooth and atractive, using tanstack for datafetching and catching.

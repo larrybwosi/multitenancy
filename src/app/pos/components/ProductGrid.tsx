@@ -5,8 +5,12 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ProductCard } from "./ProductCard";
 import { Search, Inbox } from "lucide-react";
+import { Product } from "../types";
 
-export function ProductGrid({ products = [], onAddToCart }) {
+export function ProductGrid({ products = [], onAddToCart }: {
+  products: Product[];
+  onAddToCart: (productId: string) => void;
+}) {
   const [searchTerm, setSearchTerm] = useState("");
 
   const filteredProducts = useMemo(() => {
@@ -39,7 +43,7 @@ export function ProductGrid({ products = [], onAddToCart }) {
       {/* Product Grid Area */}
       <ScrollArea className="flex-grow p-4">
         {filteredProducts.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-4 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-4 xl:grid-cols-5 gap-6">
             {filteredProducts.map((product) => (
               <ProductCard
                 key={product.id}

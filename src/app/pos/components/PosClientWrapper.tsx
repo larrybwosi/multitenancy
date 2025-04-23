@@ -4,81 +4,100 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQueryState, parseAsArrayOf, parseAsString } from "nuqs";
 import { ProductGrid } from "./ProductGrid";
 import { Cart } from "./Cart";
-import { Customer, Prisma, Product } from "@prisma/client";
+import { Customer } from "@prisma/client";
+import { CartItem as ProjectCartItem } from "@/app/point-of-sale/types";
+import { PaymentMethod } from "@/lib/types";
 import { processSale } from "@/actions/pos.actions";
 
-
-
-interface CartItem {
+// Update BaseProduct to include missing required fields with non-nullable SKU
+type BaseProduct = {
   id: string;
   name: string;
-  sku?: string;
-  quantity: number;
-  unitPrice: Prisma.Decimal;
-  totalPrice: Prisma.Decimal;
-  variantId: string | null;
+  sku: string; // Make SKU non-nullable
+  basePrice: string;
+  image?: string | null;
+  barcode: string | null;
+  imageUrls?: string[] | null;
+};
+
+// Use the project's CartItem interface with additional required fields
+type CartItem = Omit<ProjectCartItem, "sku"> & {
+  unitPrice: number;
+  totalPrice: number;
+  sku: string; // Make SKU non-nullable
+};
+
+// Use the shared PaymentMethod enum from lib/types
+interface SaleData {
+  customerId: string | null;
+  paymentMethod: PaymentMethod;
+  notes?: string;
+  items: CartItem[];
+}
+
+interface ProcessSaleInput {
+  cartItems: Array<{
+    productId: string;
+    variantId: string | null;
+    quantity: number;
+  }>;
+  locationId: string;
+  customerId?: string;
+  paymentMethod: PaymentMethod;
+  discountAmount?: number;
+  notes?: string;
 }
 
 interface PosClientWrapperProps {
-  products?: Product[];
+  products?: BaseProduct[];
   customers?: Customer[];
+  locationId: string;
 }
-
-const safeDecimal = (value: unknown): Prisma.Decimal => {
-  try {
-    if (value instanceof Prisma.Decimal) return value;
-    if (typeof value === "string" || typeof value === "number") {
-      return new Prisma.Decimal(value);
-    }
-    return new Prisma.Decimal(0);
-  } catch {
-    return new Prisma.Decimal(0);
-  }
-};
 
 export function PosClientWrapper({
   products = [],
   customers = [],
+  locationId,
 }: PosClientWrapperProps) {
   const [cartProductIds, setCartProductIds] = useQueryState(
     "cartItems",
     parseAsArrayOf(parseAsString).withDefault([])
   );
 
-  const [cartQuantities, setCartQuantities] = useState<Record<string, number>>(
-    {}
-  );
+  const [cartQuantities, setCartQuantities] = useState<Record<string, number>>({});
 
   const cartItems = useMemo(() => {
-    const productsWithDecimal = products.map((p) => ({
-      ...p,
-      basePrice: safeDecimal(p.basePrice),
-    }));
-
     return cartProductIds
       .map((productId) => {
-        const product = productsWithDecimal.find((p) => p.id === productId);
+        const product = products.find((p) => p.id === productId);
         if (!product) return null;
 
         const quantity = cartQuantities[productId] || 0;
-        const unitPrice = safeDecimal(product.basePrice);
-        const totalPrice = unitPrice.mul(quantity);
+        // Convert string price to number for display
+        const price = parseFloat(product.basePrice);
+        if (isNaN(price)) return null;
 
         return {
-          ...product,
+          id: product.id,
+          productId: product.id,
+          name: product.name,
+          productName: product.name,
+          sku: product.sku, // SKU is non-nullable
           quantity,
-          unitPrice,
-          totalPrice,
+          price,
+          unitPrice: price, // Add unit price
           variantId: null,
-        };
+          imageUrls: product.image ? [product.image] : null,
+          totalPrice: price * quantity, // Add total price
+        } as CartItem;
       })
-      .filter((item): item is CartItem => item !== null && item.quantity > 0);
+      .filter((item): item is CartItem => item !== null);
   }, [cartProductIds, cartQuantities, products]);
 
   const cartTotal = useMemo(() => {
     return cartItems.reduce((sum, item) => {
-      return sum.add(item.totalPrice);
-    }, new Prisma.Decimal(0));
+      return sum + item.price * item.quantity;
+    }, 0);
   }, [cartItems]);
 
   useEffect(() => {
@@ -124,18 +143,18 @@ export function PosClientWrapper({
   );
 
   const updateQuantity = useCallback(
-    (productId: string, newQuantity: number) => {
-      const quantity = Math.max(0, newQuantity);
+    (productId: string, quantity: number) => {
+      const newQuantity = Math.max(0, quantity);
       setCartQuantities((prevQtys) => {
-        if (quantity === 0) {
-          //eslint-disable-next-line
-          const { [productId]: _, ...rest } = prevQtys;
+        if (newQuantity === 0) {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { [productId]: omitted, ...rest } = prevQtys;
           setCartProductIds((prevIds) =>
             prevIds.filter((id) => id !== productId)
           );
           return rest;
         } else {
-          return { ...prevQtys, [productId]: quantity };
+          return { ...prevQtys, [productId]: newQuantity };
         }
       });
     },
@@ -146,8 +165,8 @@ export function PosClientWrapper({
     (productId: string) => {
       setCartProductIds((prevIds) => prevIds.filter((id) => id !== productId));
       setCartQuantities((prevQtys) => {
-        //eslint-disable-next-line
-        const { [productId]: _, ...rest } = prevQtys;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { [productId]: omitted, ...rest } = prevQtys;
         return rest;
       });
     },
@@ -160,33 +179,37 @@ export function PosClientWrapper({
   }, [setCartProductIds]);
 
   const handleSaleSubmit = useCallback(
-    async (saleData: {
-      customerId?: string;
-      paymentMethod: string;
-      notes?: string;
-      items: CartItem[];
-    }) => {
-      const formData = new FormData();
-      formData.append("customerId", saleData.customerId || "");
-      formData.append("paymentMethod", saleData.paymentMethod);
-      formData.append("notes", saleData.notes || "");
+    async (saleData: SaleData) => {
+      const processData: ProcessSaleInput = {
+        cartItems: saleData.items.map((item) => ({
+          productId: item.productId,
+          variantId: item.variantId,
+          quantity: item.quantity,
+        })),
+        locationId,
+        customerId: saleData.customerId || undefined,
+        paymentMethod: saleData.paymentMethod,
+        notes: saleData.notes,
+        discountAmount: 0,
+      };
 
-      const actionItems = saleData.items
-      
-      formData.append("items", JSON.stringify(actionItems));
-      return await processSale(formData);
+      const result = await processSale(processData);
+
+      if (!result.success) {
+        throw new Error(result.error || result.message);
+      }
+
+      return result;
     },
-    []
+    [locationId]
   );
 
   return (
     <div className="flex h-screen overflow-hidden bg-muted/20 dark:bg-neutral-900/50">
-      {/* Product Grid Area */}
       <div className="flex-grow h-full overflow-auto p-4 md:p-6">
         <ProductGrid products={products} onAddToCart={addProductToCart} />
       </div>
 
-      {/* Cart Area */}
       <div className="w-full md:w-[400px] lg:w-[500px] h-full flex-shrink-0 bg-background border-l dark:bg-neutral-900 dark:border-neutral-800">
         <div className="h-full flex flex-col">
           <Cart
