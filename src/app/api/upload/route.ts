@@ -33,9 +33,9 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({
-      url: result.url,
+      url: `${result.url}?fm=webp&q=75&auto=format`,
       id: result._id,
-    })
+    });
   } catch (error) {
     console.error("Error uploading file:", error)
     return NextResponse.json({ error: "Failed to upload file" }, { status: 500 })

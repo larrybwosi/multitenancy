@@ -9,7 +9,7 @@ export async function POST(request: Request) {
   
   try {
     const org = await createOrganization(body);
-    
+    console.log(org)
     return NextResponse.json(org);
   } catch (error) {
     console.error("Error creating organization:", error);

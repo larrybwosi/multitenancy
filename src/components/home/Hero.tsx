@@ -53,7 +53,7 @@ const Hero: React.FC = () => {
               }}
             >
               <Image
-                src="/image1.webp"
+                src="https://cdn.sanity.io/images/7rkl59hi/production/ce0237be545ae82d4d492f170343f2b28f58b061-1024x1024.webp" //https://cdn.sanity.io/images/7rkl59hi/production/a5412e38b9ce18b4a7ce1a9711854cd8bbf11911-1024x1024.webp
                 alt="Drongo Dashboard"
                 width={500}
                 height={500}

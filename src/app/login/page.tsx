@@ -30,7 +30,8 @@ const SigninPage = () => {
         "Process payments securely and get paid faster with multiple payment options.",
     },
     {
-      image: "/image6.png",
+      image:
+        "https://cdn.sanity.io/images/7rkl59hi/production/4656d361b31088139ec195fe751b64ea6d359c63-1360x768.png?fm=webp&q=75&auto=format",
       title: "Business Insights",
       description:
         "Get valuable insights into your business with detailed analytics and reports.",

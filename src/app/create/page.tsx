@@ -36,6 +36,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import slugify from "slugify";
+import { appService } from "@/store/service";
 
 // Define form schema using Zod
 const organizationSchema = z.object({
@@ -151,7 +152,10 @@ export default function CreateOrganizationPage() {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to create organization");
       }
+      const res = await response.json();
 
+      appService.setOrganization(res.organization);
+      appService.setCurrentWarehouse(res.warehouse);
       router.push("/dashboard"); // Redirect to organizations list or dashboard
     } catch (err) {
       setError(
@@ -178,7 +182,8 @@ export default function CreateOrganizationPage() {
       inventory: ["lowStockThreshold", "inventoryTrackingEnabled"],
       contact: ["website", "email", "phone", "address"],
     }[activeTab];
-
+    
+    //eslint-disable-next-line
     const isValid = await trigger(currentTabFields as any);
     if (isValid) {
       const currentIndex = tabs.indexOf(activeTab);
@@ -640,7 +645,7 @@ export default function CreateOrganizationPage() {
               <div className="aspect-video relative overflow-hidden rounded-t-lg">
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-500/90 to-indigo-600/90 flex items-center justify-center">
                   <Image
-                    src="/image5.jpg"
+                    src="https://cdn.sanity.io/images/7rkl59hi/production/90692709b593f4ddb6765bf69aab47f46e78b1b1-1339x905.jpg?fm=webp&q=75&auto=format"
                     alt="Organization Setup"
                     width={800}
                     height={400}

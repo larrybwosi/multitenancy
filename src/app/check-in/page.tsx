@@ -14,6 +14,7 @@ import Image from "next/image";
 import { toast } from "sonner";
 import { signIn } from "@/lib/auth/authClient";
 import { useRouter } from "next/navigation";
+import { useAppStore } from "@/store/app";
 
 const CheckInPage = () => {
   const [email, setEmail] = useState("");
@@ -21,9 +22,9 @@ const CheckInPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const router = useRouter();
+  
 
-  const LOCATION_ID = "cm9e4ynql0000bkacheb1jxcd"; // Replace with actual location ID or fetch it dynamically
-
+  const currentWarehouse = useAppStore((state) => state.currentWarehouse);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -48,7 +49,7 @@ const CheckInPage = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ locationId: LOCATION_ID }),
+        body: JSON.stringify({ locationId: currentWarehouse?.id }),
       });
       const data = await result.json();
       console.log(data);

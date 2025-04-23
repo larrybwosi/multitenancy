@@ -23,6 +23,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           queries: {
             staleTime: 1000 * 60 * 5, // 5 minutes
             refetchOnWindowFocus: false,
+            gcTime: 1000 * 60 * 60 * 12, // 12 hours
           },
           mutations: {
             networkMode: "offlineFirst", // Default, but explicit

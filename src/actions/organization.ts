@@ -1,6 +1,6 @@
 "use server";
 
-import { Prisma, type Organization, MemberRole, LocationType } from "@prisma/client";
+import { Prisma, type Organization, MemberRole, LocationType, InventoryLocation } from "@prisma/client";
 import slugify from "slugify";
 
 import { db as prisma } from "@/lib/db";
@@ -13,6 +13,11 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
+interface CreationResponse {
+  organization: Organization;
+  warehouse: InventoryLocation;
+}
+
 /**
  * Creates a new organization and assigns the current user as the owner.
  * @param data - The data for the new organization (name, description, logo, etc.).
@@ -21,7 +26,7 @@ import { headers } from "next/headers";
  */
 export async function createOrganization(
   data: CreateOrganizationInput
-): Promise<Organization> {
+): Promise<CreationResponse> {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.id) {
     throw new Error("User not authenticated.");
@@ -101,30 +106,30 @@ export async function createOrganization(
       },
     });
 
-  const mainStore = await prisma.inventoryLocation.create({
-    data: {
-      name: "Main Store",
-      description: "Primary retail store location",
-      locationType: LocationType.RETAIL_SHOP,
-      isDefault: true,
-      isActive: true,
-      capacityTracking: false,
-      organizationId: newOrganization.id,
-    },
-  });
+    const mainStore = await prisma.inventoryLocation.create({
+      data: {
+        name: "Main Store",
+        description: "Primary retail store location",
+        locationType: LocationType.RETAIL_SHOP,
+        isDefault: true,
+        isActive: true,
+        capacityTracking: false,
+        organizationId: newOrganization.id,
+      },
+    });
     // Optionally: Update the user's activeOrganizationId if desired
     await prisma.user.update({
       where: { id: userId },
       data: { activeOrganizationId: newOrganization.id },
     });
-    
-    await prisma.organization.update({
+
+    const org = await prisma.organization.update({
       where: { id: newOrganization.id },
-      data: {  defaultLocationId: mainStore.id },
+      data: { defaultLocationId: mainStore.id },
     });
 
-    console.log("New Organization Created:", newOrganization);
-    return newOrganization;
+    console.log("New Organization Created:", org);
+    return { organization: newOrganization, warehouse: mainStore };
   } catch (error) {
     console.error("Failed to create organization:", error);
     if (error instanceof Prisma.PrismaClientKnownRequestError) {

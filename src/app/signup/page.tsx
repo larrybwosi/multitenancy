@@ -19,7 +19,8 @@ const SignupPage = () => {
 
   const slides = [
     {
-      image: "/image4.jpeg",
+      image:
+        "https://cdn.sanity.io/images/7rkl59hi/production/d8ea510f70826369e9f7eb1b9c65bae870cdaf0c-1024x1024.jpg?fm=webp&q=75&auto=format",
       title: "Financial Management Made Easy",
       description:
         "Track expenses, send invoices, and manage your finances all in one place.",
@@ -32,7 +33,8 @@ const SignupPage = () => {
         "Process payments securely and get paid faster with multiple payment options.",
     },
     {
-      image: "/image6.png",
+      image:
+        "https://cdn.sanity.io/images/7rkl59hi/production/4656d361b31088139ec195fe751b64ea6d359c63-1360x768.png?fm=webp&q=75&auto=format",
       title: "Business Insights",
       description:
         "Get valuable insights into your business with detailed analytics and reports.",
@@ -86,7 +88,7 @@ const SignupPage = () => {
         router.push('/create')
       }
       
-    } catch (error: any) {
+    } catch (error) {
       console.error("Signup error:", error);
       toast.error("Signup failed", {
         description: error.message || "Failed to create account. Please try again.",
@@ -106,7 +108,7 @@ const SignupPage = () => {
       }
 
       router.push('/dashboard');
-    } catch (error: any) {
+    } catch (error) {
       console.error("Google sign in error:", error);
       toast.error("Google sign in failed", {
         description: error.message || "Failed to sign in with Google. Please try again.",

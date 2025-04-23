@@ -68,7 +68,8 @@
     "uuid": "^11.1.0",
     "write-excel-file": "^2.3.2",
     "xlsx": "^0.18.5",
-    "zod": "^3.24.2"
+    "zod": "^3.24.2",
+    "zustand": "^5.0.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
