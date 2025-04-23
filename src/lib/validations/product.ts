@@ -1,3 +1,4 @@
+import { MeasurementUnit } from "@prisma/client";
 import { z } from "zod";
 
 export const VariantAttributeSchema = z.object({
@@ -40,9 +41,9 @@ export const ProductSchema = z.object({
   width: z.coerce.number().positive().optional(),
   height: z.coerce.number().positive().optional(),
   length: z.coerce.number().positive().optional(),
-  dimensionUnit: z.string().optional(),
+  dimensionUnit: z.nativeEnum(MeasurementUnit).optional(),
   weight: z.coerce.number().positive().optional(),
-  weightUnit: z.string().optional(),
+  weightUnit: z.nativeEnum(MeasurementUnit).optional(),
   volumetricWeight: z.coerce.number().positive().optional(),
 
   // Default location

@@ -204,14 +204,13 @@ export async function processSale(
 
   const { memberId, organizationId } = await getServerAuthContext();
 
-  // --- Start Database Transaction ---
   try {
     const result = await db.$transaction(
-      async (tx) => { // Type the transaction client
+      async (tx) => {
         let totalAmount = new Prisma.Decimal(0); // Sum of (unitPrice * quantity) for all items
         const saleItemsCreateData: Omit<
           Prisma.SaleItemCreateManySaleInput,
-          "saleId" // saleId is implicitly added by Prisma
+          "saleId"
         >[] = [];
         // Track updates needed for StockBatch and ProductVariantStock
         const stockBatchUpdates: Map<string, number> = new Map(); // batchId -> quantity change (negative for sale)
@@ -219,7 +218,6 @@ export async function processSale(
 
         // --- Item Processing Loop ---
         for (const item of cartItems) {
-          // Fetch product/variant details for price and existence check
           const product = await tx.product.findUnique({
             where: { id: item.productId, isActive: true, organizationId },
             include: {

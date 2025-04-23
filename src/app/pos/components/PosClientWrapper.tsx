@@ -4,9 +4,8 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQueryState, parseAsArrayOf, parseAsString } from "nuqs";
 import { ProductGrid } from "./ProductGrid";
 import { Cart } from "./Cart";
-import { Customer } from "@prisma/client";
+import { Customer, PaymentMethod } from "@prisma/client";
 import { CartItem as ProjectCartItem } from "@/app/point-of-sale/types";
-import { PaymentMethod } from "@/lib/types";
 import { processSale } from "@/actions/pos.actions";
 
 // Update BaseProduct to include missing required fields with non-nullable SKU
@@ -22,7 +21,7 @@ type BaseProduct = {
 
 // Use the project's CartItem interface with additional required fields
 type CartItem = Omit<ProjectCartItem, "sku"> & {
-  unitPrice: number;
+  unitPrice: string | number;
   totalPrice: number;
   sku: string; // Make SKU non-nullable
 };

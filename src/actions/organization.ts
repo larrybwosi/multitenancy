@@ -101,7 +101,7 @@ export async function createOrganization(
       },
     });
 
-  await prisma.inventoryLocation.create({
+  const mainStore = await prisma.inventoryLocation.create({
     data: {
       name: "Main Store",
       description: "Primary retail store location",
@@ -116,6 +116,11 @@ export async function createOrganization(
     await prisma.user.update({
       where: { id: userId },
       data: { activeOrganizationId: newOrganization.id },
+    });
+    
+    await prisma.organization.update({
+      where: { id: newOrganization.id },
+      data: {  defaultLocationId: mainStore.id },
     });
 
     console.log("New Organization Created:", newOrganization);

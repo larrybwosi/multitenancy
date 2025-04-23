@@ -1,3 +1,5 @@
+import { PaymentMethod } from "@prisma/client";
+
 /**
  * Product interface represents a product in the POS system
  */
@@ -28,8 +30,8 @@ export interface CartItem {
   name: string;
   sku: string;
   quantity: number;
-  unitPrice: string;
-  totalPrice: string;
+  unitPrice: number | string;
+  totalPrice: string | number;
   variantId?: string | null;
   imageUrls?: string[] | null;
 }
@@ -88,17 +90,6 @@ export interface SaleResult {
   success: boolean;
   message: string;
   errors?: string[];
-}
-
-/**
- * Enum representing the possible payment methods
- */
-export enum PaymentMethod {
-  CASH = 'CASH',
-  CREDIT_CARD = 'CREDIT_CARD',
-  DEBIT_CARD = 'DEBIT_CARD',
-  MOBILE_PAYMENT = 'MOBILE_PAYMENT',
-  MPESA = 'MPESA',
 }
 
 /**

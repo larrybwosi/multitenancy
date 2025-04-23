@@ -1,30 +1,53 @@
-'use client';
+"use client";
 
-import { useState, useTransition, useCallback, ChangeEvent } from 'react';
-import { useRouter } from 'next/navigation'; 
-import { toast } from 'sonner'; 
-
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
+import { useState, useTransition, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Trash2, UploadCloud, Loader2, CircleAlert, Terminal, PackagePlus } from 'lucide-react';
-import Image from 'next/image';
-import { ProductInput, ProductSchema } from '@/lib/validations/product';
-import { uploadSanityAsset } from '@/actions/uploads';
-import { SectionHeader } from '@/components/ui/SectionHeader';
-import { useCategories } from '@/lib/hooks/use-categories';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { useFieldArray, useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { VariantModal } from './variant';
-import { useLocations, useSuppliers } from '@/lib/hooks/use-supplier';
+import {
+  Trash2,
+  Loader2,
+  CircleAlert,
+  PackagePlus,
+  ImagePlus,
+} from "lucide-react";
+import Image from "next/image";
+import { ProductInput, ProductSchema } from "@/lib/validations/product";
+import { SectionHeader } from "@/components/ui/SectionHeader";
+import { useCategories } from "@/lib/hooks/use-categories";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { useFieldArray, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useLocations, useSuppliers } from "@/lib/hooks/use-supplier";
+import { DragOverlay } from "@/components/ui/drag-overlay";
+import { VariantModal } from "../add/variant";
+import { Checkbox } from "@/components/ui/checkbox";
+import { MeasurementUnit } from "@prisma/client";
 
 export default function AddProductForm() {
   const router = useRouter();
@@ -33,6 +56,10 @@ export default function AddProductForm() {
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [variantModalOpen, setVariantModalOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [previewFiles, setPreviewFiles] = useState<
+    { file: File; preview: string }[]
+  >([]);
 
   const form = useForm({
     resolver: zodResolver(ProductSchema),
@@ -68,79 +95,101 @@ export default function AddProductForm() {
     },
   });
 
-  const { fields: variantFields, append: appendVariant, remove: removeVariant } = useFieldArray({
+  const {
+    fields: variantFields,
+    append: appendVariant,
+    remove: removeVariant,
+  } = useFieldArray({
     control: form.control,
     name: "variants",
   });
 
-  const { fields: supplierFields, remove: removeSupplier } = useFieldArray({
-    control: form.control,
-    name: "suppliers",
-  });
-  
-    const {
-      data: locationsResult,
-      error: locationsError,
-      isLoading: isLoadingLocations,
-    } = useLocations();
+  const {
+    data: locationsResult,
+    error: locationsError,
+    isLoading: isLoadingLocations,
+  } = useLocations();
 
-    const {
-      data: suppliersResult,
-      error: suppliersError,
-      isLoading: isLoadingSuppliers,
-    } = useSuppliers();
+  const locations = locationsResult?.warehouses || [];
 
-  const availableSuppliers = suppliersResult?.data ?? [];
+  const {
+    data: suppliersResult,
+    error: suppliersError,
+    isLoading: isLoadingSuppliers,
+  } = useSuppliers();
 
   const {
     data: categoriesResult,
     error: categoriesError,
     isLoading: isLoadingCategories,
-  } = useCategories()
+  } = useCategories();
   const categories = categoriesResult?.data || [];
 
-  // --- Handlers ---
-  const handleImageUpload = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const handleImageUpload = useCallback(
+    async (files: FileList) => {
+      if (!files.length) return;
 
-    setIsUploading(true);
-    setGeneralError(null);
-    try {
-      //@ts-expect-error this is fine
-      const url = await uploadSanityAsset(file, 'product-images', 'image');
-      setImageUrls((prev) => [...prev, url]);
-      form.setValue('imageUrls', [...imageUrls, url]);
-      toast.success("Image uploaded successfully!");
-    } catch (error) {
-      console.error("Image upload failed:", error);
-      setGeneralError("Image upload failed. Please try again.");
-      toast.error("Image upload failed.");
-    } finally {
-      setIsUploading(false);
-      event.target.value = '';
-    }
-  }, [imageUrls, form]);
+      // Create previews first
+      const newPreviews = Array.from(files).map((file) => ({
+        file,
+        preview: URL.createObjectURL(file),
+      }));
 
-  const removeImage = useCallback((urlToRemove: string) => {
-    const newUrls = imageUrls.filter((url) => url !== urlToRemove);
-    setImageUrls(newUrls);
-    form.setValue('imageUrls', newUrls);
-  }, [imageUrls, form]);
+      setPreviewFiles((prev) => [...prev, ...newPreviews]);
 
-  // --- Supplier Handlers ---
-  const [selectedSupplierToAdd, setSelectedSupplierToAdd] = useState<string>('');
+      // Then upload each file
+      setIsUploading(true);
+      setGeneralError(null);
 
-  const handlePreferredSupplierChange = (index: number) => {
-    const currentSuppliers = form.getValues('suppliers');
-    const updatedSuppliers = currentSuppliers?.map((supplier, i) => ({
-      ...supplier,
-      isPreferred: i === index
-    }));
-    form.setValue('suppliers', updatedSuppliers);
-  };
+      try {
+        for (const { file } of newPreviews) {
+          const formData = new FormData();
+          formData.append("file", file);
 
-  // --- Form Submission ---
+          const response = await fetch("/api/upload", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!response.ok) throw new Error("Upload failed");
+
+          const data = await response.json();
+          setImageUrls((prev) => [...prev, data.url]);
+          const currentUrls = form.getValues("imageUrls") || [];
+          form.setValue("imageUrls", [...currentUrls, data.url]);
+        }
+        toast.success("Images uploaded successfully!");
+      } catch (error) {
+        console.error("Image upload failed:", error);
+        setGeneralError("Image upload failed. Please try again.");
+        toast.error("Failed to upload images");
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    [form]
+  );
+
+  const removePreview = useCallback((previewToRemove: string) => {
+    setPreviewFiles((prev) =>
+      prev.filter((p) => p.preview !== previewToRemove)
+    );
+    // Revoke the object URL to avoid memory leaks
+    URL.revokeObjectURL(previewToRemove);
+  }, []);
+
+  const removeImage = useCallback(
+    (urlToRemove: string) => {
+      setImageUrls((prev) => prev.filter((url) => url !== urlToRemove));
+      const currentUrls = form.getValues("imageUrls") || [];
+      form.setValue(
+        "imageUrls",
+        currentUrls.filter((url: string) => url !== urlToRemove)
+      );
+    },
+    [form]
+  );
+
   const onSubmit = async (values: ProductInput) => {
     setGeneralError(null);
 
@@ -166,32 +215,32 @@ export default function AddProductForm() {
           method: "POST",
           body: formData,
         });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
         const result = await response.json();
 
         if (result?.error) {
-            setGeneralError(result.error);
+          setGeneralError(result.error);
           if (result.fieldErrors) {
             const firstErrorField = Object.keys(result.fieldErrors)[0];
             const element = document.getElementsByName(firstErrorField)[0];
             element?.focus();
             element?.scrollIntoView({ behavior: "smooth", block: "center" });
-          } else {
-            setGeneralError(result.error);
           }
           toast.error(
             result.error || "Failed to add product. Please check errors."
           );
-        } else if (result?.success) {
+        } else {
           toast.success("Product added successfully!");
           router.push("/products");
-        } else {
-          setGeneralError("An unexpected error occurred.");
-          toast.error("An unexpected error occurred.");
         }
       } catch (error) {
         console.error("Form submission error:", error);
         setGeneralError("An unexpected server error occurred.");
-        toast.error("An unexpected server error occurred.");
+        toast.error("An unexpected error occurred.");
       }
     });
   };
@@ -201,12 +250,12 @@ export default function AddProductForm() {
       <VariantModal
         open={variantModalOpen}
         onOpenChange={setVariantModalOpen}
-        variants={form.watch('variants')}
+        variants={form.watch("variants")}
         onAddVariant={(variant) => appendVariant(variant)}
         onRemoveVariant={removeVariant}
       />
-      
-      <ScrollArea className="container mx-auto p-4 space-y-6 py-4">
+
+      <div className="container mx-auto p-4 space-y-6">
         <SectionHeader
           title="Create New Product"
           subtitle="Fill in the details to add a new product to your catalog."
@@ -223,821 +272,764 @@ export default function AddProductForm() {
               </Alert>
             )}
 
-            {/* --- Basic Information --- */}
-            <Card className="bg-gradient-to-br from-background to-muted/20">
-              <CardHeader>
-                <CardTitle className="text-primary">Basic Information</CardTitle>
-                <CardDescription>
-                  Enter the core details of your product.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Product Name *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., Premium T-Shirt" {...field} className="bg-background" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Detailed description of the product..."
-                          {...field}
-                          value={field.value || ""}
-                          className="bg-background min-h-[100px]"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="barcode"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Product Barcode (Optional)</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="e.g., 123456789012"
-                          {...field}
-                          value={field.value || ""}
-                          className="bg-background"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="categoryId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Category *</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        disabled={isLoadingCategories}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="bg-background">
-                            <SelectValue
-                              placeholder={
-                                isLoadingCategories
-                                  ? "Loading categories..."
-                                  : "Select Category..."
-                              }
-                            />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {isLoadingCategories && (
-                            <SelectItem value="loading" disabled>
-                              Loading...
-                            </SelectItem>
-                          )}
-                          {categoriesError && (
-                            <SelectItem value="error" disabled>
-                              Error loading categories
-                            </SelectItem>
-                          )}
-                          {!isLoadingCategories &&
-                            !categoriesError &&
-                            categories.length === 0 && (
-                              <SelectItem value="no-items" disabled>
-                                No categories found
-                              </SelectItem>
-                            )}
-                          {categories.map((cat) => (
-                            <SelectItem key={cat.id} value={cat.id}>
-                              {cat.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="basePrice"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Base Price ($) *</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          placeholder="e.g., 29.99"
-                          {...field}
-                          className="bg-background"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="isActive"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4 md:col-span-2 bg-background">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>Product is Active</FormLabel>
-                        <FormDescription>
-                          Inactive products will not be visible or purchasable.
-                        </FormDescription>
-                      </div>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
-
-            {/* --- Images --- */}
-            <Card className="bg-gradient-to-br from-background to-muted/20">
-              <CardHeader>
-                <CardTitle className="text-primary">Product Images</CardTitle>
-                <CardDescription>
-                  Upload images for your product. The first image is often used as
-                  the main display image.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="imageUrls"
-                  render={() => (
-                    <FormItem>
-                      <FormControl>
-                        <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
-                          {imageUrls.map((url) => (
-                            <div
-                              key={url}
-                              className="relative aspect-square group"
-                            >
-                              <Image
-                                src={url}
-                                alt="Product image"
-                                fill
-                                className="rounded-md border object-cover"
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Basic Information */}
+              <div className="lg:col-span-6 space-y-6">
+                <Card className="bg-gradient-to-br from-background to-muted/20 shadow-md border-primary/10">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-primary text-xl flex items-center gap-2">
+                      <PackagePlus className="h-5 w-5" />
+                      Basic Information
+                    </CardTitle>
+                    <CardDescription>
+                      Enter the core details of your product.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Product Name *</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="e.g., Premium T-Shirt"
+                                {...field}
+                                className="bg-background/60"
                               />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="barcode"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Barcode/SKU</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="e.g., SKU123456"
+                                {...field}
+                                value={field.value || ""}
+                                className="bg-background/60"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="description"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Description</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Detailed description of the product..."
+                              {...field}
+                              value={field.value || ""}
+                              className="bg-background/60 min-h-[120px]"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="categoryId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Category *</FormLabel>
+                            <FormControl>
+                              <Select
+                                value={field.value}
+                                onValueChange={field.onChange}
+                              >
+                                <SelectTrigger className="bg-background/60">
+                                  <SelectValue placeholder="Select a category" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {categories.map((category) => (
+                                    <SelectItem
+                                      key={category.id}
+                                      value={category.id}
+                                    >
+                                      {category.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="basePrice"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Base Price *</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                placeholder="0.00"
+                                {...field}
+                                onChange={(e) =>
+                                  field.onChange(parseFloat(e.target.value))
+                                }
+                                className="bg-background/60"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="defaultLocationId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Default Location</FormLabel>
+                          <FormControl>
+                            <Select
+                              value={field.value}
+                              onValueChange={field.onChange}
+                            >
+                              <SelectTrigger className="bg-background/60">
+                                <SelectValue placeholder="Select a default location" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {locations.map((location) => (
+                                  <SelectItem
+                                    key={location.id}
+                                    value={location.id}
+                                  >
+                                    {location.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </CardContent>
+                </Card>
+
+                {/* Physical Attributes */}
+                <Card className="bg-gradient-to-br from-background to-muted/20 shadow-md border-primary/10">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-primary text-xl">
+                      Physical Attributes
+                    </CardTitle>
+                    <CardDescription>
+                      Specify the physical characteristics of your product.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="width"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Width</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                step="0.1"
+                                placeholder="0.0"
+                                {...field}
+                                value={field.value || ""}
+                                onChange={(e) =>
+                                  field.onChange(
+                                    e.target.value
+                                      ? parseFloat(e.target.value)
+                                      : undefined
+                                  )
+                                }
+                                className="bg-background/60"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="height"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Height</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                step="0.1"
+                                placeholder="0.0"
+                                {...field}
+                                value={field.value || ""}
+                                onChange={(e) =>
+                                  field.onChange(
+                                    e.target.value
+                                      ? parseFloat(e.target.value)
+                                      : undefined
+                                  )
+                                }
+                                className="bg-background/60"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="length"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Length</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                step="0.1"
+                                placeholder="0.0"
+                                {...field}
+                                value={field.value || ""}
+                                onChange={(e) =>
+                                  field.onChange(
+                                    e.target.value
+                                      ? parseFloat(e.target.value)
+                                      : undefined
+                                  )
+                                }
+                                className="bg-background/60"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="dimensionUnit"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Dimension Unit</FormLabel>
+                            <FormControl>
+                              <Select
+                                value={field.value}
+                                onValueChange={field.onChange}
+                              >
+                                <SelectTrigger className="bg-background/60">
+                                  <SelectValue placeholder="Select unit" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {Object.entries(MeasurementUnit)
+                                    .filter(
+                                      ([key]) =>
+                                        key.includes("CUBIC_") ||
+                                        key.includes("SQUARE_") ||
+                                        key === "METER" ||
+                                        key === "FEET"
+                                    )
+                                    .map(([key, value]) => (
+                                      <SelectItem key={key} value={value}>
+                                        {value
+                                          .replace("CUBIC_", "Cubic ")
+                                          .replace("SQUARE_", "Square ")
+                                          .replace("METER", "Meter")
+                                          .replace("FEET", "Feet")}
+                                      </SelectItem>
+                                    ))}
+                                </SelectContent>
+                              </Select>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="weight"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Weight</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                placeholder="0.0"
+                                {...field}
+                                value={field.value || ""}
+                                onChange={(e) =>
+                                  field.onChange(
+                                    e.target.value
+                                      ? parseFloat(e.target.value)
+                                      : undefined
+                                  )
+                                }
+                                className="bg-background/60"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="weightUnit"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Weight Unit</FormLabel>
+                            <FormControl>
+                              <Select
+                                value={field.value}
+                                onValueChange={field.onChange}
+                              >
+                                <SelectTrigger className="bg-background/60">
+                                  <SelectValue placeholder="Select unit" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {Object.entries(MeasurementUnit)
+                                    .filter(([key]) =>
+                                      key.startsWith("WEIGHT_")
+                                    ) // Only include weight units
+                                    .map(([key, value]) => (
+                                      <SelectItem key={key} value={value}>
+                                        {value.replace("WEIGHT_", "")}{" "}
+                                        {/* Shows "KG" and "LB" */}
+                                      </SelectItem>
+                                    ))}
+                                </SelectContent>
+                              </Select>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="volumetricWeight"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Volumetric Weight</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                placeholder="0.0"
+                                {...field}
+                                value={field.value || ""}
+                                onChange={(e) =>
+                                  field.onChange(
+                                    e.target.value
+                                      ? parseFloat(e.target.value)
+                                      : undefined
+                                  )
+                                }
+                                className="bg-background/60"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Right Column - Inventory and Variants */}
+              <div className="lg:col-span-6 space-y-6">
+                {/* Inventory Settings */}
+                <Card className="bg-gradient-to-br from-background to-muted/20 shadow-md border-primary/10">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-primary text-xl">
+                      Inventory Settings
+                    </CardTitle>
+                    <CardDescription>
+                      Configure inventory management options.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="reorderPoint"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Reorder Point</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              placeholder="10"
+                              {...field}
+                              onChange={(e) =>
+                                field.onChange(parseInt(e.target.value))
+                              }
+                              className="bg-background/60"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="isActive"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>Active Product</FormLabel>
+                            <p className="text-sm text-muted-foreground">
+                              This product will be available for sale.
+                            </p>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                  </CardContent>
+                </Card>
+
+                {/* Variants */}
+                <Card className="bg-gradient-to-br from-background to-muted/20 shadow-md border-primary/10">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-primary text-xl flex items-center justify-between">
+                      <span>Product Variants</span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setVariantModalOpen(true)}
+                        className="h-8"
+                      >
+                        Manage Variants
+                      </Button>
+                    </CardTitle>
+                    <CardDescription>
+                      Configure different variations of your product.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {variantFields.length > 0 ? (
+                      <div className="space-y-2 max-h-60 overflow-auto">
+                        {variantFields.map((field, index) => (
+                          <div
+                            key={field.id}
+                            className="p-3 border rounded bg-background/50 hover:bg-background/80 transition-colors"
+                          >
+                            <div className="flex justify-between items-center">
+                              <p className="font-medium">
+                                {field.name || "Unnamed Variant"}
+                              </p>
                               <Button
                                 type="button"
-                                variant="destructive"
-                                size="icon"
-                                className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                                onClick={() => removeImage(url)}
-                                aria-label="Remove image"
-                                disabled={isPending || isUploading}
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeVariant(index)}
+                                className="h-6 w-6 p-0"
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-4 w-4 text-destructive" />
                               </Button>
                             </div>
-                          ))}
-                          <Label
-                            htmlFor="imageUpload"
-                            className={`flex flex-col items-center justify-center aspect-square border-2 border-dashed rounded-md transition-colors ${isUploading || isPending ? "cursor-not-allowed opacity-50 bg-background" : "cursor-pointer hover:border-primary bg-background"}`}
-                          >
-                            {isUploading ? (
-                              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                            ) : (
-                              <UploadCloud className="h-8 w-8 text-muted-foreground" />
-                            )}
-                            <span className="mt-2 text-xs text-muted-foreground">
-                              {isUploading ? "Uploading..." : "Upload"}
-                            </span>
-                            <Input
-                              id="imageUpload"
-                              type="file"
-                              accept="image/*"
-                              className="sr-only"
-                              onChange={handleImageUpload}
-                              disabled={isUploading || isPending}
-                            />
-                          </Label>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
-
-            {/* --- Variants --- */}
-            <Card className="bg-gradient-to-br from-background to-muted/20">
-              <CardHeader>
-                <CardTitle className="text-primary">Variants</CardTitle>
-                <CardDescription>
-                  Define different versions (e.g., size, color). The first variant
-                  often represents the base product if no specific attributes
-                  differentiate it.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  {variantFields.map((field, index) => (
-                    <div
-                      key={field.id}
-                      className="p-4 border rounded-md relative space-y-4 bg-background"
-                    >
-                      {variantFields.length > 1 && (
+                            <div className="mt-1 text-sm text-muted-foreground">
+                              <div className="flex justify-between">
+                                <span>Barcode: {field.barcode || "N/A"}</span>
+                                <span
+                                  className={
+                                    field.isActive
+                                      ? "text-green-500"
+                                      : "text-red-500"
+                                  }
+                                >
+                                  {field.isActive ? "Active" : "Inactive"}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>
+                                  Reorder: {field.reorderPoint} /{" "}
+                                  {field.reorderQty}
+                                </span>
+                                <span
+                                  className={
+                                    field.lowStockAlert
+                                      ? "text-amber-500"
+                                      : "text-muted-foreground"
+                                  }
+                                >
+                                  {field.lowStockAlert
+                                    ? "Low Stock Alert On"
+                                    : "No Alerts"}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-4 text-center">
+                        <p className="text-muted-foreground">
+                          No variants defined.
+                        </p>
                         <Button
                           type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="absolute top-2 right-2 h-7 w-7 text-muted-foreground hover:text-destructive z-10"
-                          onClick={() => removeVariant(index)}
-                          disabled={isPending}
-                          aria-label="Remove variant"
+                          variant="outline"
+                          onClick={() => setVariantModalOpen(true)}
+                          className="mt-2"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          Add Your First Variant
                         </Button>
-                      )}
-                      <h4 className="font-medium text-sm mb-3 text-primary">
-                        {field.name}
-                      </h4>
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div>
-                          <Label>Reorder Point</Label>
-                          <p className="text-sm">{field.reorderPoint}</p>
-                        </div>
-                        <div>
-                          <Label>Reorder Quantity</Label>
-                          <p className="text-sm">{field.reorderQty}</p>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox 
-                            checked={field.isActive} 
-                            disabled 
-                            className="h-4 w-4"
-                          />
-                          <Label>Active</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox 
-                            checked={field.lowStockAlert} 
-                            disabled 
-                            className="h-4 w-4"
-                          />
-                          <Label>Low Stock Alert</Label>
-                        </div>
                       </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Product Images */}
+                <Card className="bg-gradient-to-br from-background to-muted/20 shadow-md border-primary/10">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-primary text-xl flex items-center gap-2">
+                      <ImagePlus className="h-5 w-5" />
+                      Product Images
+                    </CardTitle>
+                    <CardDescription>
+                      Upload or drag & drop product images here.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div
+                      className={`relative min-h-[300px] border-2 border-dashed rounded-lg ${
+                        isDragging
+                          ? "border-primary bg-primary/10"
+                          : "border-muted"
+                      } transition-colors duration-200`}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsDragging(true);
+                      }}
+                      onDragLeave={() => setIsDragging(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIsDragging(false);
+                        if (e.dataTransfer.files) {
+                          handleImageUpload(e.dataTransfer.files);
+                        }
+                      }}
+                    >
+                      {previewFiles.length === 0 && imageUrls.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full p-6">
+                          <ImagePlus className="h-12 w-12 text-muted-foreground mb-4" />
+                          <p className="text-sm text-muted-foreground text-center mb-2">
+                            Drag & drop your images here or click to browse
+                          </p>
+                          <Input
+                            id="imageUpload"
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            onChange={(e) =>
+                              e.target.files &&
+                              handleImageUpload(e.target.files)
+                            }
+                            disabled={isUploading}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() =>
+                              document.getElementById("imageUpload")?.click()
+                            }
+                            disabled={isUploading}
+                          >
+                            {isUploading ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Uploading...
+                              </>
+                            ) : (
+                              "Browse Images"
+                            )}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="p-4">
+                          <div className="flex justify-between items-center mb-2">
+                            <p className="text-sm font-medium">
+                              Product Images
+                            </p>
+                            <Input
+                              id="additionalImageUpload"
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              className="hidden"
+                              onChange={(e) =>
+                                e.target.files &&
+                                handleImageUpload(e.target.files)
+                              }
+                              disabled={isUploading}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                document
+                                  .getElementById("additionalImageUpload")
+                                  ?.click()
+                              }
+                              disabled={isUploading}
+                            >
+                              {isUploading ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Uploading...
+                                </>
+                              ) : (
+                                "Add More"
+                              )}
+                            </Button>
+                          </div>
+
+                          <ScrollArea className="h-[220px]">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                              {/* Preview Files (not yet uploaded) */}
+                              {previewFiles.map((item) => (
+                                <div
+                                  key={item.preview}
+                                  className="relative group aspect-square"
+                                >
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg z-10">
+                                    <div className="flex gap-2">
+                                      <Button
+                                        type="button"
+                                        variant="destructive"
+                                        size="icon"
+                                        className="h-8 w-8"
+                                        onClick={() =>
+                                          removePreview(item.preview)
+                                        }
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                  <div className="h-full w-full rounded-lg overflow-hidden border border-muted">
+                                    <Image
+                                      src={item.preview}
+                                      alt="Preview"
+                                      width={150}
+                                      height={150}
+                                      className="h-full w-full object-cover"
+                                      onLoad={() =>
+                                        URL.revokeObjectURL(item.preview)
+                                      }
+                                    />
+                                    <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-1 text-center">
+                                      Uploading...
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+
+                              {/* Uploaded Files */}
+                              {imageUrls.map((url) => (
+                                <div
+                                  key={url}
+                                  className="relative group aspect-square"
+                                >
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg z-10">
+                                    <div className="flex gap-2">
+                                      <Button
+                                        type="button"
+                                        variant="destructive"
+                                        size="icon"
+                                        className="h-8 w-8"
+                                        onClick={() => removeImage(url)}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                  <div className="h-full w-full rounded-lg overflow-hidden border border-muted">
+                                    <Image
+                                      src={url}
+                                      alt="Product Image"
+                                      width={150}
+                                      height={150}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </ScrollArea>
+                        </div>
+                      )}
+                      {isDragging && <DragOverlay />}
                     </div>
-                  ))}
-                </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <div className="sticky bottom-4 bg-background/95 p-4 rounded-lg shadow-lg backdrop-blur-md border border-muted">
+              <div className="flex justify-between items-center">
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setVariantModalOpen(true)}
-                  disabled={isPending}
-                  className="w-full"
+                  onClick={() => router.push("/products")}
                 >
-                  Manage Variants
+                  Cancel
                 </Button>
-                {form.formState.errors.variants &&
-                  typeof form.formState.errors.variants === "object" &&
-                  !Array.isArray(form.formState.errors.variants) && (
-                    <p className="text-sm font-medium text-destructive">
-                      {form.formState.errors.variants.message}
-                    </p>
+                <Button
+                  type="submit"
+                  className="min-w-[150px]"
+                  disabled={isPending || isUploading}
+                >
+                  {isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Adding Product...
+                    </>
+                  ) : (
+                    "Add Product"
                   )}
-              </CardContent>
-            </Card>
-
-            {/* --- Suppliers --- */}
-            <Card className="bg-gradient-to-br from-background to-muted/20">
-              <CardHeader>
-                <CardTitle className="text-primary">Suppliers</CardTitle>
-                <CardDescription>
-                  Manage suppliers and their specific details for this product.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex flex-col sm:flex-row gap-2 items-end p-4 border rounded-lg bg-background">
-                  <div className="flex-grow w-full sm:w-auto space-y-1">
-                    <Label htmlFor="supplierSelect">Available Suppliers</Label>
-                    <Select
-                      value={selectedSupplierToAdd}
-                      onValueChange={setSelectedSupplierToAdd}
-                      disabled={
-                        isLoadingSuppliers ||
-                        isPending ||
-                        availableSuppliers.length === 0
-                      }
-                    >
-                      <SelectTrigger id="supplierSelect" className="bg-background">
-                        <SelectValue
-                          placeholder={
-                            isLoadingSuppliers
-                              ? "Loading..."
-                              : suppliersError
-                                ? "Error loading"
-                                : availableSuppliers.length === 0
-                                  ? "No available suppliers"
-                                  : "Select a supplier to add"
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {isLoadingSuppliers && (
-                          <SelectItem value="loading" disabled>
-                            Loading...
-                          </SelectItem>
-                        )}
-                        {suppliersError && (
-                          <SelectItem value="error" disabled>
-                            Error loading suppliers
-                          </SelectItem>
-                        )}
-                        {!isLoadingSuppliers &&
-                          !suppliersError &&
-                          availableSuppliers.length === 0 && (
-                            <SelectItem value="no-suppliers" disabled>
-                              No suppliers found or all added
-                            </SelectItem>
-                          )}
-                        {availableSuppliers.map((supplier) => (
-                          <SelectItem key={supplier.id} value={supplier.id}>
-                            {supplier.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {suppliersError && (
-                      <p className="text-sm text-destructive mt-1">
-                        {suppliersError.message}
-                      </p>
-                    )}
-                  </div>
-                  <Button
-                    type="button"
-                    onClick={() => router.push('/suppliers/add')}
-                    disabled={isLoadingSuppliers || isPending}
-                    className="w-full sm:w-auto"
-                    variant="secondary"
-                  >
-                    Add New Supplier
-                  </Button>
-                </div>
-
-                {supplierFields.length > 0 && <Separator />}
-                <div className="space-y-4">
-                  {supplierFields.map((field, index) => {
-                    const supplierDetails = availableSuppliers.find(
-                      (s) => s.id === field.supplierId
-                    );
-                    return (
-                      <div
-                        key={field.id}
-                        className="p-4 border rounded-md relative space-y-4 bg-background"
-                      >
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="absolute top-2 right-2 h-7 w-7 text-muted-foreground hover:text-destructive z-10"
-                          onClick={() => removeSupplier(index)}
-                          disabled={isPending}
-                          aria-label="Remove supplier"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                        <h4 className="font-semibold text-primary">
-                          {supplierDetails?.name ||
-                            `Supplier ID: ${field.supplierId}`}
-                        </h4>
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                          <FormField
-                            control={form.control}
-                            name={`suppliers.${index}.costPrice`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Cost Price ($) *</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    {...field}
-                                    className="bg-background"
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name={`suppliers.${index}.minimumOrderQuantity`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Min. Order Qty</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    type="number"
-                                    min="1"
-                                    step="1"
-                                    {...field}
-                                    className="bg-background"
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name={`suppliers.${index}.packagingUnit`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Packaging Unit</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    placeholder="e.g., Box of 12"
-                                    {...field}
-                                    className="bg-background"
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                        <FormField
-                          control={form.control}
-                          name={`suppliers.${index}.isPreferred`}
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center space-x-2 pt-2">
-                              <FormControl>
-                                <Checkbox
-                                  checked={field.value}
-                                  onCheckedChange={() =>
-                                    handlePreferredSupplierChange(index)
-                                  }
-                                  id={`isPreferred-${index}`}
-                                  className="bg-background"
-                                />
-                              </FormControl>
-                              <Label
-                                htmlFor={`isPreferred-${index}`}
-                                className="text-sm font-medium"
-                              >
-                                Preferred Supplier
-                              </Label>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-                {form.formState.errors.suppliers &&
-                  typeof form.formState.errors.suppliers === "object" &&
-                  !Array.isArray(form.formState.errors.suppliers) && (
-                    <p className="text-sm font-medium text-destructive">
-                      {form.formState.errors.suppliers.message}
-                    </p>
-                  )}
-              </CardContent>
-            </Card>
-
-            {/* --- Physical Dimensions & Weight --- */}
-            <Card className="bg-gradient-to-br from-background to-muted/20">
-              <CardHeader>
-                <CardTitle className="text-primary">Physical Properties</CardTitle>
-                <CardDescription>
-                  Enter dimensions and weight, primarily used for shipping
-                  calculations. Leave blank if not applicable.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2 lg:grid-cols-3">
-                <div className="space-y-4 border p-4 rounded-md md:col-span-2 lg:col-span-1 bg-background">
-                  <Label className="text-sm font-medium">Dimensions</Label>
-                  <div className="grid grid-cols-3 gap-2 items-end">
-                    <FormField
-                      control={form.control}
-                      name="width"
-                      render={({ field }) => (
-                        <FormItem className="col-span-1">
-                          <FormLabel className="text-xs">Width</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              step="any"
-                              min="0"
-                              placeholder="W"
-                              {...field}
-                              value={field.value ?? ""}
-                              className="bg-background"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="height"
-                      render={({ field }) => (
-                        <FormItem className="col-span-1">
-                          <FormLabel className="text-xs">Height</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              step="any"
-                              min="0"
-                              placeholder="H"
-                              {...field}
-                              value={field.value ?? ""}
-                              className="bg-background"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="length"
-                      render={({ field }) => (
-                        <FormItem className="col-span-1">
-                          <FormLabel className="text-xs">Length</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              step="any"
-                              min="0"
-                              placeholder="L"
-                              {...field}
-                              value={field.value ?? ""}
-                              className="bg-background"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
-                <FormField
-                  control={form.control}
-                  name="dimensionUnit"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Dimension Unit</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="bg-background">
-                            <SelectValue placeholder="Unit" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="cm">cm</SelectItem>
-                          <SelectItem value="in">in</SelectItem>
-                          <SelectItem value="m">m</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="space-y-2">
-                  <Label>Weight</Label>
-                  <div className="flex gap-2">
-                    <FormField
-                      control={form.control}
-                      name="weight"
-                      render={({ field }) => (
-                        <FormItem className="flex-grow">
-                          <FormControl>
-                            <Input
-                              type="number"
-                              step="any"
-                              min="0"
-                              placeholder="e.g., 0.5"
-                              {...field}
-                              value={field.value ?? ""}
-                              className="bg-background"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="weightUnit"
-                      render={({ field }) => (
-                        <FormItem className="w-[80px] flex-shrink-0">
-                          <Select
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger className="bg-background">
-                                <SelectValue placeholder="Unit" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="kg">kg</SelectItem>
-                              <SelectItem value="g">g</SelectItem>
-                              <SelectItem value="lb">lb</SelectItem>
-                              <SelectItem value="oz">oz</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="volumetricWeight"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2 lg:col-span-3">
-                      <FormLabel>Volumetric Weight (Optional)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="any"
-                          min="0"
-                          placeholder="Calculated or specified volumetric weight"
-                          {...field}
-                          value={field.value ?? ""}
-                          className="bg-background"
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Used by some carriers. Often calculated as (L x W x H) /
-                        Dim Factor. Uses same unit as Weight.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
-
-            {/* --- Inventory & Location --- */}
-            <Card className="bg-gradient-to-br from-background to-muted/20">
-              <CardHeader>
-                <CardTitle className="text-primary">Inventory</CardTitle>
-                <CardDescription>
-                  Set overall product reorder level and default storage location.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="reorderPoint"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Product Reorder Point *</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number" 
-                          min="0" 
-                          step="1" 
-                          {...field} 
-                          className="bg-background"
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Alert level for the product overall (variants have their
-                        own).
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="defaultLocationId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Default Storage Location *</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        disabled={isLoadingLocations}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="bg-background">
-                            <SelectValue
-                              placeholder={
-                                isLoadingLocations
-                                  ? "Loading locations..."
-                                  : "Select default location"
-                              }
-                            />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {isLoadingLocations && (
-                            <SelectItem value="loading" disabled>
-                              Loading...
-                            </SelectItem>
-                          )}
-                          {locationsError && (
-                            <SelectItem value="error" disabled>
-                              Error loading locations
-                            </SelectItem>
-                          )}
-                          {!isLoadingLocations &&
-                            !locationsError &&
-                            locationsResult?.warehouses?.length === 0 && (
-                              <SelectItem value="no-items" disabled>
-                                No locations found
-                              </SelectItem>
-                            )}
-                            
-                          {locationsResult?.warehouses?.map((loc) => (
-                            <SelectItem key={loc.id} value={loc.id}>
-                              {loc.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>
-                        Where newly received stock of this product typically goes.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
-
-            {/* --- Submission --- */}
-            <div className="flex justify-end space-x-4 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.back()}
-                disabled={isPending}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isPending || isUploading}>
-                {isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : null}
-                {isPending ? "Adding Product..." : "Add Product"}
-              </Button>
+                </Button>
+              </div>
             </div>
-
-            {/* Display raw form errors for debugging if needed */}
-            {Object.keys(form.formState.errors).length > 0 &&
-              process.env.NODE_ENV === "development" && (
-                <Alert variant="destructive" className="mt-6">
-                  <Terminal className="h-4 w-4" />
-                  <AlertTitle>Validation Errors Detected (Dev Only)</AlertTitle>
-                  <AlertDescription>
-                    <pre className="mt-2 rounded-md bg-slate-950 p-4 overflow-x-auto">
-                      <code className="text-white text-xs">
-                        {JSON.stringify(form.formState.errors, null, 2)}
-                      </code>
-                    </pre>
-                  </AlertDescription>
-                </Alert>
-              )}
           </form>
         </Form>
-      </ScrollArea>
+      </div>
     </>
   );
 }
-
-
-// In this component instead of directly using the updateproduct and add product directly, create anapi route to make the calls, also improve the ui design to have the component into three columns with the product images on one column and preview the images before upload. The page should be very aesthetic and atractive with a slick ui.

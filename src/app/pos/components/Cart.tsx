@@ -49,9 +49,10 @@ import { CartItem } from "./CartItem";
 import { CustomerSelectionDialog } from "./CustomerSelectionDialog";
 import { formatCurrency, parseFloatSafe } from "@/lib/utils";
 import { toast } from "sonner";
-import { CartProps, Customer, PaymentMethod, SaleData } from "../types";
+import { CartProps, Customer, SaleData } from "../types";
 import { Receipt } from "./Receipt";
 import SelectedCustomer from "./selected-customer";
+import { PaymentMethod } from "@prisma/client";
 
 const TAX_RATE = 0.16; // 16% tax rate
 const POINTS_TO_CURRENCY_RATIO = 10; // 10 points = $1
@@ -60,8 +61,8 @@ const mapCartItemsToReceiptItems = (items: CartProps['cartItems']) => {
   return items.map(item => ({
     name: item.name,
     quantity: item.quantity,
-    unitPrice: parseFloat(item.unitPrice),
-    totalPrice: parseFloat(item.totalPrice),
+    unitPrice: parseFloat(item.unitPrice.toString()),
+    totalPrice: parseFloat(item.totalPrice.toString()),
     sku: item.sku
   }));
 };
@@ -82,25 +83,12 @@ export function Cart({
   const [isCheckoutDialogOpen, setIsCheckoutDialogOpen] = useState(false);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [mpesaStatus, setMpesaStatus] = useState<'idle' | 'pending' | 'success' | 'failed'>('idle');
+  const [mMOBILE_PAYMENTStatus, setMOBILE_PAYMENTStatus] = useState<'idle' | 'pending' | 'success' | 'failed'>('idle');
   const [loyaltyPointsToRedeem, setLoyaltyPointsToRedeem] = useState(0);
-  const [pointsEarned, setPointsEarned] = useState(0);
 
-  // Calculate points earned and discount whenever cart or points change
+  // Auto-fill phone number from customer if available and payment method is MOBILE_PAYMENT
   useEffect(() => {
-    if (selectedCustomer?.isLoyalCustomer) {
-      // Calculate points earned (1 point per $1 spent)
-      const subtotal = parseFloatSafe(cartTotal);
-      const earned = Math.floor(subtotal);
-      setPointsEarned(earned);
-    } else {
-      setPointsEarned(0);
-    }
-  }, [cartTotal, selectedCustomer]);
-
-  // Auto-fill phone number from customer if available and payment method is MPESA
-  useEffect(() => {
-    if (paymentMethod === PaymentMethod.MPESA && selectedCustomer?.phone) {
+    if (paymentMethod === PaymentMethod.MOBILE_PAYMENT && selectedCustomer?.phone) {
       setPhoneNumber(selectedCustomer.phone);
     }
   }, [paymentMethod, selectedCustomer]);
@@ -131,10 +119,10 @@ export function Cart({
       return;
     }
 
-    // Validate phone number if MPESA payment method
-    if (paymentMethod === PaymentMethod.MPESA) {
+    // Validate phone number if MOBILE_PAYMENT payment method
+    if (paymentMethod === PaymentMethod.MOBILE_PAYMENT) {
       if (!phoneNumber) {
-        toast.error("Phone number is required for MPESA payments", { duration: 3000 });
+        toast.error("Phone number is required for MOBILE_PAYMENT payments", { duration: 3000 });
         return;
       }
       
@@ -144,7 +132,7 @@ export function Cart({
         return;
       }
       
-      setMpesaStatus('pending');
+      setMOBILE_PAYMENTStatus('pending');
     }
     
     setIsSubmitting(true);
@@ -160,20 +148,18 @@ export function Cart({
       })),
       taxAmount: taxAmount.toString(),
       totalAmount: totalAmount.toString(),
-      phoneNumber: paymentMethod === PaymentMethod.MPESA ? phoneNumber : undefined,
-      loyaltyPointsRedeemed: loyaltyPointsToRedeem,
-      loyaltyPointsEarned: pointsEarned,
+      phoneNumber: paymentMethod === PaymentMethod.MOBILE_PAYMENT ? phoneNumber : undefined,
     };
 
     try {
       const result = await onSubmitSale(saleData);
       if (result.success) {
-        if (paymentMethod === PaymentMethod.MPESA) {
-          toast.success("MPESA STK Push sent!", {
+        if (paymentMethod === PaymentMethod.MOBILE_PAYMENT) {
+          toast.success("MOBILE_PAYMENT STK Push sent!", {
             description: "Please check your phone to complete payment",
             duration: 5000,
           });
-          setMpesaStatus('success');
+          setMOBILE_PAYMENTStatus('success');
           setTimeout(() => {
             onClearCart();
             handleClearCustomer();
@@ -182,7 +168,7 @@ export function Cart({
             setPaymentMethod(PaymentMethod.CASH);
             setIsCheckoutDialogOpen(false);
             setIsReceiptOpen(true);
-            setMpesaStatus('idle');
+            setMOBILE_PAYMENTStatus('idle');
           }, 2000);
         } else {
           toast.success("Sale Successful!", {
@@ -198,8 +184,8 @@ export function Cart({
           setIsReceiptOpen(true);
         }
       } else {
-        if (paymentMethod === PaymentMethod.MPESA) {
-          setMpesaStatus('failed');
+        if (paymentMethod === PaymentMethod.MOBILE_PAYMENT) {
+          setMOBILE_PAYMENTStatus('failed');
         }
         toast.error("Checkout Failed", {
           description: result.message || "An unknown error occurred.",
@@ -207,8 +193,8 @@ export function Cart({
         });
       }
     } catch (error: unknown) {
-      if (paymentMethod === PaymentMethod.MPESA) {
-        setMpesaStatus('failed');
+      if (paymentMethod === PaymentMethod.MOBILE_PAYMENT) {
+        setMOBILE_PAYMENTStatus('failed');
       }
       console.error("Error processing sale:", error);
       toast.error("Checkout Failed", {
@@ -297,7 +283,7 @@ export function Cart({
                 loyaltyPointsToRedeem={loyaltyPointsToRedeem}
                 onClearCustomer={handleClearCustomer}
                 onPointsRedeemChange={handlePointsRedeemChange}
-                pointsEarned={pointsEarned}
+                pointsEarned={0}
               />
             </div>
           )}
@@ -440,7 +426,7 @@ export function Cart({
                     </Select>
                   </div>
                   
-                  {paymentMethod === PaymentMethod.MPESA && (
+                  {paymentMethod === PaymentMethod.MOBILE_PAYMENT && (
                     <div className="grid grid-cols-4 items-center gap-4">
                       <Label
                         htmlFor="phone-number"
@@ -514,21 +500,21 @@ export function Cart({
                     </div>
                   )}
                   
-                  {mpesaStatus === 'pending' && (
+                  {mMOBILE_PAYMENTStatus === 'pending' && (
                     <div className="flex items-center justify-center p-3 bg-blue-50 rounded-lg border border-blue-100">
                       <Loader2 className="animate-spin h-4 w-4 text-blue-600 mr-2" />
                       <span className="text-blue-700 text-xs">Sending M-Pesa request...</span>
                     </div>
                   )}
                   
-                  {mpesaStatus === 'success' && (
+                  {mMOBILE_PAYMENTStatus === 'success' && (
                     <div className="flex items-center justify-center p-3 bg-green-50 rounded-lg border border-green-100">
                       <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
                       <span className="text-green-700 text-xs">M-Pesa request sent successfully!</span>
                     </div>
                   )}
                   
-                  {mpesaStatus === 'failed' && (
+                  {mMOBILE_PAYMENTStatus === 'failed' && (
                     <div className="flex items-center justify-center p-3 bg-red-50 rounded-lg border border-red-100">
                       <XCircle className="h-4 w-4 text-red-600 mr-2" />
                       <span className="text-red-700 text-xs">M-Pesa request failed. Please try again.</span>
@@ -595,7 +581,7 @@ export function Cart({
             customer={selectedCustomer}
             date={new Date()}
             loyaltyDiscount={loyaltyDiscount}
-            pointsEarned={pointsEarned}
+            pointsEarned={0}
           />
           <DialogFooter className="sm:justify-center">
             <Button

@@ -3,8 +3,9 @@
 
 import React from "react";
 import { formatCurrency } from "@/lib/utils";
-import { Customer, PaymentMethod } from "../types";
+import { Customer } from "../types";
 import { CalendarDays, Phone, Mail, CheckCircle2 } from "lucide-react";
+import { PaymentMethod } from "@prisma/client";
 
 interface ReceiptProps {
   items: {
@@ -20,6 +21,8 @@ interface ReceiptProps {
   paymentMethod: PaymentMethod;
   customer: Customer | null;
   date: Date;
+  loyaltyDiscount?: number;
+  pointsEarned?: number;
 }
 
 export function Receipt({

@@ -2,16 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 
 // Define the array of public paths that should NOT run the auth check
-const publicPaths = ["/sign-in", "/api/auth", "/about", "/"];
+const publicPaths = ["/sign-in", "/api/auth", "/about", "/api/auth/get-session"];
 
 export default async function middleware(request: NextRequest) {
   const currentPath = request.nextUrl.pathname;
 
-  const isPublicPath = publicPaths.some(
-    (path) =>
-      currentPath === path ||
-      (path.endsWith("/") && currentPath.startsWith(path))
-  );
+const isPublicPath = publicPaths.some((path) => {
+  // Exact match
+  if (currentPath === path) return true;
+
+  // Match paths that start with a path ending with '/'
+  if (path.endsWith("/")) {
+    return currentPath.startsWith(path) || currentPath === path.slice(0, -1); // Also match path without trailing slash
+  }
+
+  return false;
+});
 
   // If the path is public, skip authentication and proceed
   if (isPublicPath) {
