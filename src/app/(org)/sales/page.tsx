@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useQueryState } from "nuqs";
 import { Download, ExternalLink, Eye, FilePlus2 } from "lucide-react";
 import useSWR from "swr";
@@ -79,7 +79,7 @@ export default function SalesPage() {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
-    }).format(amount);
+    }).format(parseInt(amount.toString()));
   };
 
   // Simple date formatter function without date-fns
@@ -211,168 +211,187 @@ export default function SalesPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-6 space-y-6">
-      <SectionHeader
-        title="Sales"
-        subtitle="View and manage all sales transactions"
-        actionLabel="New Sale"
-        icon={<FilePlus2 className="h-8 w-8 text-green-500" />}
-      />
+    <Suspense fallback={<SalesLoadingSkeleton />}>
+      <div className="container mx-auto px-4 py-6 space-y-6">
+        <SectionHeader
+          title="Sales"
+          subtitle="View and manage all sales transactions"
+          icon={<FilePlus2 className="h-8 w-8 text-green-500" />}
+        />
 
-      <FilterControls
-        searchPlaceholder="Search sales..."
-        onSearch={setSearchQuery}
-        filters={[
-          {
-            name: "paymentMethod",
-            label: "Payment Method",
-            options: paymentMethodOptions,
-            defaultValue: paymentMethod || undefined,
-            onChange: (value) => setPaymentMethod(value as PaymentMethod),
-          },
-          {
-            name: "paymentStatus",
-            label: "Payment Status",
-            options: paymentStatusOptions,
-            defaultValue: paymentStatus || undefined,
-            onChange: (value) => setPaymentStatus(value as PaymentStatus),
-          },
-          {
-            name: "dateRange",
-            label: "Date Range",
-            options: dateRangeOptions,
-            defaultValue: dateRange || undefined,
-            onChange: setDateRange,
-          },
-        ]}
-        exportActions={exportActions}
-        variant="bordered"
-      />
+        <FilterControls
+          searchPlaceholder="Search sales..."
+          onSearch={setSearchQuery}
+          filters={[
+            {
+              name: "paymentMethod",
+              label: "Payment Method",
+              options: paymentMethodOptions,
+              defaultValue: paymentMethod || undefined,
+              onChange: (value) => setPaymentMethod(value as PaymentMethod),
+            },
+            {
+              name: "paymentStatus",
+              label: "Payment Status",
+              options: paymentStatusOptions,
+              defaultValue: paymentStatus || undefined,
+              onChange: (value) => setPaymentStatus(value as PaymentStatus),
+            },
+            {
+              name: "dateRange",
+              label: "Date Range",
+              options: dateRangeOptions,
+              defaultValue: dateRange || undefined,
+              onChange: setDateRange,
+            },
+          ]}
+          exportActions={exportActions}
+          variant="bordered"
+        />
 
-      {error ? (
-        <div className="rounded-lg border border-destructive bg-destructive/10 p-6 text-center">
-          <h3 className="text-lg font-medium text-destructive">
-            Error loading sales
-          </h3>
-          <p className="mt-2 text-sm text-destructive/80">
-            Please try again later
-          </p>
-        </div>
-      ) : !data?.sales || data.sales.length === 0 ? (
-        <div className="rounded-lg border bg-muted/50 p-6 text-center">
-          <h3 className="text-lg font-medium">No sales found</h3>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Try adjusting your search or filter criteria
-          </p>
-        </div>
-      ) : (
-        <>
-          <div className="rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[120px]">Sale #</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead>Payment Method</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.sales.map((sale) => {
-            const formattedDate = formatDate(sale.saleDate);
-            return (
-              <tr 
-                key={sale.id} 
-                className={`border-b border-gray-100 transition-all duration-200 ${
-                  hoveredRow === sale.id ? 'bg-blue-50' : 'hover:bg-gray-50'
-                }`}
-                onMouseEnter={() => setHoveredRow(sale.id)}
-                onMouseLeave={() => setHoveredRow(null)}
-              >
-                <td className="px-4 py-3 font-medium text-gray-900">
-                  #{sale.saleNumber}
-                </td>
-                <td className="px-4 py-3 text-gray-600">
-                  {formattedDate.date}
-                  <div className="text-xs text-gray-400">
-                    {formattedDate.time}
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  {sale.customerId ? (
-                    <div className="flex items-center space-x-1">
-                      <span className="text-blue-600 font-medium hover:underline cursor-pointer flex items-center">
-                        {sale.customer?.name || "Customer"}
-                        <ExternalLink size={14} className="ml-1 text-gray-400" />
-                      </span>
-                    </div>
-                  ) : (
-                    <span className="text-gray-500">Walk-in</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-right font-medium">
-                  {formatCurrency(sale.finalAmount)}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center">
-                    <div className={`w-2 h-2 rounded-full mr-2 ${
-                      sale.paymentMethod.includes('CREDIT') ? 'bg-purple-500' :
-                      sale.paymentMethod.includes('CASH') ? 'bg-green-500' :
-                      'bg-blue-500'
-                    }`} />
-                    <span className="capitalize text-gray-700">
-                      {sale.paymentMethod.toLowerCase().replace('_', ' ')}
-                    </span>
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    sale.paymentStatus === "COMPLETED" ? 'bg-green-100 text-green-800' :
-                    sale.paymentStatus === "PENDING" ? 'bg-yellow-100 text-yellow-800' :
-                    (sale.paymentStatus === "FAILED" || sale.paymentStatus === "CANCELLED") 
-                      ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {sale.paymentStatus.charAt(0) + sale.paymentStatus.slice(1).toLowerCase()}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <button
-                    className={`inline-flex items-center px-2.5 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                      hoveredRow === sale.id 
-                        ? 'bg-blue-100 text-blue-600' 
-                        : 'text-gray-500 hover:bg-gray-100'
-                    }`}
-                    onClick={() => setSelectedSaleId(sale.id)}
-                  >
-                    <Eye size={16} className="mr-1" />
-                    <span>View</span>
-                  </button>
-                </td>
-              </tr>
-            );
-          })}
-              </TableBody>
-            </Table>
+        {error ? (
+          <div className="rounded-lg border border-destructive bg-destructive/10 p-6 text-center">
+            <h3 className="text-lg font-medium text-destructive">
+              Error loading sales
+            </h3>
+            <p className="mt-2 text-sm text-destructive/80">
+              Please try again later
+            </p>
           </div>
+        ) : !data?.sales || data.sales.length === 0 ? (
+          <div className="rounded-lg border bg-muted/50 p-6 text-center">
+            <h3 className="text-lg font-medium">No sales found</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Try adjusting your search or filter criteria
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[120px]">Sale #</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead>Payment Method</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.sales.map((sale) => {
+                    const formattedDate = formatDate(sale.saleDate);
+                    return (
+                      <tr
+                        key={sale.id}
+                        className={`border-b border-gray-100 transition-all duration-200 ${
+                          hoveredRow === sale.id
+                            ? "bg-blue-50"
+                            : "hover:bg-gray-50"
+                        }`}
+                        onMouseEnter={() => setHoveredRow(sale.id)}
+                        onMouseLeave={() => setHoveredRow(null)}
+                      >
+                        <td className="px-4 py-3 font-medium text-gray-900">
+                          #{sale.saleNumber}
+                        </td>
+                        <td className="px-4 py-3 text-gray-600">
+                          {formattedDate.date}
+                          <div className="text-xs text-gray-400">
+                            {formattedDate.time}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          {sale.customerId ? (
+                            <div className="flex items-center space-x-1">
+                              <span className="text-blue-600 font-medium hover:underline cursor-pointer flex items-center">
+                                {sale.customer?.name || "Customer"}
+                                <ExternalLink
+                                  size={14}
+                                  className="ml-1 text-gray-400"
+                                />
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-gray-500">Walk-in</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right font-medium">
+                          {formatCurrency(sale.finalAmount)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center">
+                            <div
+                              className={`w-2 h-2 rounded-full mr-2 ${
+                                sale.paymentMethod.includes("CREDIT")
+                                  ? "bg-purple-500"
+                                  : sale.paymentMethod.includes("CASH")
+                                    ? "bg-green-500"
+                                    : "bg-blue-500"
+                              }`}
+                            />
+                            <span className="capitalize text-gray-700">
+                              {sale.paymentMethod
+                                .toLowerCase()
+                                .replace("_", " ")}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              sale.paymentStatus === "COMPLETED"
+                                ? "bg-green-100 text-green-800"
+                                : sale.paymentStatus === "PENDING"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : sale.paymentStatus === "FAILED" ||
+                                      sale.paymentStatus === "CANCELLED"
+                                    ? "bg-red-100 text-red-800"
+                                    : "bg-gray-100 text-gray-800"
+                            }`}
+                          >
+                            {sale.paymentStatus.charAt(0) +
+                              sale.paymentStatus.slice(1).toLowerCase()}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            className={`inline-flex items-center px-2.5 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                              hoveredRow === sale.id
+                                ? "bg-blue-100 text-blue-600"
+                                : "text-gray-500 hover:bg-gray-100"
+                            }`}
+                            onClick={() => setSelectedSaleId(sale.id)}
+                          >
+                            <Eye size={16} className="mr-1" />
+                            <span>View</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
 
-          <Pagination
-            currentPage={Number(page)}
-            totalPages={Math.ceil(data.totalCount / Number(pageSize))}
-            pageSize={Number(pageSize)}
-            totalItems={data.totalCount}
-            onPageChange={(p) => setPage(p.toString())}
-            onPageSizeChange={(p) => setPageSize(p.toString())}
-          />
+            <Pagination
+              currentPage={Number(page)}
+              totalPages={Math.ceil(data.totalCount / Number(pageSize))}
+              pageSize={Number(pageSize)}
+              totalItems={data.totalCount}
+              onPageChange={(p) => setPage(p.toString())}
+              onPageSizeChange={(p) => setPageSize(p.toString())}
+            />
 
-          <SaleDetailsSheet
-            saleId={selectedSaleId}
-            onOpenChange={(open) => !open && setSelectedSaleId(null)}
-          />
-        </>
-      )}
-    </div>
+            <SaleDetailsSheet
+              saleId={selectedSaleId}
+              onOpenChange={(open) => !open && setSelectedSaleId(null)}
+            />
+          </>
+        )}
+      </div>
+    </Suspense>
   );
 }

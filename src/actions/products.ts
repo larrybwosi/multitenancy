@@ -41,32 +41,32 @@ const handlePrismaError = (
 };
 
 function safeParseVariants(formData: FormData): ProductVariantInput[] | { error: string } {
-    const variantsString = formData.get("variants") as string | null;
-    if (!variantsString) return [];
-    try {
-        const parsed = JSON.parse(variantsString);
-        if (!Array.isArray(parsed)) {
-             return { error: "Variants data must be an array." };
-        }
-        return parsed as ProductVariantInput[];
-    } catch (e) {
-        console.error("Error parsing variants JSON:", e);
-        return { error: "Invalid JSON format for variant data." };
+  const variantsString = formData.get("variants") as string | null;
+  if (!variantsString) return [];
+  try {
+    const parsed = JSON.parse(variantsString);
+    if (!Array.isArray(parsed)) {
+      return { error: "Variants data must be an array." };
     }
+    return parsed as ProductVariantInput[];
+  } catch (e) {
+    console.error("Error parsing variants JSON:", e);
+    return { error: "Invalid JSON format for variant data." };
+  }
 }
 
 function safeParseSuppliers(formData: FormData): ProductSupplierInput[] | { error: string } {
   const suppliersString = formData.get("suppliers") as string | null;
   if (!suppliersString) return [];
   try {
-      const parsed = JSON.parse(suppliersString);
-      if (!Array.isArray(parsed)) {
-            return { error: "Suppliers data must be an array." };
-      }
-      return parsed as ProductSupplierInput[];
+    const parsed = JSON.parse(suppliersString);
+    if (!Array.isArray(parsed)) {
+      return { error: "Suppliers data must be an array." };
+    }
+    return parsed as ProductSupplierInput[];
   } catch (e) {
-      console.error("Error parsing suppliers JSON:", e);
-      return { error: "Invalid JSON format for supplier data." };
+    console.error("Error parsing suppliers JSON:", e);
+    return { error: "Invalid JSON format for supplier data." };
   }
 }
 
@@ -159,17 +159,17 @@ export async function getProducts(
       prisma.product.count({ where }),
     ]);
     
+    console.log('products', products);
     const productsWithStock = products.map((p) => {
       const baseStock = p.stockBatches.reduce(
         (sum, batch) => sum + batch.currentQuantity,
         0
       );
+
       const variantsWithStock =
         p.variants?.map((v) => {
-          const variantStockTotal = v.stockBatches.reduce(
-            (sum, batch) => sum + batch.currentQuantity,
-            0
-          );
+          //@ts-expect-error stockBatches can be null
+          const variantStockTotal = v.stockBatches.reduce((sum, batch) => sum + batch.currentQuantity,0 );
           return {
             ...v,
             priceModifier: v.priceModifier.toString(),
@@ -311,6 +311,8 @@ export async function addProduct(formData: FormData) {
         },
       },
     });
+
+    console.log("New product created:", newProduct);
 
     revalidatePath("/products");
     return { success: true, data: newProduct };

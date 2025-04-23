@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 
 // Define the array of public paths that should NOT run the auth check
-const publicPaths = ["/sign-in", "/api/auth", "/about", "/api/auth/get-session"];
+const publicPaths = ["/sign-in", "/api/auth", "/about", "/api/auth/get-session", '/', '/login'];
 
 export default async function middleware(request: NextRequest) {
   const currentPath = request.nextUrl.pathname;

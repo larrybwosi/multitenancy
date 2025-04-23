@@ -48,6 +48,7 @@ import { DragOverlay } from "@/components/ui/drag-overlay";
 import { VariantModal } from "../add/variant";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MeasurementUnit } from "@prisma/client";
+import Loading from "./loading";
 
 export default function AddProductForm() {
   const router = useRouter();
@@ -75,9 +76,9 @@ export default function AddProductForm() {
       width: undefined,
       height: undefined,
       length: undefined,
-      dimensionUnit: "cm",
+      dimensionUnit: MeasurementUnit.METER,
       weight: undefined,
-      weightUnit: "kg",
+      weightUnit: MeasurementUnit.WEIGHT_KG,
       volumetricWeight: undefined,
       reorderPoint: 10,
       defaultLocationId: "",
@@ -117,6 +118,7 @@ export default function AddProductForm() {
     error: suppliersError,
     isLoading: isLoadingSuppliers,
   } = useSuppliers();
+
 
   const {
     data: categoriesResult,
@@ -245,6 +247,24 @@ export default function AddProductForm() {
     });
   };
 
+  if (isLoadingCategories || isLoadingLocations || isLoadingSuppliers) {
+    return <Loading />;
+  }
+
+  if (categoriesError || locationsError || suppliersError) {
+    return (
+      <div className="container mx-auto p-4">
+        <Alert variant="destructive">
+          <CircleAlert className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            {categoriesError?.message || locationsError?.message || suppliersError?.message}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   return (
     <>
       <VariantModal
@@ -354,9 +374,16 @@ export default function AddProductForm() {
                               <Select
                                 value={field.value}
                                 onValueChange={field.onChange}
+                                disabled={isPending || isLoadingCategories}
                               >
                                 <SelectTrigger className="bg-background/60">
-                                  <SelectValue placeholder="Select a category" />
+                                  {isLoadingCategories ? (
+                                    <span className="text-muted-foreground">
+                                      Loading categories...
+                                    </span>
+                                  ) : (
+                                    <SelectValue placeholder="Select a category" />
+                                  )}
                                 </SelectTrigger>
                                 <SelectContent>
                                   {categories.map((category) => (
@@ -408,9 +435,16 @@ export default function AddProductForm() {
                             <Select
                               value={field.value}
                               onValueChange={field.onChange}
+                              disabled={isPending || isLoadingLocations}
                             >
                               <SelectTrigger className="bg-background/60">
-                                <SelectValue placeholder="Select a default location" />
+                                {isLoadingLocations ? (
+                                  <span className="text-muted-foreground">
+                                    Loading locations...
+                                  </span>
+                                ) : (
+                                  <SelectValue placeholder="Select a default location" />
+                                )}
                               </SelectTrigger>
                               <SelectContent>
                                 {locations.map((location) => (
@@ -696,6 +730,44 @@ export default function AddProductForm() {
                         </FormItem>
                       )}
                     />
+
+                    {/* <FormField
+                      control={form.control}
+                      name="suppliers"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Suppliers</FormLabel>
+                          <FormControl>
+                            <Select
+                              value={!!field?.value?.length ? field.value : [] || ""}
+                              onValueChange={(value) => field.onChange([value])}
+                              disabled={isPending || isLoadingSuppliers}
+                            >
+                              <SelectTrigger className="bg-background/60">
+                                {isLoadingSuppliers ? (
+                                  <span className="text-muted-foreground">
+                                    Loading suppliers...
+                                  </span>
+                                ) : (
+                                  <SelectValue placeholder="Select a supplier" />
+                                )}
+                              </SelectTrigger>
+                              <SelectContent>
+                                {suppliersResult?.data.map((supplier) => (
+                                  <SelectItem
+                                    key={supplier.id}
+                                    value={supplier.id}
+                                  >
+                                    {supplier.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    /> */}
 
                     <FormField
                       control={form.control}
