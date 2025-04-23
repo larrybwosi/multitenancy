@@ -47,7 +47,6 @@ const SignupPage = () => {
     }, 5000);
     return () => clearInterval(interval);
   }, [slides.length]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -76,28 +75,35 @@ const SignupPage = () => {
         throw error;
       }
 
-      toast.success(`Welcome, ${data?.user?.name || ''}!`, {
+      toast.success(`Welcome, ${data?.user?.name || ""}!`, {
         description: "Your account has been created successfully.",
       });
 
-      const {organizationId } = await getServerAuthContext()
-      if (data?.user && organizationId) {
-        router.push('/dashboard');
+      try {
+        const { organizationId } = await getServerAuthContext();
+        if (data?.user && organizationId) {
+          router.push("/dashboard");
+        } else if (data?.user) {
+          router.push("/create");
+        }
+      } catch (serverContextError) {
+        // If getServerAuthContext fails, we'll still proceed to /create
+        console.warn("Server context error:", serverContextError);
+        if (data?.user) {
+          router.push("/create");
+        }
       }
-      if (data.user && !organizationId){
-        router.push('/create')
-      }
-      
     } catch (error) {
       console.error("Signup error:", error);
       toast.error("Signup failed", {
-        description: error.message || "Failed to create account. Please try again.",
+        description:
+          // @ts-expect-error error.message exists
+          error.message || "Failed to create account. Please try again.",
       });
     } finally {
       setIsLoading(false);
     }
   };
-
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     try {
@@ -111,6 +117,7 @@ const SignupPage = () => {
     } catch (error) {
       console.error("Google sign in error:", error);
       toast.error("Google sign in failed", {
+        // @ts-expect-error error.message exists
         description: error.message || "Failed to sign in with Google. Please try again.",
       });
     } finally {

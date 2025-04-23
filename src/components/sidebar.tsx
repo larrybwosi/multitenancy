@@ -14,6 +14,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { signOut } from "@/lib/auth/authClient";
 import { usePathname } from "next/navigation";
+import { useAppStore } from "@/store/app";
 // import { useOrganizationName } from "@/lib/hooks/use-org";
 
 export interface RouteItem {
@@ -73,7 +74,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   
     // const {
     //   data: organizationName,
-    // } = useOrganizationName();
+    // } = useOrganizationName(); 
+  const organization = useAppStore((state) => state.organization);
   
   const currentPath = usePathname();
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>(
@@ -236,13 +238,11 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className="px-5 py-3 border-b border-neutral-200 hover:bg-gray-50 cursor-pointer bg-white">
         <div className="flex items-center">
           <div className="w-8 h-8 bg-blue-600 text-white flex items-center justify-center rounded-full text-sm font-medium mr-3 flex-shrink-0">
-            {"D"}
-            {/* {organizationName ? organizationName.charAt(0).toUpperCase() : "D"} */}
+            {organization?.name ? organization?.name.charAt(0).toUpperCase() : "D"}
           </div>
           <div className="flex-1 overflow-hidden">
             <div className="text-sm font-semibold text-neutral-800 truncate">
-              {"Dealio"}
-              {/* {organizationName || "Dealio"} */}
+              {organization?.name || "Dealio"}
             </div>
             <div className="text-xs text-neutral-500 truncate">
               {hotelAddress}
