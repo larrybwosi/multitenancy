@@ -95,11 +95,12 @@ export default function CreateOrganizationPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState(tabs[0]);
   const [slugPreview, setSlugPreview] = useState("");
+  const [isSlugManuallyEdited, setIsSlugManuallyEdited] = useState(false);
 
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isValid },
     setValue,
     watch,
     trigger,
@@ -120,6 +121,7 @@ export default function CreateOrganizationPage() {
       phone: "",
       address: "",
     },
+    mode: "onChange",
   });
 
   const nameValue = watch("name");
@@ -127,17 +129,31 @@ export default function CreateOrganizationPage() {
 
   // Generate slug preview when name changes
   useEffect(() => {
-    if (nameValue && !slugValue) {
+    if (nameValue && !isSlugManuallyEdited) {
       const generatedSlug = slugify(nameValue, {
         lower: true,
         strict: true,
         remove: /[*+~.()'"!:@]/g,
       });
       setSlugPreview(generatedSlug);
+      setValue("slug", generatedSlug, { shouldValidate: true });
     }
-  }, [nameValue, slugValue]);
+  }, [nameValue, isSlugManuallyEdited, setValue]);
+
+  const handleSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const slugifiedValue = slugify(value, {
+      lower: true,
+      strict: true,
+      remove: /[*+~.()'"!:@]/g,
+    });
+    setValue("slug", slugifiedValue, { shouldValidate: true });
+    setIsSlugManuallyEdited(true);
+  };
 
   const onSubmit = async (data: OrganizationForm) => {
+    if (!isLastTab || !isValid) return;
+
     setIsSubmitting(true);
     setError(null);
 
@@ -156,7 +172,7 @@ export default function CreateOrganizationPage() {
 
       appService.setOrganization(res.organization);
       appService.setCurrentWarehouse(res.warehouse);
-      router.push("/dashboard"); // Redirect to organizations list or dashboard
+      router.push("/dashboard");
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "An unexpected error occurred"
@@ -175,14 +191,13 @@ export default function CreateOrganizationPage() {
   };
 
   const handleNext = async () => {
-    // Validate current tab fields before proceeding
     const currentTabFields = {
       basic: ["name", "slug", "description", "logo"],
       financial: ["defaultCurrency", "taxRate", "fiscalYearStart"],
       inventory: ["lowStockThreshold", "inventoryTrackingEnabled"],
       contact: ["website", "email", "phone", "address"],
     }[activeTab];
-    
+
     //eslint-disable-next-line
     const isValid = await trigger(currentTabFields as any);
     if (isValid) {
@@ -265,17 +280,8 @@ export default function CreateOrganizationPage() {
                             placeholder="acme-corp"
                             {...register("slug")}
                             className={`rounded-l-none ${errors.slug ? "border-red-500" : ""}`}
-                            value={slugValue || slugPreview}
-                            onChange={(e) => {
-                              setValue(
-                                "slug",
-                                slugify(e.target.value, {
-                                  lower: true,
-                                  strict: true,
-                                  remove: /[*+~.()'"!:@]/g,
-                                })
-                              );
-                            }}
+                            value={slugValue}
+                            onChange={handleSlugChange}
                           />
                         </div>
                         {errors.slug && (
@@ -283,7 +289,7 @@ export default function CreateOrganizationPage() {
                             {errors.slug.message}
                           </p>
                         )}
-                        {slugPreview && !slugValue && (
+                        {slugPreview && !isSlugManuallyEdited && (
                           <p className="text-gray-500 text-sm">
                             Suggested slug:{" "}
                             <span className="font-mono">org/{slugPreview}</span>
@@ -335,8 +341,6 @@ export default function CreateOrganizationPage() {
                       </div>
                     </TabsContent>
 
-                    {/* Other Tabs remain the same... */}
-                    {/* Financial Settings Tab */}
                     {/* Financial Settings Tab */}
                     <TabsContent value="financial" className="space-y-6">
                       {/* Default Currency Field */}
@@ -608,7 +612,7 @@ export default function CreateOrganizationPage() {
                     {isLastTab ? (
                       <Button
                         type="submit"
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || !isValid}
                         className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
                       >
                         {isSubmitting ? (

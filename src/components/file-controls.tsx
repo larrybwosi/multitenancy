@@ -15,7 +15,7 @@ export interface ExportAction {
   onClick: () => void;
 }
 
-interface FilterControlsProps {
+export interface FilterControlsProps {
   // Core elements configuration
   searchPlaceholder?: string;
   showSearch?: boolean;

@@ -6,6 +6,7 @@ import { UserRole } from "@prisma/client";
 import { ac, ADMIN, CASHIER, DEVELOPER } from "./auth/permissions";
 import redis from "./redis";
 import { passkey } from "better-auth/plugins/passkey";
+import { nextCookies } from "better-auth/next-js";
 
 
 export const auth = betterAuth({
@@ -18,10 +19,10 @@ export const auth = betterAuth({
     autoSignIn: true,
   },
   socialProviders: {
-    google: { 
-      clientId: process.env.GOOGLE_CLIENT_ID as string, 
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string, 
-    }, 
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID as string,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+    },
   },
   secret: process.env.BETTER_AUTH_SECRET,
   appName: "Dealio POS",
@@ -96,6 +97,7 @@ export const auth = betterAuth({
         userVerification: "preferred", // 'required', 'preferred', or 'discouraged'
       },
     }),
+    nextCookies(),
   ],
 
   secondaryStorage: {

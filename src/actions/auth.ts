@@ -73,10 +73,19 @@ export async function getMemberAndOrgDetails(
 
 async function getServerAuthContext(): Promise<ServerAuthContextResult> {
   const headersList = await headers();
-  const sessionForCacheKey = await auth.api.getSession({
-    headers: headersList,
-  });
-  const userIdForCacheKey = sessionForCacheKey?.user?.id || "anon"; // Use user ID in cache key
+  let sessionForCacheKey;
+
+  try {
+    sessionForCacheKey = await auth.api.getSession({
+      headers: headersList,
+    });
+  } catch (error) {
+    console.error("Error fetching session for cache key:", error);
+    // Fall back to anonymous user if session fetch fails
+    sessionForCacheKey = null;
+  }
+
+  const userIdForCacheKey = sessionForCacheKey?.user?.id
   const cacheKey = `auth:context:${userIdForCacheKey}`;
 
   try {
@@ -84,7 +93,7 @@ async function getServerAuthContext(): Promise<ServerAuthContextResult> {
     const cachedAuthContextJson = await redis.get(cacheKey);
     if (cachedAuthContextJson) {
       try {
-        const cachedContext =  cachedAuthContextJson as ServerAuthContextResult;
+        const cachedContext = cachedAuthContextJson as ServerAuthContextResult;
         // Validate essential fields from cache
         if (
           cachedContext &&
@@ -105,9 +114,15 @@ async function getServerAuthContext(): Promise<ServerAuthContextResult> {
     }
 
     // 2. Fetch session if not in cache or cache invalid
-    const session =
-      sessionForCacheKey ||
-      (await auth.api.getSession({ headers: headersList }));
+    let session;
+    try {
+      session =
+        sessionForCacheKey ||
+        (await auth.api.getSession({ headers: headersList }));
+    } catch (sessionError) {
+      console.error("Error fetching session:", sessionError);
+      throw new Error("Failed to retrieve user session");
+    }
 
     if (!session?.user?.id) {
       throw new Error("Unauthorized - No user ID found in session.");
@@ -117,37 +132,49 @@ async function getServerAuthContext(): Promise<ServerAuthContextResult> {
     // 3. Determine Active Organization ID
     let activeOrgId = session.session?.activeOrganizationId || null;
     if (!activeOrgId) {
-      const userPrefs = await db.user.findUnique({
-        where: { id: userId },
-        select: { activeOrganizationId: true },
-      });
-      activeOrgId = userPrefs?.activeOrganizationId || null;
+      try {
+        const userPrefs = await db.user.findUnique({
+          where: { id: userId },
+          select: { activeOrganizationId: true },
+        });
+        activeOrgId = userPrefs?.activeOrganizationId || null;
+      } catch (dbError) {
+        console.error("Error fetching user preferences:", dbError);
+        activeOrgId = null;
+      }
     }
 
     // 4. Fetch Member ID, Role, and Org Details
     let authContextData: ServerAuthContextResult;
 
     if (activeOrgId) {
-      const details = await getMemberAndOrgDetails(userId, activeOrgId);
-      if (details.memberId) {
-        const activeLocation = await getMemberActiveLocation(details.memberId);
-        authContextData = {
-          userId: userId, // *** Include userId in the context ***
-          memberId: details.memberId,
-          organizationId: activeOrgId,
-          role: details.role,
-          organizationName: details.organizationName,
-          organizationSlug: details.organizationSlug,
-          organizationDescription: details.organizationDescription,
-          activeLocation: activeLocation?.id,
-        };
-      } else {
-        console.warn(
-          `User ${userId} is not a member of their active organization preference ${activeOrgId} or org not found.`
-        );
-        throw new Error(
-          `User is not an active member of the designated organization (ID: ${activeOrgId}).`
-        );
+      try {
+        const details = await getMemberAndOrgDetails(userId, activeOrgId);
+        if (details.memberId) {
+          const activeLocation = await getMemberActiveLocation(
+            details.memberId
+          );
+          authContextData = {
+            userId: userId, // *** Include userId in the context ***
+            memberId: details.memberId,
+            organizationId: activeOrgId,
+            role: details.role,
+            organizationName: details.organizationName,
+            organizationSlug: details.organizationSlug,
+            organizationDescription: details.organizationDescription,
+            activeLocation: activeLocation?.id,
+          };
+        } else {
+          console.warn(
+            `User ${userId} is not a member of their active organization preference ${activeOrgId} or org not found.`
+          );
+          throw new Error(
+            `User is not an active member of the designated organization (ID: ${activeOrgId}).`
+          );
+        }
+      } catch (detailsError) {
+        console.error("Error fetching member and org details:", detailsError);
+        throw new Error("Failed to retrieve member and organization details");
       }
     } else {
       console.warn(`User ${userId} has no active organization set.`);
@@ -155,11 +182,16 @@ async function getServerAuthContext(): Promise<ServerAuthContextResult> {
     }
 
     // 5. Cache the result
-    await redis.setex(
-      cacheKey,
-      AUTH_CONTEXT_TTL,
-      JSON.stringify(authContextData)
-    );
+    try {
+      await redis.setex(
+        cacheKey,
+        AUTH_CONTEXT_TTL,
+        JSON.stringify(authContextData)
+      );
+    } catch (cacheError) {
+      console.error("Error caching auth context:", cacheError);
+      // Don't throw, as we still have the auth context data to return
+    }
 
     return authContextData;
   } catch (error: unknown) {

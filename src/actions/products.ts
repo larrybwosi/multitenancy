@@ -159,7 +159,6 @@ export async function getProducts(
       prisma.product.count({ where }),
     ]);
     
-    console.log('products', products);
     const productsWithStock = products.map((p) => {
       const baseStock = p.stockBatches.reduce(
         (sum, batch) => sum + batch.currentQuantity,

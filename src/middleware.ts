@@ -1,50 +1,64 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 
-// Define the array of public paths that should NOT run the auth check
-const publicPaths = ["/sign-in", "/api/auth", "/about", "/api/auth/get-session", '/', '/login'];
+const publicPaths = new Set([
+  "/sign-in",
+  "/api/auth",
+  "/about",
+  "/api/auth/get-session",
+  "/",
+  "/login",
+  "/sign-in/",
+  "/api/auth/",
+  "/about/",
+]);
 
 export default async function middleware(request: NextRequest) {
-  const currentPath = request.nextUrl.pathname;
+  const currentPath = request.nextUrl.pathname.toLowerCase();
 
-const isPublicPath = publicPaths.some((path) => {
-  // Exact match
-  if (currentPath === path) return true;
+  const isPublicPath =
+    // Exact match check
+    publicPaths.has(currentPath) ||
+    // Handle trailing slash variants (e.g., /about matches /about/)
+    publicPaths.has(
+      currentPath.endsWith("/") ? currentPath.slice(0, -1) : currentPath + "/"
+    ) ||
+    // Subpath check only for paths explicitly ending with /
+    Array.from(publicPaths).some(
+      (path) =>
+        path.endsWith("/") &&
+        path !== "/" && // Explicitly exclude root path from subpath matching
+        currentPath.startsWith(path)
+    );
 
-  // Match paths that start with a path ending with '/'
-  if (path.endsWith("/")) {
-    return currentPath.startsWith(path) || currentPath === path.slice(0, -1); // Also match path without trailing slash
-  }
+  console.log("isPublicPath: ", isPublicPath, "for path:", currentPath);
 
-  return false;
-});
-
-  // If the path is public, skip authentication and proceed
   if (isPublicPath) {
     return NextResponse.next();
   }
 
-  // --- If the path is NOT public, perform the authentication check ---
   const session = getSessionCookie(request);
-  console.log("Session:", session); // Debugging: Log the session object
+  console.log("session: ", session);
 
-  // If there's no session, redirect to the sign-in page
   if (!session) {
-    // Optionally, add the intended destination as a callbackUrl query parameter
+    if (request.nextUrl.pathname.startsWith("/api")) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+
     const signInUrl = new URL("/sign-in", request.url);
-    signInUrl.searchParams.set("callbackUrl", request.url); // Redirect back after login
+    signInUrl.searchParams.set("callbackUrl", request.url);
     return NextResponse.redirect(signInUrl);
   }
 
-  // If there is a session, allow the request to proceed
-  return NextResponse.next();
+  const response = NextResponse.next();
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  return response;
 }
 
 export const config = {
   matcher: [
-    // Skip Next.js internals and all static files, unless found in search params
     "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-    // Always run for API routes
     "/(api|trpc)(.*)",
   ],
 };
