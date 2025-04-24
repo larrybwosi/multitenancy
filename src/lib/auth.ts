@@ -1,9 +1,7 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { admin, multiSession, organization, username } from "better-auth/plugins";
+import { multiSession, username } from "better-auth/plugins";
 import { db } from "./db";
-import { UserRole } from "@prisma/client";
-import { ac, ADMIN, CASHIER, DEVELOPER } from "./auth/permissions";
 import redis from "./redis";
 import { passkey } from "better-auth/plugins/passkey";
 import { nextCookies } from "better-auth/next-js";
@@ -60,29 +58,8 @@ export const auth = betterAuth({
     },
   },
   plugins: [
-    admin({
-      adminRoles: [UserRole.ADMIN],
-      defaultRole: UserRole.MEMBER,
-      defaultBanReason: "Miss behaving",
-      ac,
-      roles: {
-        ADMIN,
-        CASHIER,
-        DEVELOPER,
-      },
-    }),
     username(),
-    multiSession({
-      maximumSessions: 8,
-    }),
-
-    organization({
-      allowUserToCreateOrganization: async (user) => {
-        console.log(user);
-        return true;
-      },
-      creatorRole: UserRole.ADMIN,
-    }),
+    multiSession(),
     passkey({
       rpID: "localhost", // Use 'localhost' for local development
       rpName: "Dealio POS",

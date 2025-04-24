@@ -15,6 +15,7 @@ import Link from "next/link";
 import { signOut } from "@/lib/auth/authClient";
 import { usePathname } from "next/navigation";
 import { useAppStore } from "@/store/app";
+import { ScrollArea } from "./ui/scroll-area";
 // import { useOrganizationName } from "@/lib/hooks/use-org";
 
 export interface RouteItem {
@@ -224,7 +225,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   return (
     <div className="h-screen w-64 bg-white border-r border-neutral-200 flex flex-col shadow-sm">
       {/* App Header */}
-      <div className="px-5 py-4 flex items-center border-b border-neutral-200 bg-white">
+      <ScrollArea>
+        <div className="px-5 py-4 flex items-center border-b border-neutral-200 bg-white">
         <span className="font-bold text-xl text-neutral-800">{appName}™</span>
         <div className="ml-auto">
           <PanelLeftClose
@@ -234,7 +236,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      {/* Hotel Info */}
       <div className="px-5 py-3 border-b border-neutral-200 hover:bg-gray-50 cursor-pointer bg-white">
         <div className="flex items-center">
           <div className="w-8 h-8 bg-blue-600 text-white flex items-center justify-center rounded-full text-sm font-medium mr-3 flex-shrink-0">
@@ -292,6 +293,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           );
         })}
       </div>
+      </ScrollArea>
 
       {/* Bottom Actions */}
       <div className="border-t border-neutral-200 mt-auto bg-white">

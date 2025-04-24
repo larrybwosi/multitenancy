@@ -11,6 +11,7 @@ const publicPaths = new Set([
   "/sign-in/",
   "/api/auth/",
   "/about/",
+  "/api/test-email",
 ]);
 
 export default async function middleware(request: NextRequest) {
@@ -45,7 +46,7 @@ export default async function middleware(request: NextRequest) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const signInUrl = new URL("/sign-in", request.url);
+    const signInUrl = new URL("/login", request.url);
     signInUrl.searchParams.set("callbackUrl", request.url);
     return NextResponse.redirect(signInUrl);
   }

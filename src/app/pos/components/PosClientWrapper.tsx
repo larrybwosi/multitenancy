@@ -7,6 +7,8 @@ import { Cart } from "./Cart";
 import { Customer, PaymentMethod } from "@prisma/client";
 import { CartItem as ProjectCartItem } from "@/app/point-of-sale/types";
 import { processSale } from "@/actions/pos.actions";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 // Update BaseProduct to include missing required fields with non-nullable SKU
 type BaseProduct = {
@@ -50,13 +52,11 @@ interface ProcessSaleInput {
 interface PosClientWrapperProps {
   products?: BaseProduct[];
   customers?: Customer[];
-  locationId: string;
 }
 
 export function PosClientWrapper({
   products = [],
   customers = [],
-  locationId,
 }: PosClientWrapperProps) {
   const [cartProductIds, setCartProductIds] = useQueryState(
     "cartItems",
@@ -200,11 +200,14 @@ export function PosClientWrapper({
 
       return result;
     },
-    [locationId]
+    []
   );
 
   return (
     <div className="flex h-screen overflow-hidden bg-muted/20 dark:bg-neutral-900/50">
+      <Link href="/api/test-email" className="absolute top-4 left-4">
+        <ArrowLeft className="w-4 h-4" />
+      </Link>
       <div className="flex-grow h-full overflow-auto p-4 md:p-6">
         <ProductGrid products={products} onAddToCart={addProductToCart} />
       </div>

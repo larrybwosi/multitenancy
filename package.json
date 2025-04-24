@@ -10,6 +10,7 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@getbrevo/brevo": "^2.2.0",
     "@google/generative-ai": "^0.24.0",
     "@hookform/resolvers": "^5.0.1",
     "@legendapp/state": "^3.0.0-beta.30",
@@ -44,7 +45,8 @@
     "date-fns": "^4.1.0",
     "framer-motion": "^12.6.3",
     "jspdf": "^3.0.1",
-    "lucide-react": "^0.487.0",
+    "lucide-react": "^0.503.0",
+    "mailgun.js": "^12.0.1",
     "next": "^15.3.1",
     "next-sanity": "^9.9.8",
     "next-themes": "^0.4.6",
@@ -74,7 +76,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^22.14.1",
     "@types/nodemailer": "^6.4.17",
     "@types/react": "^19",
     "@types/react-dom": "^19",

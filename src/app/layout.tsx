@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Toaster } from "sonner";
-import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { Providers } from "@/providers";
 import { Suspense } from "react";
 
@@ -28,15 +26,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <Toaster />
-        <NuqsAdapter>
-          <Providers>
-            <Suspense>{children}</Suspense>
-          </Providers>
-        </NuqsAdapter>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <Providers>
+          <Suspense>{children}</Suspense>
+        </Providers>
       </body>
     </html>
   );
