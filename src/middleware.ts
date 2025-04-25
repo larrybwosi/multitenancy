@@ -8,7 +8,7 @@ const publicPaths = new Set([
   "/api/auth/get-session",
   "/",
   "/login",
-  "/sign-up/",
+  "/signup/",
   "/api/auth/",
   "/about/",
   "/api/test-email",
