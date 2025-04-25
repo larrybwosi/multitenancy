@@ -19,12 +19,13 @@ const SigninPage = (props: {params: Params; searchParams: SearchParams}) => {
   const [googleLoading, setGoogleLoading] = useState(false);
 
   const searchParams = use(props.searchParams)
-  const callbackURL = searchParams?.callbackUrl;
+  const callbackURL = searchParams?.callbackUrl as string | undefined;
   const router = useRouter();
 
   const slides = [
     {
-      image: '/image4.jpeg',
+      image:
+        'https://cdn.sanity.io/images/7rkl59hi/production/d8ea510f70826369e9f7eb1b9c65bae870cdaf0c-1024x1024.jpg?fm=webp&q=75&auto=format',
       title: 'Financial Management Made Easy',
       description: 'Track expenses, send invoices, and manage your finances all in one place.',
     },
