@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { signIn } from "@/lib/auth/authClient";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/store/app";
+import { appService } from "@/store/service";
 
 const CheckInPage = () => {
   const [email, setEmail] = useState("");
@@ -43,7 +44,6 @@ const CheckInPage = () => {
         throw error;
       }
 
-      console.log(session)
       const result = await fetch("/api/attendance/check-in", {
         method: "POST",
         headers: {
@@ -54,6 +54,8 @@ const CheckInPage = () => {
       const data = await result.json();
       console.log(data);
 
+      if(data?.organization) {appService.setOrganization(data.organization);}
+      if(data?.warehouse) {appService.setCurrentWarehouse(data.warehouse);}
       if (result.ok) {
         setShowSuccess(true);
         toast.success("Check-in successful!");

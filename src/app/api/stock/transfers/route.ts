@@ -131,15 +131,6 @@ export async function GET(request: NextRequest) {
       orderBy,
     });
 
-    // Fetch all locations for the dropdown
-    const locations = await prisma.inventoryLocation.findMany({
-      select: {
-        id: true,
-        name: true,
-        description: true,
-      },
-    });
-
     // Format the response by grouping transfers by referenceId
     const transferGroups: Record<string, Transfer> = {};
 
@@ -190,7 +181,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       transfers: formattedTransfers,
-      locations,
       total: formattedTransfers.length,
     });
   } catch (error) {

@@ -16,6 +16,7 @@ import { signOut } from "@/lib/auth/authClient";
 import { usePathname } from "next/navigation";
 import { useAppStore } from "@/store/app";
 import { ScrollArea } from "./ui/scroll-area";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 // import { useOrganizationName } from "@/lib/hooks/use-org";
 
 export interface RouteItem {
@@ -35,7 +36,6 @@ export interface SectionItem {
 
 interface SidebarProps {
   appName: string;
-  hotelAddress: string;
   sections: SectionItem[];
   user: {
     name: string;
@@ -68,7 +68,6 @@ const isSectionActive = (
 
 const Sidebar: React.FC<SidebarProps> = ({
   appName,
-  hotelAddress,
   sections,
   user,
 }) => {
@@ -77,6 +76,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     //   data: organizationName,
     // } = useOrganizationName(); 
   const organization = useAppStore((state) => state.organization);
+  const warehouse = useAppStore((state) => state.currentWarehouse);
   
   const currentPath = usePathname();
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>(
@@ -240,13 +240,23 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="flex items-center">
           <div className="w-8 h-8 bg-blue-600 text-white flex items-center justify-center rounded-full text-sm font-medium mr-3 flex-shrink-0">
             {organization?.name ? organization?.name.charAt(0).toUpperCase() : "D"}
+            <Avatar>
+              <AvatarImage
+                src={organization?.logo}
+                alt={organization?.name || "Dealio"}
+                className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-110"
+              />
+              <AvatarFallback delayMs={600}>
+                {organization?.name ? organization?.name.charAt(0).toUpperCase() : "D"}
+              </AvatarFallback>
+            </Avatar>
           </div>
           <div className="flex-1 overflow-hidden">
             <div className="text-sm font-semibold text-neutral-800 truncate">
               {organization?.name || "Dealio"}
             </div>
             <div className="text-xs text-neutral-500 truncate">
-              {hotelAddress}
+              {warehouse?.name || "Dealio HQ"}
             </div>
           </div>
           <div className="ml-2">

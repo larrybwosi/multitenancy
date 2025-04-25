@@ -3,22 +3,32 @@ import prisma from '@/lib/db';
 import { AttendanceStatus, InventoryLocation } from "@prisma/client";
 
 // Function to check in a member
-export async function checkInMember(
-  memberId: string,
-  organizationId: string,
-  locationId?: string,
-  notes?: string
-) {
+export async function checkInMember(memberId: string, organizationId: string, locationId?: string, notes?: string) {
   // Start a transaction to ensure data consistency
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async tx => {
     // Check if member is already checked in
     const member = await tx.member.findUnique({
-      where: { id: memberId },
-      select: { isCheckedIn: true },
+      where: {id: memberId},
+      select: {isCheckedIn: true},
     });
 
     if (member?.isCheckedIn) {
-      throw new Error("Member is already checked in");
+      // If already checked in, return the existing attendance record
+      const existingAttendance = await tx.attendance.findFirst({
+        where: {
+          memberId,
+          organizationId,
+          status: AttendanceStatus.CHECKED_IN,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      if (existingAttendance) {
+        return existingAttendance;
+      }
+      // If no existing record found, proceed to create a new one
     }
 
     // Create attendance record
@@ -34,7 +44,7 @@ export async function checkInMember(
 
     // Update member status
     await tx.member.update({
-      where: { id: memberId },
+      where: {id: memberId},
       data: {
         isCheckedIn: true,
         lastCheckInTime: new Date(),
@@ -47,10 +57,10 @@ export async function checkInMember(
       data: {
         organizationId,
         memberId,
-        action: "CREATE",
-        entityType: "ATTENDANCE", // Consider adding ATTENDANCE to your AuditEntityType enum
+        action: 'CREATE',
+        entityType: 'ATTENDANCE',
         entityId: attendance.id,
-        description: `Member checked in at ${locationId ? "location " + locationId : "unspecified location"}`,
+        description: `Member checked in at ${locationId ? 'location ' + locationId : 'unspecified location'}`,
       },
     });
 
@@ -273,4 +283,63 @@ export async function autoCheckoutMembers(organizationId: string) {
   }
 
   return { processedCount: checkedInMembers.length };
+}
+
+
+export async function getOrganizationAndDefaultLocation(organizationId: string) {
+  const organization = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      logo: true,
+      description: true,
+      createdAt: true,
+      updatedAt: true,
+      customFields: true,
+      defaultLocationId: true,
+      defaultWarehouseId: true,
+      settings: {
+        select: {
+          defaultCurrency: true,
+          defaultTimezone: true,
+          defaultTaxRate: true,
+          inventoryPolicy: true,
+          lowStockThreshold: true,
+          negativeStock: true,
+          enableCapacityTracking: true,
+          enforceSpatialConstraints: true,
+          enableProductDimensions: true,
+          defaultMeasurementUnit: true,
+          defaultDimensionUnit: true,
+          defaultWeightUnit: true
+        }
+      }
+    }
+  });
+
+  if (!organization) {
+    throw new Error('Organization not found');
+  }
+
+  let warehouse = null;
+  if (organization.defaultWarehouseId) {
+    warehouse = await prisma.inventoryLocation.findUnique({
+      where: { id: organization.defaultWarehouseId },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        locationType: true,
+        address: true,
+        isActive: true
+      }
+    });
+  }
+
+  return {
+    organization,
+    warehouse
+  };
 }

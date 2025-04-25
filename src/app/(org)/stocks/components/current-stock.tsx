@@ -7,7 +7,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -28,21 +27,18 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  getProductsWithCalculatedStock,
-  ProductWithStock,
-} from "@/lib/actions/stock.actions";
 import { formatCurrency } from "@/lib/utils";
+import { ProductWithStock } from "@/lib/types";
+import { getProducts } from "@/actions/products";
 // Import Dialog and ProductForm if adding products here
 // import { ProductAddDialog } from './product-add-dialog';
 // Import Dialog/Sheet for Stock Adjustment
 // import { StockAdjustmentDialog } from './stock-adjustment-dialog';
 
 export async function CurrentStockTab() {
-  const products = await getProductsWithCalculatedStock();
+  const products = await getProducts();
 
   const isLowStock = (product: ProductWithStock) => {
     // Basic check: total stock <= reorder point

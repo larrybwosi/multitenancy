@@ -244,10 +244,10 @@ export async function getStockBatches(
           purchaseItem: { select: { id: true, purchaseId: true } },
           location: { select: { id: true, name: true } },
         },
-        orderBy: {
-          expiryDate: "asc",
-          receivedDate: "asc",
-        },
+        // orderBy: {
+        //   expiryDate: "asc",
+        //   receivedDate: "asc",
+        // },
         skip,
         take: limit,
       }),
@@ -655,6 +655,7 @@ export async function restockProduct(params: RestockProductParams) {
       },
     });
 
+    revalidatePath('/products')
     return {
       stockBatch,
       // stockRecord,

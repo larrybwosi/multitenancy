@@ -5,7 +5,6 @@ import {db} from '@/lib/db';
 import redis from '@/lib/redis';
 import {MemberRole} from '@prisma/client';
 import {headers} from 'next/headers';
-import {getMemberActiveLocation} from './attendance';
 
 // Cache TTL constants
 const AUTH_CONTEXT_TTL = 1800; // 30 minutes
@@ -19,7 +18,6 @@ interface ServerAuthContextResult {
   organizationName?: string | null;
   organizationSlug?: string | null;
   organizationDescription?: string | null;
-  activeLocation?: string | null;
 }
 
 // Helper function remains the same as before
@@ -122,8 +120,7 @@ async function getServerAuthContext(): Promise<ServerAuthContextResult> {
     const userId = session.user.id; // *** Store the userId ***
 
     // 3. Determine Active Organization ID
-    let activeOrgId = session.session?.activeOrganizationId || null;
-    if (!activeOrgId) {
+    let activeOrgId: string | null = null;
       try {
         const userPrefs = await db.user.findUnique({
           where: {id: userId},
@@ -135,8 +132,7 @@ async function getServerAuthContext(): Promise<ServerAuthContextResult> {
         console.error('Error fetching user preferences:', dbError.message);
         activeOrgId = null;
       }
-    }
-
+    
     // 4. Fetch Member ID, Role, and Org Details
     let authContextData: ServerAuthContextResult;
 
@@ -144,7 +140,6 @@ async function getServerAuthContext(): Promise<ServerAuthContextResult> {
       try {
         const details = await getMemberAndOrgDetails(userId, activeOrgId);
         if (details.memberId) {
-          const activeLocation = await getMemberActiveLocation(details.memberId);
           authContextData = {
             userId: userId, // *** Include userId in the context ***
             memberId: details.memberId,
@@ -153,7 +148,6 @@ async function getServerAuthContext(): Promise<ServerAuthContextResult> {
             organizationName: details.organizationName,
             organizationSlug: details.organizationSlug,
             organizationDescription: details.organizationDescription,
-            activeLocation: activeLocation?.id,
           };
         } else {
           console.warn(

@@ -161,7 +161,7 @@ export const sidebarSectionsData: SectionItem[] = [
           },
           {
             title:"Recurring",
-            path:"/finance/expenses/recurring",
+            // path:"/finance/expenses/recurring",
             icon: <Repeat2 size={18} />,
           },
         ]
@@ -169,7 +169,7 @@ export const sidebarSectionsData: SectionItem[] = [
       {
         
         title: "Taxes",
-        path: "/financials/taxes",
+        // path: "/financials/taxes",
         icon: <Percent size={18} />,
       },
       {
@@ -180,19 +180,19 @@ export const sidebarSectionsData: SectionItem[] = [
         children: [
           {
             title: "Sales Reports",
-            path: "/financials/reports/sales",
+            // path: "/financials/reports/sales",
           },
           {
             title: "Inventory Reports",
-            path: "/financials/reports/inventory",
+            // path: "/financials/reports/inventory",
           },
           {
             title: "Financial Reports",
-            path: "/financials/reports/financial",
+            // path: "/financials/reports/financial",
           },
           {
             title: "Customer Reports",
-            path: "/financials/reports/customer",
+            // path: "/financials/reports/customer",
           },
         ],
       },
@@ -209,16 +209,16 @@ export const sidebarSectionsData: SectionItem[] = [
         children: [
           {
             title: "Employee List",
-            path: "/employees/list",
+            // path: "/employees/list",
           },
           {
             title: "Roles & Permissions",
-            path: "/employees/roles",
+            // path: "/employees/roles",
           },
           {
             
             title: "Attendance",
-            path: "/staff/attendance",
+            // path: "/staff/attendance",
           },
         ],
       },
@@ -236,30 +236,30 @@ export const sidebarSectionsData: SectionItem[] = [
         children: [
           {
             title: "General Settings",
-            path: "/admin/settings/general",
+            path: "/settings",
           },
           {
             title: "POS Settings",
-            path: "/admin/settings/pos",
+            // path: "/admin/settings/pos",
           },
           {
             title: "Tax Settings",
-            path: "/admin/settings/tax",
+            // path: "/admin/settings/tax",
           },
           {
             title: "Printer Settings",
-            path: "/admin/settings/printer",
+            // path: "/admin/settings/printer",
           },
           {
             title: "Barcode Settings",
-            path: "/admin/settings/barcode",
+            // path: "/admin/settings/barcode",
           },
         ],
       },
       {
         
         title: "Backup & Restore",
-        path: "/admin/backup",
+        // path: "/admin/backup",
         icon: <Database size={18} />,
       },
     ],

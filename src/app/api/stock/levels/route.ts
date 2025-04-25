@@ -46,13 +46,12 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit
 
     // Build where clause for filtering products
-    const productWhere: Prisma.ProductWhereInput = {}
+    const productWhere: Prisma.ProductWhereInput = {organizationId}
     if (search) {
       productWhere.OR = [
         { name: { contains: search, mode: 'insensitive' } },
         { sku: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } },
-        { organizationId }
       ]
     }
     if (categoryId && categoryId !== "all") {

@@ -1,185 +1,174 @@
-"use client"
+'use client';
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { StockTransfersList } from "./stock-transfers-list"
-import { CreateStockTransferSheet } from "./create-stock-transfer-sheet"
-import { StockTransfersStats } from "./stock-transfers-stats"
-import { Loader2, Search, Filter, ArrowUpDown } from "lucide-react"
-import { toast } from "sonner"
+import {useState} from 'react';
+import {useQuery, useMutation, useQueryClient} from '@tanstack/react-query';
+import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
+import {Button} from '@/components/ui/button';
+import {Tabs, TabsList, TabsTrigger} from '@/components/ui/tabs';
+import {Input} from '@/components/ui/input';
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
+import {StockTransfersList} from './stock-transfers-list';
+import {CreateStockTransferSheet} from './create-stock-transfer-sheet';
+import {StockTransfersStats} from './stock-transfers-stats';
+import {Loader2, Search, Filter, ArrowUpDown} from 'lucide-react';
+import {toast} from 'sonner';
+import {useLocations} from '@/lib/hooks/use-supplier';
 
 // Define types for our data structures
 interface StockTransferItem {
-  id: string
-  productId: string
-  productName: string
-  quantity: number
-  unitPrice: number
-}
-
-interface Warehouse {
-  id: string
-  name: string
+  id: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
 }
 
 interface StockTransfer {
-  id: string
-  date: string
-  sourceWarehouse: string
-  sourceWarehouseId: string
-  destinationWarehouse: string
-  destinationWarehouseId: string
-  status: 'pending' | 'in_transit' | 'completed' | 'cancelled'
-  items: StockTransferItem[]
-  totalValue: number
-  totalQuantity: number
-  notes?: string
+  id: string;
+  date: string;
+  sourceWarehouse: string;
+  sourceWarehouseId: string;
+  destinationWarehouse: string;
+  destinationWarehouseId: string;
+  status: 'pending' | 'in_transit' | 'completed' | 'cancelled';
+  items: StockTransferItem[];
+  totalValue: number;
+  totalQuantity: number;
+  notes?: string;
 }
 
 interface TransferData {
-  sourceWarehouseId: string
-  destinationWarehouseId: string
+  sourceWarehouseId: string;
+  destinationWarehouseId: string;
   items: Array<{
-    productId: string
-    quantity: number
-  }>
-  notes?: string
-  userId?: string
+    productId: string;
+    quantity: number;
+  }>;
+  notes?: string;
+  userId?: string;
 }
 
 export function StockTransfersPage() {
-  const [transfers, setTransfers] = useState<StockTransfer[]>([])
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([])
-  const [loading, setLoading] = useState(true)
-  const [createSheetOpen, setCreateSheetOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedWarehouse, setSelectedWarehouse] = useState("all")
-  const [sortBy, setSortBy] = useState("date")
-  const [sortOrder, setSortOrder] = useState("desc")
-  const [activeTab, setActiveTab] = useState("all")
+  const queryClient = useQueryClient();
+  const [createSheetOpen, setCreateSheetOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedWarehouse, setSelectedWarehouse] = useState('all');
+  const [sortBy, setSortBy] = useState('date');
+  const [sortOrder, setSortOrder] = useState('desc');
+  const [activeTab, setActiveTab] = useState('all');
 
-  const fetchTransfers = async (params = {}) => {
-    setLoading(true)
-    try {
-      // Build query string from params
+  // Fetch warehouses using existing hook
+  const {data: locationsResult, error: locationsError, isLoading: isLoadingLocations} = useLocations();
+  const warehouses = locationsResult?.warehouses || [];
+
+  // Fetch stock transfers with query parameters
+  const {
+    data: transfers,
+    isLoading: isLoadingTransfers,
+    isError: isTransfersError,
+    refetch,
+  } = useQuery<StockTransfer[], Error>({
+    queryKey: ['stockTransfers', activeTab, selectedWarehouse, searchQuery, sortBy, sortOrder],
+    queryFn: async () => {
       const queryParams = new URLSearchParams({
-        ...params,
-        status: activeTab !== "all" ? activeTab : "",
-        warehouseId: selectedWarehouse !== "all" ? selectedWarehouse : "",
+        status: activeTab !== 'all' ? activeTab : '',
+        warehouseId: selectedWarehouse !== 'all' ? selectedWarehouse : '',
         search: searchQuery,
         sortBy,
         sortOrder,
-      }).toString()
+      }).toString();
 
-      const response = await fetch(`/api/stock/transfers?${queryParams}`)
-      
+      const response = await fetch(`/api/stock/transfers?${queryParams}`);
+
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`)
+        throw new Error(`API error: ${response.status}`);
       }
-      
-      const data = await response.json()
-      setTransfers(data.transfers)
-      setWarehouses(data.warehouses)
-      setLoading(false)
-    } catch (error) {
-      console.error("Error fetching transfers:", error)
-      toast.error("Error", {
-        description: "Failed to load stock transfers. Please try again.",
-      })
-      setLoading(false)
-    }
-  }
 
-  useEffect(() => {
-    fetchTransfers()
-  }, [activeTab, selectedWarehouse, searchQuery, sortBy, sortOrder])
+      const data = await response.json();
+      return data.transfers;
+    },
+  });
 
-  const handleCreateTransfer = async (transferData: TransferData) => {
-    try {
-      const response = await fetch("/api/stock/transfers", {
-        method: "POST",
+  // Mutation for creating a new transfer
+  const createTransferMutation = useMutation({
+    mutationFn: async (transferData: TransferData) => {
+      const response = await fetch('/api/stock/transfers', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify(transferData),
-      })
+      });
 
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`)
+        throw new Error(`API error: ${response.status}`);
       }
 
-      const data = await response.json()
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({queryKey: ['stockTransfers']});
+      toast.success('Success', {
+        description: 'Stock transfer created successfully.',
+      });
+      setCreateSheetOpen(false);
+    },
+    onError: (error: Error) => {
+      toast.error('Error', {
+        description: error.message || 'Failed to create stock transfer. Please try again.',
+      });
+    },
+  });
 
-      if (data.success) {
-        // Refresh the transfers list
-        fetchTransfers()
-        toast.success("Success", {
-          description: "Stock transfer created successfully.",
-        });
-        setCreateSheetOpen(false)
-      } else {
-        throw new Error(data.message || "Failed to create stock transfer")
-      }
-    } catch (error: unknown) {
-      console.error("Error creating transfer:", error);
-      toast.error("Error", {
-        description: error instanceof Error ? error.message : "Failed to create stock transfer. Please try again.",
-      })
-    }
-  }
-
-  const handleUpdateTransfer = async (id: string, action: string, data: Record<string, unknown> = {}) => {
-    try {
-      const response = await fetch("/api/stock/transfers", {
-        method: "PUT",
+  // Mutation for updating a transfer
+  const updateTransferMutation = useMutation({
+    mutationFn: async ({id, action, data}: {id: string; action: string; data?: Record<string, unknown>}) => {
+      const response = await fetch('/api/stock/transfers', {
+        method: 'PUT',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           id,
           action,
           ...data,
         }),
-      })
+      });
 
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`)
+        throw new Error(`API error: ${response.status}`);
       }
 
-      const responseData = await response.json()
+      return await response.json();
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({queryKey: ['stockTransfers']});
+      toast.success('Success', {
+        description: `Stock transfer ${variables.action.replace('_', ' ')} successfully.`,
+      });
+    },
+    onError: (error: Error, variables) => {
+      toast.error('Error', {
+        description:
+          error.message || `Failed to ${variables.action.replace('_', ' ')} stock transfer. Please try again.`,
+      });
+    },
+  });
 
-      if (responseData.success) {
-        // Update the transfer in the local state
-        setTransfers((prevTransfers) =>
-          prevTransfers.map((transfer) => (transfer.id === id ? responseData.transfer : transfer)),
-        )
+  const handleCreateTransfer = async (transferData: TransferData) => {
+    await createTransferMutation.mutateAsync(transferData);
+  };
 
-        toast.success("Success", {
-          description: `Stock transfer ${action.replace("_", " ")} successfully.`,
-        });
-
-        return true
-      } else {
-        throw new Error(responseData.message || `Failed to ${action.replace("_", " ")} stock transfer`)
-      }
-    } catch (error) {
-      console.error(`Error ${action.replace("_", " ")} transfer:`, error)
-      toast.error("Error", {
-        description: error instanceof Error 
-          ? error.message 
-          : `Failed to ${action.replace("_", " ")} stock transfer. Please try again.`,
-      })
-      return false
-    }
-  }
+  const handleUpdateTransfer = async (id: string, action: string, data: Record<string, unknown> = {}) => {
+    return await updateTransferMutation.mutateAsync({id, action, data});
+  };
 
   const toggleSortOrder = () => {
-    setSortOrder(sortOrder === "asc" ? "desc" : "asc")
-  }
+    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+  };
+
+  const isLoading = isLoadingTransfers || isLoadingLocations;
+  const isError = isTransfersError || locationsError;
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -193,7 +182,7 @@ export function StockTransfersPage() {
         </Button>
       </div>
 
-      <StockTransfersStats transfers={transfers} />
+      {!isLoading && !isError && <StockTransfersStats transfers={transfers || []} />}
 
       <div className="flex flex-col md:flex-row gap-4 items-end">
         <div className="relative flex-1">
@@ -202,7 +191,7 @@ export function StockTransfersPage() {
             placeholder="Search transfers by ID, warehouse, or product"
             className="pl-8 transition-all border-muted hover:border-muted-foreground/50 focus:border-primary"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={e => setSearchQuery(e.target.value)}
           />
         </div>
         <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
@@ -213,7 +202,7 @@ export function StockTransfersPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Warehouses</SelectItem>
-              {warehouses.map((warehouse) => (
+              {warehouses?.map(warehouse => (
                 <SelectItem key={warehouse.id} value={warehouse.id}>
                   {warehouse.name}
                 </SelectItem>
@@ -240,7 +229,7 @@ export function StockTransfersPage() {
               className="transition-all border-muted hover:border-muted-foreground/50 focus:border-primary"
             >
               <ArrowUpDown
-                className={`h-4 w-4 ${sortOrder === "asc" ? "rotate-0" : "rotate-180"} transition-transform`}
+                className={`h-4 w-4 ${sortOrder === 'asc' ? 'rotate-0' : 'rotate-180'} transition-transform`}
               />
               <span className="sr-only">Toggle sort order</span>
             </Button>
@@ -285,18 +274,28 @@ export function StockTransfersPage() {
           <CardHeader>
             <CardTitle>Stock Transfers</CardTitle>
             <CardDescription>
-              {activeTab === "all"
-                ? "View and manage all stock transfers across warehouses"
-                : `View and manage ${activeTab.replace("_", " ")} stock transfers`}
+              {activeTab === 'all'
+                ? 'View and manage all stock transfers across warehouses'
+                : `View and manage ${activeTab.replace('_', ' ')} stock transfers`}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {loading ? (
+            {isLoading ? (
               <div className="flex justify-center items-center h-64">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
+            ) : isError ? (
+              <div className="flex flex-col items-center justify-center h-64 gap-2">
+                <p className="text-destructive">Failed to load stock transfers</p>
+                <Button variant="outline" onClick={() => refetch()}>
+                  Retry
+                </Button>
+              </div>
             ) : (
-              <StockTransfersList transfers={transfers} onUpdateTransfer={handleUpdateTransfer} />
+              <StockTransfersList
+                transfers={transfers || []}
+                onUpdateTransfer={handleUpdateTransfer}
+              />
             )}
           </CardContent>
         </Card>
@@ -309,5 +308,5 @@ export function StockTransfersPage() {
         warehouses={warehouses}
       />
     </div>
-  )
+  );
 }
