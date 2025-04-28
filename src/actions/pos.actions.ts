@@ -274,7 +274,7 @@ export async function processSale(
           if (item.variantId && !variant) {
             throw new Error(`Variant ID ${item.variantId} for Product ${item.productId} not found, inactive, or does not belong to organization ${organizationId}.`);
           }
-          // CRITICAL: The schema requires ProductVariantStock.variantId to be non-null[cite: 133].
+          // CRITICAL:  The schema requires ProductVariantStock.variantId to be non-null[cite: 133].
           // If a product *can* be sold without variants, the schema/logic needs a way to represent this.
           // Assumption: For this code, if item.variantId is null, it implies selling the base product,
           // BUT stock must still be tracked via a 'default' or base ProductVariant record associated with the product.

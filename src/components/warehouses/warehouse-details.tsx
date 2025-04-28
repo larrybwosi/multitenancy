@@ -15,7 +15,7 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-} from "@/components/ui/chart"
+} from "@/components/chart"
 
 interface WarehouseDetailsProps {
   id: string

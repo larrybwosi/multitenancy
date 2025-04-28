@@ -25,9 +25,8 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
-import { Loader2, Layers, Grid, Save } from "lucide-react"
+import { Loader2, Layers, Save } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { MeasurementUnit } from "@prisma/client"
 
 // Define schema for form validation
 const zoneFormSchema = z.object({
@@ -53,14 +52,12 @@ interface ZoneCreateDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   warehouseId: string
-  onSuccess: () => void
 }
 
 export function ZoneCreateDialog({ 
   open, 
   onOpenChange, 
-  warehouseId, 
-  onSuccess 
+  warehouseId,
 }: ZoneCreateDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   
@@ -96,7 +93,6 @@ export function ZoneCreateDialog({
 
       form.reset()
       onOpenChange(false)
-      onSuccess()
     } catch (error) {
       console.error("Error creating zone:", error)
       toast.error("Error", {

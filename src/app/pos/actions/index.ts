@@ -2,14 +2,14 @@ import { getServerAuthContext } from "@/actions/auth";
 import { db } from "@/lib/db";
 import redis from "@/lib/redis";
 import { Customer, Product } from "@prisma/client";
-
-const CACHE_KEY = "pos_data";
 const CACHE_TTL = 60 * 60; // 1 hour
 
 export async function getPosData(): Promise<{
   products: Product[];
   customers: Customer[];
 }> {
+  const { organizationId } = await getServerAuthContext();
+  const CACHE_KEY = `pos-data:${organizationId}`;
   // Try cache first
   const cached = await redis.get(CACHE_KEY);
   if (cached) return cached as { products: Product[]; customers: Customer[] };
@@ -66,6 +66,7 @@ async function fetchFreshPosData() {
 }
 
 // Call this when data changes to invalidate cache
-export async function invalidatePosDataCache() {
+export async function invalidatePosDataCache(organizationId: string) {
+  const CACHE_KEY = `pos-data:${organizationId}`;
   await redis.del(CACHE_KEY);
 }

@@ -36,15 +36,12 @@ export default async function middleware(request: NextRequest) {
         currentPath.startsWith(path)
     );
 
-  // console.log("isPublicPath: ", isPublicPath, "for path:", currentPath);
 
   if (isPublicPath) {
     return NextResponse.next();
   }
 
   const session = getSessionCookie(request);
-  // console.log("session: ", session);
-
   if (!session) {
     if (request.nextUrl.pathname.startsWith("/api")) {
       return new NextResponse("Unauthorized", { status: 401 });

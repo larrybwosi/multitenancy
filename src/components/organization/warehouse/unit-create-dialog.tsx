@@ -23,42 +23,19 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
-import { Loader2, Boxes, Grid3X3, Save } from "lucide-react"
+import { Loader2, Boxes, Save } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { MeasurementUnit, StorageUnitType } from "@prisma/client"
 
 // Define schema for form validation
 const unitFormSchema = z.object({
   name: z.string().min(2, { message: "Unit name must be at least 2 characters" }),
-  unitType: z.enum([
-    "SHELF", 
-    "RACK", 
-    "BIN", 
-    "DRAWER", 
-    "PALLET", 
-    "SECTION", 
-    "REFRIGERATOR", 
-    "FREEZER", 
-    "CABINET", 
-    "BULK_AREA", 
-    "OTHER"
-  ]),
+  unitType: z.nativeEnum(StorageUnitType).default(StorageUnitType.SHELF),
   reference: z.string().optional(),
   position: z.string().optional(),
   capacity: z.coerce.number().positive().optional(),
-  capacityUnit: z.enum([
-    "CUBIC_METER", 
-    "CUBIC_FEET", 
-    "SQUARE_METER", 
-    "SQUARE_FEET", 
-    "METER", 
-    "FEET", 
-    "COUNT", 
-    "WEIGHT_KG", 
-    "WEIGHT_LB"
-  ]).optional(),
+  capacityUnit: z.nativeEnum(MeasurementUnit).default(MeasurementUnit.CUBIC_METER).optional(),
   width: z.coerce.number().positive().optional(),
   height: z.coerce.number().positive().optional(),
   depth: z.coerce.number().positive().optional(),
@@ -74,7 +51,6 @@ interface UnitCreateDialogProps {
   onOpenChange: (open: boolean) => void
   warehouseId: string
   zoneId: string
-  onSuccess: () => void
 }
 
 export function UnitCreateDialog({ 
@@ -82,11 +58,10 @@ export function UnitCreateDialog({
   onOpenChange, 
   warehouseId,
   zoneId,
-  onSuccess 
 }: UnitCreateDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   
-  const form = useForm<UnitFormValues>({
+  const form = useForm({
     resolver: zodResolver(unitFormSchema),
     defaultValues: {
       name: "",
@@ -132,7 +107,6 @@ export function UnitCreateDialog({
 
       form.reset()
       onOpenChange(false)
-      onSuccess()
     } catch (error) {
       console.error("Error creating unit:", error)
       toast.error("Error", {

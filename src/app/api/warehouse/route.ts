@@ -160,7 +160,7 @@ export async function POST(request: Request) {
 
     revalidatePath("/warehouses");
     // revalidatePath("/warehouses/new");
-    revalidatePath("/warehouses/[id]");
+    revalidatePath(`/warehouses/${newLocation.id}`);
     return NextResponse.json(response);
   } catch (error) {
     console.error("Error creating warehouse:", error);

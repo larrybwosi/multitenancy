@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Download, Boxes, AlertTriangle } from "lucide-react";
-import { WarehouseList } from "./warehouse-list";
+import { WarehouseTable } from "./warehouse-table";
 import { WarehouseStats } from "./warehouse-stats";
 import { WarehouseCreateSheet } from "./warehouse-create-sheet";
 import { SectionHeader } from "@/components/ui/SectionHeader";
@@ -112,7 +112,7 @@ export function WarehousePage() {
                   ))}
                 </div>
               ) : (
-                <WarehouseList
+                <WarehouseTable
                   warehouses={data?.warehouses || []}
                   loading={isLoading}
                 />

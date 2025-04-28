@@ -17,7 +17,7 @@ import { WarehouseInventory } from "@/components/warehouses/warehouse-inventory"
 import { WarehouseMovements } from "@/components/warehouses/warehouse-movements"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Sonner } from "@/components/ui/sonner"
+import { Toaster } from "sonner"
 
 export default function WarehouseDetailsPage() {
   const params = useParams()
@@ -119,7 +119,7 @@ export default function WarehouseDetailsPage() {
         onOpenChange={setIsRequestMovementModalOpen}
       />
 
-      <Sonner position="top-right" />
+      <Toaster position="top-right" />
     </div>
   )
 }

@@ -1,59 +1,33 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ArrowLeft, Download, Filter, Calendar } from "lucide-react"
+import { ArrowLeft, Download, Filter, Calendar, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { toast } from "sonner"
-import { InventoryLocation } from "@prisma/client"
+import { useGetWarehouse, useGetWarehouseTransactions } from "@/hooks/use-warehouse"
 
 interface WarehouseTransactionsPageProps {
   id: string
 }
 
 export function WarehouseTransactionsPage({ id }: WarehouseTransactionsPageProps) {
-  const [loading, setLoading] = useState(true)
-  const [warehouse, setWarehouse] = useState<InventoryLocation| null>(null)
-  const [transactions, setTransactions] = useState<any[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [filterType, setFilterType] = useState("ALL")
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        setLoading(true)
-
-        // Fetch warehouse details
-        const warehouseResponse = await fetch(`/api/warehouse/${id}`)
-        const warehouseData = await warehouseResponse.json()
-        setWarehouse(warehouseData.warehouse)
-
-        // Fetch transactions
-        const transactionsResponse = await fetch(`/api/warehouse/${id}/transactions`)
-        const transactionsData = await transactionsResponse.json()
-        setTransactions(transactionsData.transactions)
-      } catch (error) {
-        console.error("Error fetching data:", error)
-        toast.error("Error", {
-          description: "Failed to load warehouse data. Please try again.",
-        });
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchData()
-  }, [id])
+  const { data: warehouse, isLoading: warehouseLoading, error: warehouseError } = useGetWarehouse(id)
+  const { data: transactions, isLoading: transactionsLoading, error: transactionsError } = useGetWarehouseTransactions(id);
+  // const warehouseErrorMessage = warehouseError?.message || "Failed to load warehouse data"
+  // const transactionsErrorMessage = transactionsError?.message || "Failed to load transactions data"
 
   // Filter transactions based on search query and type filter
-  const filteredTransactions = transactions.filter((transaction) => {
+  const filteredTransactions = transactions?.filter((transaction) => {
     const matchesSearch =
       transaction.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       transaction.reference.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -64,8 +38,30 @@ export function WarehouseTransactionsPage({ id }: WarehouseTransactionsPageProps
     return matchesSearch && matchesType
   })
 
-  if (loading) {
+  if (warehouseLoading || transactionsLoading) {
     return <TransactionsPageSkeleton />
+  }
+
+  if (transactionsError) {
+    return (
+      <div className="border rounded-md p-4 flex flex-col items-center justify-center gap-4 h-64">
+        <AlertTriangle className="h-8 w-8 text-red-500" />
+        <div className="text-center">
+          <h3 className="font-medium">Failed to load transactions</h3>
+          <p className="text-sm text-muted-foreground">{warehouseError?.message || transactionsError?.message}</p>
+        </div>
+      </div>
+    )
+  }
+  if(warehouseError){
+    return(
+       <div className="border rounded-md p-4 flex flex-col items-center justify-center gap-4 h-64">
+      <AlertTriangle className="h-8 w-8 text-red-500" />
+      <div className="text-center">
+        <h3 className="font-medium">Failed to load warehouse</h3>
+        <p className="text-sm text-muted-foreground">{warehouseError.message}</p>
+      </div>
+    </div>)
   }
 
   return (

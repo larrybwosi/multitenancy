@@ -207,9 +207,7 @@ export function PosClientWrapper({
 
   return (
     <div className="flex h-screen overflow-hidden bg-muted/20 dark:bg-neutral-900/50">
-      <Link href="/api/test-email" className="absolute top-4 left-4">
-        <ArrowLeft className="w-4 h-4" />
-      </Link>
+      
       <div className="flex-grow h-full overflow-auto p-4 md:p-6">
         <ProductGrid products={products} onAddToCart={addProductToCart} />
       </div>

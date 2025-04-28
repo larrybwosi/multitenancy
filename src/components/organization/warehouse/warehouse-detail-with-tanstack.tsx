@@ -37,7 +37,7 @@ import { WarehouseEditSheet } from "./warehouse-edit-sheet";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { InventoryLocation, StorageZone, StorageUnit } from "@prisma/client";
+import { InventoryLocation } from "@prisma/client";
 import useSWR from "swr";
 import {
   Tabs,
@@ -64,54 +64,15 @@ import { ZoneCreateDialog } from "./zone-create-dialog";
 import { UnitCreateDialog } from "./unit-create-dialog";
 import { WarehouseLayoutVisualization } from "./warehouse-layout-visualization";
 import { useQueryState } from "nuqs";
-import { useDeleteWarehouse, useUpdateWarehouse } from "@/hooks/use-warehouse";
+import { useDeleteWarehouse, useGetWarehouse, useUpdateWarehouse } from "@/hooks/use-warehouse";
 
 interface WarehouseDetailsPageProps {
   id: string;
 }
 
-// Extended interfaces for better type safety
-interface WarehouseWithDetails extends InventoryLocation {
-  manager?: {
-    id: string;
-    name?: string;
-  };
-  zones?: StorageZone[];
-  storageUnits?: (StorageUnit & {
-    capacityUsed: number;
-    productCount: number;
-  })[];
-  stockValue?: number;
-  stockItems?: {
-    id: string;
-    productId: string;
-    productName: string;
-    quantity: number;
-    value: number;
-    location?: {
-      unitId: string;
-      unitName: string;
-      position: string;
-    } | null;
-  }[];
-  productCount?: number;
-}
+
 
 // Type for storage metrics
-interface StorageMetrics {
-  totalUnits: number;
-  occupiedUnits: number;
-  utilizationRate: number;
-  totalZones: number;
-  totalProducts: number;
-  stockValue: number;
-}
-
-const fetcher = (url: string) =>
-  fetch(url).then((res) => {
-    if (!res.ok) throw new Error("Failed to fetch warehouse");
-    return res.json();
-  });
 
 export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
   const router = useRouter();
@@ -121,58 +82,37 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
       serialize: v => (v ? 'true' : 'false'),
     });
   const [activeTab, setActiveTab] = useState("overview");
-  const [storageMetrics, setStorageMetrics] = useState<StorageMetrics>({
-    totalUnits: 0,
-    occupiedUnits: 0,
-    utilizationRate: 0,
-    totalZones: 0,
-    totalProducts: 0,
-    stockValue: 0,
-  });
   const [showZoneCreateDialog, setShowZoneCreateDialog] = useState(false);
   const [showUnitCreateDialog, setShowUnitCreateDialog] = useState(false);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
-
+  
   const { mutateAsync: deleteWarehouse } = useDeleteWarehouse();
   const { mutateAsync: updateWarehouse } = useUpdateWarehouse(id);
 
-  // Enhanced API call to get comprehensive warehouse data
-  const { data, error, isLoading, mutate } = useSWR<{
-    warehouse: WarehouseWithDetails;
-  }>(`/api/warehouse/${id}`, fetcher, {
-    onSuccess: (data) => {
-      if (data?.warehouse) {
-        // Calculate storage metrics
-        const zones = data.warehouse.zones || [];
-        const units = data.warehouse.storageUnits || [];
-        const occupied = units.filter(unit => (unit.capacityUsed || 0) > 0).length;
-        
-        setStorageMetrics({
-          totalUnits: units.length,
-          occupiedUnits: occupied,
-          utilizationRate: units.length > 0 ? Math.round((occupied / units.length) * 100) : 0,
-          totalZones: zones.length,
-          totalProducts: data.warehouse.productCount || 0,
-          stockValue: data.warehouse.stockValue || 0,
-        });
-      }
-    },
-    onError: (err) => {
-      toast.error("Error", {
-        description: err.message || "Failed to load warehouse details",
-      });
-    },
-    revalidateOnFocus: false,
-    refreshInterval: 180000, // Auto-refresh every 3 minutes
-  });
+    const {
+      data,
+      isLoading,
+      error,
+    } = useGetWarehouse(id);
+if(isLoading) return <Skeleton className="h-8 w-1/2" />
+  if (error) {
+    return (
+      <div className="border rounded-md p-4 flex flex-col items-center justify-center gap-4 h-64">
+        <AlertTriangle className="h-8 w-8 text-red-500" />
+        <p className="text-sm text-muted-foreground">
+          {error.message || "Failed to load warehouse details"}
+        </p>
+      </div>
+    );
+  }
 
   const warehouse = data?.warehouse;
+  const storageMetrics = data?.storageMetrics;
 
   const handleDelete = async () => {
     try {
       const response = await deleteWarehouse(id);
       console.log(response)
-      mutate()
       toast.success("Success", {
         description: "Warehouse deleted successfully ",
       });
@@ -191,7 +131,6 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
     try {
       const response = await updateWarehouse(formData);
       console.log(response)
-      mutate()
       toast.success("Success", {
         description: "Warehouse updated successfully",
       });
@@ -1117,7 +1056,7 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
       <WarehouseEditSheet
         open={showEditSheet as boolean}
         onOpenChange={setShowEditSheet}
-        warehouse={warehouse  as any}
+        warehouse={warehouse}
         onSave={handleUpdate}
       />
 
@@ -1165,7 +1104,7 @@ function WarehouseDetailsSkeleton() {
   );
 }
 
-function WarehouseErrorState({ error }: { error?: Error }) {
+function WarehouseErrorState({ error }: { error?: Error | null }) {
   const router = useRouter();
 
   return (
