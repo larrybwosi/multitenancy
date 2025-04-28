@@ -1,170 +1,262 @@
-"use client";
+'use client';
 
-import { useState, useTransition, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { useState, useTransition, useCallback, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Trash2, Loader2, CircleAlert, PackagePlus, ImagePlus, Edit } from 'lucide-react';
+import Image from 'next/image';
+import { SectionHeader } from '@/components/ui/SectionHeader';
+import { useCategories } from '@/lib/hooks/use-categories';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { useFieldArray, useForm, UseFieldArrayRemove } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { useLocations, useSuppliers } from '@/lib/hooks/use-supplier'; // Assuming useSuppliers exists and works
+import { DragOverlay } from '@/components/ui/drag-overlay';
+import { VariantModal } from '../add/variant'; // Assuming VariantModal handles add/edit internally or via props
+// Assuming SupplierModal exists for managing suppliers similarly to variants
+// import { SupplierModal } from '../add/supplier';
+import { Checkbox } from '@/components/ui/checkbox';
+import { MeasurementUnit, Prisma } from '@prisma/client'; // Make sure Prisma is imported if used directly (like Prisma.JsonNull)
+import Loading from './loading'; // Assuming Loading component exists
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import {
-  Trash2,
-  Loader2,
-  CircleAlert,
-  PackagePlus,
-  ImagePlus,
-} from "lucide-react";
-import Image from "next/image";
-import { ProductInput, ProductSchema } from "@/lib/validations/product";
-import { SectionHeader } from "@/components/ui/SectionHeader";
-import { useCategories } from "@/lib/hooks/use-categories";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { useFieldArray, useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { useLocations, useSuppliers } from "@/lib/hooks/use-supplier";
-import { DragOverlay } from "@/components/ui/drag-overlay";
-import { VariantModal } from "../add/variant";
-import { Checkbox } from "@/components/ui/checkbox";
-import { MeasurementUnit } from "@prisma/client";
-import Loading from "./loading";
+  AddProductSchema,
+  EditProductSchema,
+  ProductVariantInput,
+  ProductSupplierInput, // Import supplier types if needed for modals/forms
+  AddProductSchemaType,
+  EditProductSchemaType,
+} from '@/lib/validations/product';
 
-export default function AddProductForm() {
+// Define the expected shape of the product data for editing
+// Adjust based on your actual prisma query result for a single product
+type ProductForEditing = Omit<AddProductSchemaType, 'suppliers' | 'variants'> & {
+  id: string;
+  // Ensure variants and suppliers match the expected input structure,
+  // especially handling potential null/undefined values from the DB
+  // that need transformation before hitting the form.
+  variants: (ProductVariantInput & { id?: string })[]; // variants might have IDs in edit mode
+  suppliers: (ProductSupplierInput & { id?: string })[]; // suppliers might have IDs
+  // Add any other fields fetched for the product edit page
+};
+
+interface AddProductFormProps {
+  product?: ProductForEditing; // Optional product data for editing
+}
+
+export default function AddProductForm({ product }: AddProductFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isUploading, setIsUploading] = useState(false);
   const [generalError, setGeneralError] = useState<string | null>(null);
-  const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [variantModalOpen, setVariantModalOpen] = useState(false);
+  // const [supplierModalOpen, setSupplierModalOpen] = useState(false); // For supplier modal
   const [isDragging, setIsDragging] = useState(false);
-  const [previewFiles, setPreviewFiles] = useState<
-    { file: File; preview: string }[]
-  >([]);
+  const [previewFiles, setPreviewFiles] = useState<{ file: File; preview: string }[]>([]);
+
+  const isEditMode = !!product?.id;
+  const currentSchema = isEditMode ? EditProductSchema : AddProductSchema;
 
   const form = useForm({
-    resolver: zodResolver(ProductSchema),
-    mode: "onChange",
-    defaultValues: {
-      name: "",
-      description: "",
-      barcode: "",
-      categoryId: "",
-      basePrice: 0,
-      isActive: true,
-      imageUrls: [],
-      width: undefined,
-      height: undefined,
-      length: undefined,
-      dimensionUnit: MeasurementUnit.METER,
-      weight: undefined,
-      weightUnit: MeasurementUnit.WEIGHT_KG,
-      volumetricWeight: undefined,
-      reorderPoint: 10,
-      defaultLocationId: "",
-      variants: [
-        {
-          name: "Default",
-          reorderPoint: 5,
-          reorderQty: 10,
+    resolver: zodResolver(currentSchema),
+    mode: 'onChange',
+    defaultValues: isEditMode
+      ? {
+          // productId: product.id, // Required by EditProductSchema
+          name: product.name ?? '',
+          description: product.description ?? '',
+          sku: product.sku ?? '', // Edit schema makes SKU required
+          barcode: product.barcode ?? '',
+          categoryId: product.categoryId ?? '',
+          basePrice: product.basePrice ?? 0, // Ensure type matches schema expectation (number)
+          baseCost: product.baseCost ?? undefined,
+          isActive: product.isActive ?? true,
+          // isActive: product.isActive ?? true,
+          imageUrls: product.imageUrls ?? [],
+          customFields: product.customFields ?? Prisma.JsonNull, // Use Prisma.JsonNull for default empty JSON
+          width: product.width ?? undefined,
+          height: product.height ?? undefined,
+          length: product.length ?? undefined,
+          dimensionUnit: product.dimensionUnit ?? MeasurementUnit.METER,
+          weight: product.weight ?? undefined,
+          weightUnit: product.weightUnit ?? MeasurementUnit.WEIGHT_KG,
+          volumetricWeight: product.volumetricWeight ?? undefined,
+          reorderPoint: product.reorderPoint ?? 5,
+          defaultLocationId: product.defaultLocationId ?? undefined,
+          // Map variants and suppliers carefully, ensuring structure matches schema
+          variants:
+            product.variants?.map(v => ({
+              ...v,
+              priceModifier: v.priceModifier ?? 0,
+              attributes: v.attributes ?? Prisma.JsonNull,
+              isActive: v.isActive ?? true,
+              reorderPoint: v.reorderPoint ?? 5,
+              reorderQty: v.reorderQty ?? 10,
+              lowStockAlert: v.lowStockAlert ?? false,
+            })) ?? [],
+          suppliers:
+            product.suppliers?.map(s => ({
+              ...s,
+              costPrice: s.costPrice ?? 0, // Provide a default number or handle null based on schema/DB
+              minimumOrderQuantity: s.minimumOrderQuantity ?? undefined,
+              isPreferred: s.isPreferred ?? false,
+            })) ?? [],
+        }
+      : {
+          // Default values for Add Mode (aligned with AddProductSchema)
+          name: '',
+          description: '',
+          sku: '', // Add schema allows optional SKU initially
+          barcode: '',
+          categoryId: '',
+          basePrice: undefined, // Use undefined or '' and let zod coerce
+          baseCost: undefined,
           isActive: true,
-          lowStockAlert: true,
-          barcode: "",
+          imageUrls: [],
+          customFields: Prisma.JsonNull,
+          width: undefined,
+          height: undefined,
+          length: undefined,
+          dimensionUnit: MeasurementUnit.METER,
+          weight: undefined,
+          weightUnit: MeasurementUnit.WEIGHT_KG,
+          volumetricWeight: undefined,
+          reorderPoint: 5, // Default from schema
+          defaultLocationId: undefined,
+          variants: [], // Start with empty array or a default variant if desired
+          suppliers: [],
         },
-      ],
-      suppliers: [],
-    },
   });
+
+  // Reset form if product data changes (e.g., navigating between edit pages)
+  useEffect(() => {
+    if (isEditMode) {
+      form.reset({
+        // productId: product.id,
+        name: product.name ?? '',
+        description: product.description ?? '',
+        sku: product.sku ?? '',
+        barcode: product.barcode ?? '',
+        categoryId: product.categoryId ?? '',
+        basePrice: product.basePrice ?? 0,
+        baseCost: product.baseCost ?? undefined,
+        isActive: product.isActive ?? true,
+        imageUrls: product.imageUrls ?? [],
+        customFields: product.customFields ?? Prisma.JsonNull,
+        width: product.width ?? undefined,
+        height: product.height ?? undefined,
+        length: product.length ?? undefined,
+        dimensionUnit: product.dimensionUnit ?? MeasurementUnit.METER,
+        weight: product.weight ?? undefined,
+        weightUnit: product.weightUnit ?? MeasurementUnit.WEIGHT_KG,
+        volumetricWeight: product.volumetricWeight ?? undefined,
+        reorderPoint: product.reorderPoint ?? 5,
+        defaultLocationId: product.defaultLocationId ?? undefined,
+        variants:
+          product.variants?.map(v => ({
+            ...v,
+            priceModifier: v.priceModifier ?? 0,
+            attributes: v.attributes ?? Prisma.JsonNull,
+            isActive: v.isActive ?? true,
+            reorderPoint: v.reorderPoint ?? 5,
+            reorderQty: v.reorderQty ?? 10,
+            lowStockAlert: v.lowStockAlert ?? false,
+          })) ?? [],
+        suppliers:
+          product.suppliers?.map(s => ({
+            ...s,
+            costPrice: s.costPrice ?? 0,
+            minimumOrderQuantity: s.minimumOrderQuantity ?? undefined,
+            isPreferred: s.isPreferred ?? false,
+          })) ?? [],
+      });
+    } else {
+      // Optionally reset to add-mode defaults if needed
+      // form.reset(form.formState.defaultValues); // Or specific add defaults
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product, isEditMode, form.reset]); // Ensure form.reset is stable
 
   const {
     fields: variantFields,
     append: appendVariant,
     remove: removeVariant,
+    update: updateVariant, // Needed for editing variants
   } = useFieldArray({
     control: form.control,
-    name: "variants",
+    name: 'variants',
   });
 
   const {
-    data: locationsResult,
-    error: locationsError,
-    isLoading: isLoadingLocations,
-  } = useLocations();
+    fields: supplierFields,
+    append: appendSupplier,
+    remove: removeSupplier,
+    update: updateSupplier, // Needed for editing suppliers
+  } = useFieldArray({
+    control: form.control,
+    name: 'suppliers',
+  });
 
+  const { data: locationsResult, error: locationsError, isLoading: isLoadingLocations } = useLocations();
   const locations = locationsResult?.warehouses || [];
-
-  const {
-    data: suppliersResult,
-    error: suppliersError,
-    isLoading: isLoadingSuppliers,
-  } = useSuppliers();
-
-
-  const {
-    data: categoriesResult,
-    error: categoriesError,
-    isLoading: isLoadingCategories,
-  } = useCategories();
+  const { data: suppliersResult, error: suppliersError, isLoading: isLoadingSuppliers } = useSuppliers();
+  // const suppliersList = suppliersResult?.data || []; // Assuming this structure for supplier selection dropdown
+  const { data: categoriesResult, error: categoriesError, isLoading: isLoadingCategories } = useCategories();
   const categories = categoriesResult?.data || [];
 
   const handleImageUpload = useCallback(
     async (files: FileList) => {
       if (!files.length) return;
 
-      // Create previews first
-      const newPreviews = Array.from(files).map((file) => ({
+      const newPreviews = Array.from(files).map(file => ({
         file,
         preview: URL.createObjectURL(file),
       }));
+      setPreviewFiles(prev => [...prev, ...newPreviews]);
 
-      setPreviewFiles((prev) => [...prev, ...newPreviews]);
-
-      // Then upload each file
       setIsUploading(true);
       setGeneralError(null);
+      const uploadedUrls: string[] = [];
 
       try {
         for (const { file } of newPreviews) {
           const formData = new FormData();
-          formData.append("file", file);
+          formData.append('file', file);
 
-          const response = await fetch("/api/upload", {
-            method: "POST",
+          const response = await fetch('/api/upload', {
+            // Use your actual upload endpoint
+            method: 'POST',
             body: formData,
           });
 
-          if (!response.ok) throw new Error("Upload failed");
+          if (!response.ok) throw new Error(`Upload failed for ${file.name}`);
 
           const data = await response.json();
-          setImageUrls((prev) => [...prev, data.url]);
-          const currentUrls = form.getValues("imageUrls") || [];
-          form.setValue("imageUrls", [...currentUrls, data.url]);
+          if (!data.url) throw new Error(`Invalid response for ${file.name}`);
+
+          uploadedUrls.push(data.url);
+          // Remove successful preview
+          setPreviewFiles(prev => prev.filter(p => p.file !== file));
+          URL.revokeObjectURL(newPreviews.find(p => p.file === file)?.preview || '');
         }
-        toast.success("Images uploaded successfully!");
-      } catch (error) {
-        console.error("Image upload failed:", error);
-        setGeneralError("Image upload failed. Please try again.");
-        toast.error("Failed to upload images");
+
+        const currentUrls = form.getValues('imageUrls') || [];
+        form.setValue('imageUrls', [...currentUrls, ...uploadedUrls], { shouldValidate: true, shouldDirty: true });
+        toast.success('Images uploaded successfully!');
+      } catch (error: any) {
+        console.error('Image upload failed:', error);
+        const errorMessage = error.message || 'Image upload failed. Please try again.';
+        setGeneralError(errorMessage);
+        toast.error(errorMessage);
+        // Clean up previews for files that failed
+        newPreviews.forEach(p => URL.revokeObjectURL(p.preview));
+        setPreviewFiles(prev => prev.filter(p => !newPreviews.some(np => np.preview === p.preview)));
       } finally {
         setIsUploading(false);
       }
@@ -173,76 +265,118 @@ export default function AddProductForm() {
   );
 
   const removePreview = useCallback((previewToRemove: string) => {
-    setPreviewFiles((prev) =>
-      prev.filter((p) => p.preview !== previewToRemove)
-    );
-    // Revoke the object URL to avoid memory leaks
+    setPreviewFiles(prev => prev.filter(p => p.preview !== previewToRemove));
     URL.revokeObjectURL(previewToRemove);
   }, []);
 
   const removeImage = useCallback(
     (urlToRemove: string) => {
-      setImageUrls((prev) => prev.filter((url) => url !== urlToRemove));
-      const currentUrls = form.getValues("imageUrls") || [];
+      const currentUrls = form.getValues('imageUrls') || [];
       form.setValue(
-        "imageUrls",
-        currentUrls.filter((url: string) => url !== urlToRemove)
+        'imageUrls',
+        currentUrls.filter((url: string) => url !== urlToRemove),
+        { shouldValidate: true, shouldDirty: true }
       );
     },
     [form]
   );
 
-  const onSubmit = async (values: ProductInput) => {
+  const onSubmit = async (values: AddProductSchemaType | EditProductSchemaType) => {
     setGeneralError(null);
 
-    const formData = new FormData();
+    // Create FormData - FormData is often required if you are uploading files directly
+    // OR if your backend expects it. If your backend accepts JSON, you might not need FormData.
+    // Let's assume JSON is preferred for simplicity here unless file upload is part of THIS form submission.
+    // If using FormData, append complex types as JSON strings.
 
-    // Append all simple values
-    Object.entries(values).forEach(([key, value]) => {
-      if (key === "variants" || key === "suppliers" || key === "imageUrls")
-        return;
-      if (value !== undefined && value !== null) {
-        formData.append(key, String(value));
-      }
-    });
-
-    // Append complex data as JSON
-    formData.append("variants", JSON.stringify(values.variants));
-    formData.append("suppliers", JSON.stringify(values.suppliers));
-    imageUrls.forEach((url) => formData.append("imageUrls", url));
+    // console.log('Form values:', values); // Debug: Check the validated data
 
     startTransition(async () => {
       try {
-        const response = await fetch("/api/products", {
-          method: "POST",
-          body: formData,
+        const apiUrl = isEditMode ? `/api/products/${product.id}` : '/api/products';
+        const apiMethod = isEditMode ? 'PUT' : 'POST';
+
+        // Filter out empty IDs from variants/suppliers before sending if backend requires it
+        const payload = {
+          ...values,
+          variants: values.variants?.map(({ id, ...rest }) => (isEditMode && id ? { id, ...rest } : rest)),
+          suppliers: values.suppliers?.map(({ id, ...rest }) => (isEditMode && id ? { id, ...rest } : rest)),
+          // Ensure numeric fields that are optional are sent as null if empty/undefined
+          // Zod coercion should handle number conversion, but check backend expectations
+          baseCost: values.baseCost || null,
+          width: values.width || null,
+          height: values.height || null,
+          length: values.length || null,
+          weight: values.weight || null,
+          volumetricWeight: values.volumetricWeight || null,
+          defaultLocationId: values.defaultLocationId || null,
+        };
+
+        const response = await fetch(apiUrl, {
+          method: apiMethod,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
         });
 
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-
-        if (result?.error) {
-          setGeneralError(result.error);
-          if (result.fieldErrors) {
-            const firstErrorField = Object.keys(result.fieldErrors)[0];
-            const element = document.getElementsByName(firstErrorField)[0];
-            element?.focus();
-            element?.scrollIntoView({ behavior: "smooth", block: "center" });
+          try {
+            const errorData = await response.json();
+            console.error('Server error data:', errorData);
+            const message = errorData.error || `HTTP error! status: ${response.status}`;
+            // Map Zod-like errors from backend to form fields if possible
+            if (errorData.fieldErrors) {
+              Object.entries(errorData.fieldErrors).forEach(([field, error]: [string, any]) => {
+                // Need to potentially map backend field names to form field names
+                // This mapping logic depends heavily on your backend error structure
+                // Example: errorData.fieldErrors['variants.0.name'] might map to 'variants.0.name'
+                try {
+                  form.setError(field as any, {
+                    type: 'server',
+                    message: Array.isArray(error) ? error.join(', ') : String(error),
+                  });
+                } catch (e) {
+                  console.warn(`Failed to set error for field: ${field}`, e);
+                }
+              });
+            }
+            throw new Error(message); // Throw error with server message
+          } catch (jsonError) {
+            // If response is not JSON or JSON parsing fails
+            console.error('Failed to parse error response:', jsonError);
+            throw new Error(`HTTP error! status: ${response.status}. Failed to get error details.`);
           }
-          toast.error(
-            result.error || "Failed to add product. Please check errors."
-          );
-        } else {
-          toast.success("Product added successfully!");
-          router.push("/products");
         }
-      } catch (error) {
-        console.error("Form submission error:", error);
-        setGeneralError("An unexpected server error occurred.");
-        toast.error("An unexpected error occurred.");
+
+        const result = await response.json(); // Assuming success response is JSON
+
+        // console.log('API Result:', result); // Debug: Check API response
+
+        toast.success(`Product ${isEditMode ? 'updated' : 'added'} successfully!`);
+        router.push('/products'); // Redirect on success
+        router.refresh(); // Refresh server components if needed
+      } catch (error: any) {
+        console.error('Form submission error:', error);
+        const message = error.message || 'An unexpected error occurred.';
+        setGeneralError(message);
+        toast.error(message);
+
+        // Attempt to focus the first field with an error
+        const firstErrorField = Object.keys(form.formState.errors)[0];
+        if (firstErrorField) {
+          // Need robust way to find element, field name might be nested (e.g., variants.0.name)
+          // Basic attempt:
+          try {
+            const elements = document.getElementsByName(firstErrorField);
+            if (elements.length > 0) {
+              elements[0]?.focus();
+              elements[0]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          } catch (e) {
+            console.warn('Could not focus error field:', firstErrorField);
+          }
+        }
       }
     });
   };
@@ -251,38 +385,76 @@ export default function AddProductForm() {
     return <Loading />;
   }
 
-  if (categoriesError || locationsError || suppliersError) {
+  // Consolidate error checking
+  const dataLoadingError = categoriesError || locationsError || suppliersError;
+  if (dataLoadingError) {
     return (
       <div className="container mx-auto p-4">
         <Alert variant="destructive">
           <CircleAlert className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
+          <AlertTitle>Error Loading Data</AlertTitle>
           <AlertDescription>
-            {categoriesError?.message || locationsError?.message || suppliersError?.message}
+            Failed to load required data: {dataLoadingError.message}. Please try refreshing the page.
           </AlertDescription>
         </Alert>
       </div>
     );
   }
 
+  // Helper to manage variant modal state and data passing
+  const handleManageVariants = () => {
+    setVariantModalOpen(true);
+  };
+
+  // Helper to manage supplier modal state and data passing (if implementing)
+  // const handleManageSuppliers = () => {
+  //     setSupplierModalOpen(true);
+  // };
+
+  // --- RENDER LOGIC ---
+
   return (
     <>
+      {/* Pass necessary props to modals */}
       <VariantModal
         open={variantModalOpen}
         onOpenChange={setVariantModalOpen}
-        variants={form.watch("variants")}
-        onAddVariant={(variant) => appendVariant(variant)}
-        onRemoveVariant={removeVariant}
+        variants={form.watch('variants')} // Pass current variants
+        appendVariant={appendVariant}
+        removeVariant={removeVariant as UseFieldArrayRemove} // Cast if necessary or adjust types
+        updateVariant={updateVariant} // Pass update function
+        // Pass any other required props like measurement units if needed inside modal
       />
+
+      {/* <SupplierModal
+         open={supplierModalOpen}
+         onOpenChange={setSupplierModalOpen}
+         suppliers={form.watch('suppliers')}
+         appendSupplier={appendSupplier}
+         removeSupplier={removeSupplier as UseFieldArrayRemove}
+         updateSupplier={updateSupplier}
+         suppliersList={suppliersList} // Pass list of available suppliers
+       /> */}
 
       <div className="container mx-auto p-4 space-y-6">
         <SectionHeader
-          title="Create New Product"
-          subtitle="Fill in the details to add a new product to your catalog."
-          icon={<PackagePlus className="h-8 w-8 text-primary mt-2" />}
+          title={isEditMode ? 'Edit Product' : 'Create New Product'}
+          subtitle={
+            isEditMode
+              ? 'Update the details of this product.'
+              : 'Fill in the details to add a new product to your catalog.'
+          }
+          icon={
+            isEditMode ? (
+              <Edit className="h-8 w-8 text-primary mt-2" />
+            ) : (
+              <PackagePlus className="h-8 w-8 text-primary mt-2" />
+            )
+          }
         />
 
         <Form {...form}>
+          {/* Ensure onSubmit uses the refactored handler */}
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             {generalError && (
               <Alert variant="destructive">
@@ -293,19 +465,19 @@ export default function AddProductForm() {
             )}
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* Basic Information */}
+              {/* --- Left Column: Basic Info & Physical Attributes --- */}
               <div className="lg:col-span-6 space-y-6">
+                {/* Basic Information Card */}
                 <Card className="bg-gradient-to-br from-background to-muted/20 shadow-md border-primary/10">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-primary text-xl flex items-center gap-2">
                       <PackagePlus className="h-5 w-5" />
                       Basic Information
                     </CardTitle>
-                    <CardDescription>
-                      Enter the core details of your product.
-                    </CardDescription>
+                    <CardDescription>Enter the core details of the product.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {/* Name & SKU/Barcode */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
@@ -314,27 +486,24 @@ export default function AddProductForm() {
                           <FormItem>
                             <FormLabel>Product Name *</FormLabel>
                             <FormControl>
-                              <Input
-                                placeholder="e.g., Premium T-Shirt"
-                                {...field}
-                                className="bg-background/60"
-                              />
+                              <Input placeholder="e.g., Premium T-Shirt" {...field} className="bg-background/60" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
+                      {/* SKU is required for Edit, optional for Add (but backend might generate) */}
                       <FormField
                         control={form.control}
-                        name="barcode"
+                        name="sku"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Barcode/SKU</FormLabel>
+                            <FormLabel>SKU {isEditMode ? '*' : '(Optional)'}</FormLabel>
                             <FormControl>
                               <Input
-                                placeholder="e.g., SKU123456"
+                                placeholder="e.g., SKU12345"
                                 {...field}
-                                value={field.value || ""}
+                                value={field.value ?? ''}
                                 className="bg-background/60"
                               />
                             </FormControl>
@@ -343,18 +512,38 @@ export default function AddProductForm() {
                         )}
                       />
                     </div>
+                    {/* Barcode */}
+                    <FormField
+                      control={form.control}
+                      name="barcode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Barcode (Optional)</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="e.g., 9876543210"
+                              {...field}
+                              value={field.value ?? ''}
+                              className="bg-background/60"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
+                    {/* Description */}
                     <FormField
                       control={form.control}
                       name="description"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Description</FormLabel>
+                          <FormLabel>Description (Optional)</FormLabel>
                           <FormControl>
                             <Textarea
                               placeholder="Detailed description of the product..."
                               {...field}
-                              value={field.value || ""}
+                              value={field.value ?? ''}
                               className="bg-background/60 min-h-[120px]"
                             />
                           </FormControl>
@@ -363,6 +552,7 @@ export default function AddProductForm() {
                       )}
                     />
 
+                    {/* Category & Base Price */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
@@ -370,33 +560,28 @@ export default function AddProductForm() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Category *</FormLabel>
-                            <FormControl>
-                              <Select
-                                value={field.value}
-                                onValueChange={field.onChange}
-                                disabled={isPending || isLoadingCategories}
-                              >
+                            <Select
+                              value={field.value ?? ''} // Handle potential null/undefined value
+                              onValueChange={field.onChange}
+                              disabled={isPending || isLoadingCategories}
+                            >
+                              <FormControl>
                                 <SelectTrigger className="bg-background/60">
                                   {isLoadingCategories ? (
-                                    <span className="text-muted-foreground">
-                                      Loading categories...
-                                    </span>
+                                    <span className="text-muted-foreground">Loading...</span>
                                   ) : (
                                     <SelectValue placeholder="Select a category" />
                                   )}
                                 </SelectTrigger>
-                                <SelectContent>
-                                  {categories.map((category) => (
-                                    <SelectItem
-                                      key={category.id}
-                                      value={category.id}
-                                    >
-                                      {category.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </FormControl>
+                              </FormControl>
+                              <SelectContent>
+                                {categories.map(category => (
+                                  <SelectItem key={category.id} value={category.id}>
+                                    {category.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -408,14 +593,14 @@ export default function AddProductForm() {
                           <FormItem>
                             <FormLabel>Base Price *</FormLabel>
                             <FormControl>
+                              {/* Use type="text" and let Zod coerce for better UX with decimals */}
                               <Input
-                                type="number"
-                                step="0.01"
+                                type="text" // Changed from number
+                                inputMode="decimal" // Hint for mobile keyboards
                                 placeholder="0.00"
                                 {...field}
-                                onChange={(e) =>
-                                  field.onChange(parseFloat(e.target.value))
-                                }
+                                value={field.value ?? ''} // Handle potential null/undefined value
+                                onChange={e => field.onChange(e.target.value)} // Pass string value
                                 className="bg-background/60"
                               />
                             </FormControl>
@@ -425,182 +610,140 @@ export default function AddProductForm() {
                       />
                     </div>
 
-                    <FormField
-                      control={form.control}
-                      name="defaultLocationId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Default Location</FormLabel>
-                          <FormControl>
+                    {/* Base Cost & Default Location */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="baseCost"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Base Cost (Optional)</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="text"
+                                inputMode="decimal"
+                                placeholder="0.00"
+                                {...field}
+                                value={field.value ?? ''}
+                                onChange={e => field.onChange(e.target.value)}
+                                className="bg-background/60"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      {/* <FormField
+                        control={form.control}
+                        name="defaultLocationId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Default Location (Optional)</FormLabel>
                             <Select
-                              value={field.value}
+                              value={field.value ?? ''}
                               onValueChange={field.onChange}
                               disabled={isPending || isLoadingLocations}
                             >
-                              <SelectTrigger className="bg-background/60">
-                                {isLoadingLocations ? (
-                                  <span className="text-muted-foreground">
-                                    Loading locations...
-                                  </span>
-                                ) : (
-                                  <SelectValue placeholder="Select a default location" />
-                                )}
-                              </SelectTrigger>
+                              <FormControl>
+                                <SelectTrigger className="bg-background/60">
+                                  {isLoadingLocations ? (
+                                    <span className="text-muted-foreground">Loading...</span>
+                                  ) : (
+                                    <SelectValue placeholder="Select location" />
+                                  )}
+                                </SelectTrigger>
+                              </FormControl>
                               <SelectContent>
-                                {locations.map((location) => (
-                                  <SelectItem
-                                    key={location.id}
-                                    value={location.id}
-                                  >
+                                <SelectItem value="">None</SelectItem>
+                                {locations.map(location => (
+                                  <SelectItem key={location.id} value={location.id}>
                                     {location.name}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
-                          </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      /> */}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Physical Attributes Card */}
+                <Card className="bg-gradient-to-br from-background to-muted/20 shadow-md border-primary/10">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-primary text-xl">Physical Attributes (Optional)</CardTitle>
+                    <CardDescription>Specify the physical characteristics.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Dimensions */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Width, Height, Length - use type="text" */}
+                      {(['width', 'height', 'length'] as const).map(dim => (
+                        <FormField
+                          key={dim}
+                          control={form.control}
+                          name={dim}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="capitalize">{dim}</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="text"
+                                  inputMode="decimal"
+                                  placeholder="0.0"
+                                  {...field}
+                                  value={field.value ?? ''}
+                                  onChange={e => field.onChange(e.target.value)}
+                                  className="bg-background/60"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      ))}
+                    </div>
+                    {/* Dimension Unit */}
+                    <FormField
+                      control={form.control}
+                      name="dimensionUnit"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Dimension Unit</FormLabel>
+                          <Select value={field.value ?? MeasurementUnit.METER} onValueChange={field.onChange}>
+                            <FormControl>
+                              <SelectTrigger className="bg-background/60">
+                                <SelectValue placeholder="Select unit" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {Object.values(MeasurementUnit)
+                                // Filter for appropriate dimension units (adjust as needed)
+                                .filter(
+                                  value =>
+                                    !value.startsWith('WEIGHT_') &&
+                                    !value.startsWith('AREA_') &&
+                                    !value.startsWith('VOLUME_')
+                                )
+                                .map(value => (
+                                  <SelectItem key={value} value={value}>
+                                    {value
+                                      .replace('_', ' ')
+                                      .toLowerCase()
+                                      .replace(/\b\w/g, l => l.toUpperCase())}{' '}
+                                    {/* Format display name */}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                  </CardContent>
-                </Card>
-
-                {/* Physical Attributes */}
-                <Card className="bg-gradient-to-br from-background to-muted/20 shadow-md border-primary/10">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-primary text-xl">
-                      Physical Attributes
-                    </CardTitle>
-                    <CardDescription>
-                      Specify the physical characteristics of your product.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="width"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Width</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                step="0.1"
-                                placeholder="0.0"
-                                {...field}
-                                value={field.value || ""}
-                                onChange={(e) =>
-                                  field.onChange(
-                                    e.target.value
-                                      ? parseFloat(e.target.value)
-                                      : undefined
-                                  )
-                                }
-                                className="bg-background/60"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="height"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Height</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                step="0.1"
-                                placeholder="0.0"
-                                {...field}
-                                value={field.value || ""}
-                                onChange={(e) =>
-                                  field.onChange(
-                                    e.target.value
-                                      ? parseFloat(e.target.value)
-                                      : undefined
-                                  )
-                                }
-                                className="bg-background/60"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="length"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Length</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                step="0.1"
-                                placeholder="0.0"
-                                {...field}
-                                value={field.value || ""}
-                                onChange={(e) =>
-                                  field.onChange(
-                                    e.target.value
-                                      ? parseFloat(e.target.value)
-                                      : undefined
-                                  )
-                                }
-                                className="bg-background/60"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
+                    {/* Weight & Weight Unit */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="dimensionUnit"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Dimension Unit</FormLabel>
-                            <FormControl>
-                              <Select
-                                value={field.value}
-                                onValueChange={field.onChange}
-                              >
-                                <SelectTrigger className="bg-background/60">
-                                  <SelectValue placeholder="Select unit" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {Object.entries(MeasurementUnit)
-                                    .filter(
-                                      ([key]) =>
-                                        key.includes("CUBIC_") ||
-                                        key.includes("SQUARE_") ||
-                                        key === "METER" ||
-                                        key === "FEET"
-                                    )
-                                    .map(([key, value]) => (
-                                      <SelectItem key={key} value={value}>
-                                        {value
-                                          .replace("CUBIC_", "Cubic ")
-                                          .replace("SQUARE_", "Square ")
-                                          .replace("METER", "Meter")
-                                          .replace("FEET", "Feet")}
-                                      </SelectItem>
-                                    ))}
-                                </SelectContent>
-                              </Select>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
                       <FormField
                         control={form.control}
                         name="weight"
@@ -609,18 +752,12 @@ export default function AddProductForm() {
                             <FormLabel>Weight</FormLabel>
                             <FormControl>
                               <Input
-                                type="number"
-                                step="0.01"
-                                placeholder="0.0"
+                                type="text"
+                                inputMode="decimal"
+                                placeholder="0.00"
                                 {...field}
-                                value={field.value || ""}
-                                onChange={(e) =>
-                                  field.onChange(
-                                    e.target.value
-                                      ? parseFloat(e.target.value)
-                                      : undefined
-                                  )
-                                }
+                                value={field.value ?? ''}
+                                onChange={e => field.onChange(e.target.value)}
                                 className="bg-background/60"
                               />
                             </FormControl>
@@ -628,87 +765,93 @@ export default function AddProductForm() {
                           </FormItem>
                         )}
                       />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
                         name="weightUnit"
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Weight Unit</FormLabel>
-                            <FormControl>
-                              <Select
-                                value={field.value}
-                                onValueChange={field.onChange}
-                              >
+                            <Select value={field.value ?? MeasurementUnit.WEIGHT_KG} onValueChange={field.onChange}>
+                              <FormControl>
                                 <SelectTrigger className="bg-background/60">
                                   <SelectValue placeholder="Select unit" />
                                 </SelectTrigger>
-                                <SelectContent>
-                                  {Object.entries(MeasurementUnit)
-                                    .filter(([key]) =>
-                                      key.startsWith("WEIGHT_")
-                                    ) // Only include weight units
-                                    .map(([key, value]) => (
-                                      <SelectItem key={key} value={value}>
-                                        {value.replace("WEIGHT_", "")}{" "}
-                                        {/* Shows "KG" and "LB" */}
-                                      </SelectItem>
-                                    ))}
-                                </SelectContent>
-                              </Select>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="volumetricWeight"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Volumetric Weight</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                placeholder="0.0"
-                                {...field}
-                                value={field.value || ""}
-                                onChange={(e) =>
-                                  field.onChange(
-                                    e.target.value
-                                      ? parseFloat(e.target.value)
-                                      : undefined
-                                  )
-                                }
-                                className="bg-background/60"
-                              />
-                            </FormControl>
+                              </FormControl>
+                              <SelectContent>
+                                {Object.values(MeasurementUnit)
+                                  .filter(value => value.startsWith('WEIGHT_'))
+                                  .map(value => (
+                                    <SelectItem key={value} value={value}>
+                                      {value.replace('WEIGHT_', '')}
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
                     </div>
+                    {/* Volumetric Weight */}
+                    <FormField
+                      control={form.control}
+                      name="volumetricWeight"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Volumetric Weight</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="text"
+                              inputMode="decimal"
+                              placeholder="0.00"
+                              {...field}
+                              value={field.value ?? ''}
+                              onChange={e => field.onChange(e.target.value)}
+                              className="bg-background/60"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    {/* Custom Fields (Example Textarea - adjust based on actual needs) */}
+                    <FormField
+                      control={form.control}
+                      name="customFields" // Assuming customFields is handled as a JSON string or object
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Custom Fields (JSON)</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder='e.g., {"material": "cotton", "origin": "USA"}'
+                              {...field}
+                              value={
+                                typeof field.value === 'string'
+                                  ? field.value
+                                  : JSON.stringify(field.value !== Prisma.JsonNull ? field.value : {})
+                              }
+                              onChange={e => field.onChange(e.target.value)} // Store as string, schema transforms
+                              className="bg-background/60 min-h-[80px] font-mono text-sm"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </CardContent>
                 </Card>
               </div>
 
-              {/* Right Column - Inventory and Variants */}
+              {/* --- Right Column: Inventory, Variants, Images --- */}
               <div className="lg:col-span-6 space-y-6">
-                {/* Inventory Settings */}
+                {/* Inventory Settings Card */}
                 <Card className="bg-gradient-to-br from-background to-muted/20 shadow-md border-primary/10">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-primary text-xl">
-                      Inventory Settings
-                    </CardTitle>
-                    <CardDescription>
-                      Configure inventory management options.
-                    </CardDescription>
+                    <CardTitle className="text-primary text-xl">Inventory Settings</CardTitle>
+                    <CardDescription>Configure stock and availability.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {/* Reorder Point */}
                     <FormField
                       control={form.control}
                       name="reorderPoint"
@@ -717,12 +860,14 @@ export default function AddProductForm() {
                           <FormLabel>Reorder Point</FormLabel>
                           <FormControl>
                             <Input
-                              type="number"
-                              placeholder="10"
+                              type="number" // Keep as number for integer input
+                              step="1"
+                              placeholder="e.g., 10"
                               {...field}
-                              onChange={(e) =>
-                                field.onChange(parseInt(e.target.value))
-                              }
+                              value={field.value ?? ''}
+                              onChange={e =>
+                                field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))
+                              } // Parse to int
                               className="bg-background/60"
                             />
                           </FormControl>
@@ -730,371 +875,288 @@ export default function AddProductForm() {
                         </FormItem>
                       )}
                     />
-
-                    {/* <FormField
-                      control={form.control}
-                      name="suppliers"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Suppliers</FormLabel>
-                          <FormControl>
-                            <Select
-                              value={!!field?.value?.length ? field.value : [] || ""}
-                              onValueChange={(value) => field.onChange([value])}
-                              disabled={isPending || isLoadingSuppliers}
-                            >
-                              <SelectTrigger className="bg-background/60">
-                                {isLoadingSuppliers ? (
-                                  <span className="text-muted-foreground">
-                                    Loading suppliers...
-                                  </span>
-                                ) : (
-                                  <SelectValue placeholder="Select a supplier" />
-                                )}
-                              </SelectTrigger>
-                              <SelectContent>
-                                {suppliersResult?.data.map((supplier) => (
-                                  <SelectItem
-                                    key={supplier.id}
-                                    value={supplier.id}
-                                  >
-                                    {supplier.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    /> */}
-
+                    {/* Active Status */}
                     <FormField
                       control={form.control}
                       name="isActive"
                       render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-background/30">
                           <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
+                            {/* Ensure checked state handles potential undefined */}
+                            <Checkbox checked={!!field.value} onCheckedChange={field.onChange} />
                           </FormControl>
                           <div className="space-y-1 leading-none">
                             <FormLabel>Active Product</FormLabel>
                             <p className="text-sm text-muted-foreground">
-                              This product will be available for sale.
+                              Make this product available for sale and visible in listings.
                             </p>
                           </div>
                         </FormItem>
                       )}
                     />
+                    {/* Suppliers Section (Placeholder for potential SupplierModal trigger) */}
+                    {/*
+                     <Card className="bg-background/30">
+                       <CardHeader className="pb-2">
+                           <CardTitle className="text-lg flex items-center justify-between">
+                               <span>Suppliers</span>
+                               <Button type="button" variant="outline" onClick={handleManageSuppliers} className="h-8">
+                                   Manage Suppliers
+                               </Button>
+                           </CardTitle>
+                           <CardDescription>Assign suppliers and their details.</CardDescription>
+                       </CardHeader>
+                       <CardContent>
+                           {supplierFields.length > 0 ? (
+                               <div className="space-y-2 max-h-40 overflow-auto">
+                                   {supplierFields.map((field, index) => (
+                                       <div key={field.id} className="p-2 border rounded bg-background/50">
+                                           <p className="font-medium">{suppliersList.find(s => s.id === field.supplierId)?.name || 'Unknown Supplier'}</p>
+                                           <p className="text-sm text-muted-foreground">SKU: {field.supplierSku || 'N/A'} | Cost: ${field.costPrice?.toFixed(2) ?? 'N/A'}</p>
+                                       </div>
+                                   ))}
+                               </div>
+                           ) : (
+                               <p className="text-muted-foreground text-center py-2">No suppliers assigned.</p>
+                           )}
+                       </CardContent>
+                     </Card>
+                     */}
                   </CardContent>
                 </Card>
 
-                {/* Variants */}
+                {/* Variants Card */}
                 <Card className="bg-gradient-to-br from-background to-muted/20 shadow-md border-primary/10">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-primary text-xl flex items-center justify-between">
                       <span>Product Variants</span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setVariantModalOpen(true)}
-                        className="h-8"
-                      >
+                      <Button type="button" variant="outline" onClick={handleManageVariants} className="h-8">
                         Manage Variants
                       </Button>
                     </CardTitle>
-                    <CardDescription>
-                      Configure different variations of your product.
-                    </CardDescription>
+                    <CardDescription>Configure different variations (size, color, etc.).</CardDescription>
                   </CardHeader>
                   <CardContent>
                     {variantFields.length > 0 ? (
-                      <div className="space-y-2 max-h-60 overflow-auto">
-                        {variantFields.map((field, index) => (
-                          <div
-                            key={field.id}
-                            className="p-3 border rounded bg-background/50 hover:bg-background/80 transition-colors"
-                          >
-                            <div className="flex justify-between items-center">
-                              <p className="font-medium">
-                                {field.name || "Unnamed Variant"}
-                              </p>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removeVariant(index)}
-                                className="h-6 w-6 p-0"
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </div>
-                            <div className="mt-1 text-sm text-muted-foreground">
-                              <div className="flex justify-between">
-                                <span>Barcode: {field.barcode || "N/A"}</span>
-                                <span
-                                  className={
-                                    field.isActive
-                                      ? "text-green-500"
-                                      : "text-red-500"
-                                  }
-                                >
-                                  {field.isActive ? "Active" : "Inactive"}
-                                </span>
+                      <ScrollArea className="h-60">
+                        <div className="space-y-2 pr-3">
+                          {variantFields.map((field, index) => (
+                            <div
+                              key={field.id} // react-hook-form provides stable ID
+                              className="p-3 border rounded bg-background/50 hover:bg-background/80 transition-colors"
+                            >
+                              <div className="flex justify-between items-center">
+                                <p className="font-medium">
+                                  {form.watch(`variants.${index}.name`) || 'Unnamed Variant'}
+                                </p>
+                                {/* Optionally add edit button per variant if modal edits all */}
+                                {/* <Button variant="ghost" size="sm" onClick={() => openVariantModalForEdit(index)}>Edit</Button> */}
                               </div>
-                              <div className="flex justify-between">
-                                <span>
-                                  Reorder: {field.reorderPoint} /{" "}
-                                  {field.reorderQty}
-                                </span>
-                                <span
-                                  className={
-                                    field.lowStockAlert
-                                      ? "text-amber-500"
-                                      : "text-muted-foreground"
-                                  }
-                                >
-                                  {field.lowStockAlert
-                                    ? "Low Stock Alert On"
-                                    : "No Alerts"}
-                                </span>
+                              <div className="mt-1 text-sm text-muted-foreground space-y-1">
+                                <div className="flex justify-between">
+                                  <span>SKU: {form.watch(`variants.${index}.sku`) || 'N/A'}</span>
+                                  <span
+                                    className={
+                                      form.watch(`variants.${index}.isActive`) ? 'text-green-500' : 'text-red-500'
+                                    }
+                                  >
+                                    {form.watch(`variants.${index}.isActive`) ? 'Active' : 'Inactive'}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Price Mod: {form.watch(`variants.${index}.priceModifier`)}</span>
+                                  <span>Barcode: {form.watch(`variants.${index}.barcode`) || 'N/A'}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>
+                                    Reorder: {form.watch(`variants.${index}.reorderPoint`)} /{' '}
+                                    {form.watch(`variants.${index}.reorderQty`)}
+                                  </span>
+                                  <span
+                                    className={form.watch(`variants.${index}.lowStockAlert`) ? 'text-amber-500' : ''}
+                                  >
+                                    {form.watch(`variants.${index}.lowStockAlert`) ? 'Low Stock Alert' : ''}
+                                  </span>
+                                </div>
+                                {/* Optionally display simple attributes */}
+                                {/* <div>Attributes: {JSON.stringify(form.watch(`variants.${index}.attributes`))}</div> */}
                               </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
                     ) : (
                       <div className="p-4 text-center">
-                        <p className="text-muted-foreground">
-                          No variants defined.
-                        </p>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => setVariantModalOpen(true)}
-                          className="mt-2"
-                        >
-                          Add Your First Variant
+                        <p className="text-muted-foreground">No variants defined. The product will use base details.</p>
+                        <Button type="button" variant="outline" onClick={handleManageVariants} className="mt-2">
+                          Add Variants
                         </Button>
                       </div>
                     )}
                   </CardContent>
                 </Card>
 
-                {/* Product Images */}
+                {/* Product Images Card */}
                 <Card className="bg-gradient-to-br from-background to-muted/20 shadow-md border-primary/10">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-primary text-xl flex items-center gap-2">
                       <ImagePlus className="h-5 w-5" />
                       Product Images
                     </CardTitle>
-                    <CardDescription>
-                      Upload or drag & drop product images here.
-                    </CardDescription>
+                    <CardDescription>Upload or drag & drop product images.</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div
-                      className={`relative min-h-[300px] border-2 border-dashed rounded-lg ${
-                        isDragging
-                          ? "border-primary bg-primary/10"
-                          : "border-muted"
-                      } transition-colors duration-200`}
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        setIsDragging(true);
-                      }}
-                      onDragLeave={() => setIsDragging(false)}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        setIsDragging(false);
-                        if (e.dataTransfer.files) {
-                          handleImageUpload(e.dataTransfer.files);
-                        }
-                      }}
-                    >
-                      {previewFiles.length === 0 && imageUrls.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full p-6">
-                          <ImagePlus className="h-12 w-12 text-muted-foreground mb-4" />
-                          <p className="text-sm text-muted-foreground text-center mb-2">
-                            Drag & drop your images here or click to browse
-                          </p>
-                          <Input
-                            id="imageUpload"
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            className="hidden"
-                            onChange={(e) =>
-                              e.target.files &&
-                              handleImageUpload(e.target.files)
-                            }
-                            disabled={isUploading}
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() =>
-                              document.getElementById("imageUpload")?.click()
-                            }
-                            disabled={isUploading}
-                          >
-                            {isUploading ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Uploading...
-                              </>
-                            ) : (
-                              "Browse Images"
-                            )}
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="p-4">
-                          <div className="flex justify-between items-center mb-2">
-                            <p className="text-sm font-medium">
-                              Product Images
-                            </p>
-                            <Input
-                              id="additionalImageUpload"
-                              type="file"
-                              accept="image/*"
-                              multiple
-                              className="hidden"
-                              onChange={(e) =>
-                                e.target.files &&
-                                handleImageUpload(e.target.files)
-                              }
-                              disabled={isUploading}
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                document
-                                  .getElementById("additionalImageUpload")
-                                  ?.click()
-                              }
-                              disabled={isUploading}
-                            >
-                              {isUploading ? (
-                                <>
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  Uploading...
-                                </>
-                              ) : (
-                                "Add More"
-                              )}
-                            </Button>
-                          </div>
-
-                          <ScrollArea className="h-[220px]">
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                              {/* Preview Files (not yet uploaded) */}
-                              {previewFiles.map((item) => (
-                                <div
-                                  key={item.preview}
-                                  className="relative group aspect-square"
-                                >
-                                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg z-10">
-                                    <div className="flex gap-2">
+                    <FormField
+                      control={form.control}
+                      name="imageUrls"
+                      render={(
+                        { field } // Use field to access value and onChange
+                      ) => (
+                        <FormItem>
+                          {/* Input is hidden, label acts as dropzone and button trigger */}
+                          <FormControl>
+                            <>
+                              <Input
+                                id="imageUploadInput"
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                className="hidden"
+                                onChange={e => e.target.files && handleImageUpload(e.target.files)}
+                                disabled={isUploading || isPending}
+                              />
+                              <div
+                                className={`relative min-h-[250px] border-2 border-dashed rounded-lg ${
+                                  isDragging ? 'border-primary bg-primary/10' : 'border-muted'
+                                } transition-colors duration-200 flex flex-col`}
+                                onDragOver={e => {
+                                  e.preventDefault();
+                                  setIsDragging(true);
+                                }}
+                                onDragLeave={() => setIsDragging(false)}
+                                onDrop={e => {
+                                  e.preventDefault();
+                                  setIsDragging(false);
+                                  if (e.dataTransfer.files) handleImageUpload(e.dataTransfer.files);
+                                }}
+                              >
+                                {/* Display Uploaded Images */}
+                                {(field.value?.length ?? 0) > 0 || previewFiles.length > 0 ? (
+                                  <div className="p-4 flex-grow">
+                                    <div className="flex justify-between items-center mb-2">
+                                      <FormLabel className="text-sm font-medium">Uploaded Images</FormLabel>
                                       <Button
                                         type="button"
-                                        variant="destructive"
-                                        size="icon"
-                                        className="h-8 w-8"
-                                        onClick={() =>
-                                          removePreview(item.preview)
-                                        }
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => document.getElementById('imageUploadInput')?.click()}
+                                        disabled={isUploading || isPending}
                                       >
-                                        <Trash2 className="h-4 w-4" />
+                                        {isUploading ? (
+                                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        ) : (
+                                          <ImagePlus className="mr-2 h-4 w-4" />
+                                        )}
+                                        Add More
                                       </Button>
                                     </div>
+                                    <ScrollArea className="h-[180px]">
+                                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 pr-3">
+                                        {/* Preview Files */}
+                                        {previewFiles.map(item => (
+                                          <div key={item.preview} className="relative group aspect-square">
+                                            {/* Overlay shown during upload */}
+                                            <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10 rounded-lg">
+                                              <Loader2 className="h-6 w-6 animate-spin text-white" />
+                                            </div>
+                                            <Image
+                                              src={item.preview}
+                                              alt="Uploading preview"
+                                              layout="fill"
+                                              objectFit="cover"
+                                              className="rounded-lg border border-muted"
+                                              // No revoke here, handled in upload logic
+                                            />
+                                          </div>
+                                        ))}
+                                        {/* Uploaded Files */}
+                                        {field.value?.map((url: string) => (
+                                          <div key={url} className="relative group aspect-square">
+                                            <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg z-10">
+                                              <Button
+                                                type="button"
+                                                variant="destructive"
+                                                size="icon"
+                                                className="h-8 w-8"
+                                                onClick={() => removeImage(url)}
+                                                disabled={isPending}
+                                              >
+                                                <Trash2 className="h-4 w-4" />
+                                              </Button>
+                                            </div>
+                                            <Image
+                                              src={url}
+                                              alt="Product Image"
+                                              layout="fill"
+                                              objectFit="cover"
+                                              className="rounded-lg border border-muted"
+                                            />
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </ScrollArea>
                                   </div>
-                                  <div className="h-full w-full rounded-lg overflow-hidden border border-muted">
-                                    <Image
-                                      src={item.preview}
-                                      alt="Preview"
-                                      width={150}
-                                      height={150}
-                                      className="h-full w-full object-cover"
-                                      onLoad={() =>
-                                        URL.revokeObjectURL(item.preview)
-                                      }
-                                    />
-                                    <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-1 text-center">
-                                      Uploading...
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-
-                              {/* Uploaded Files */}
-                              {imageUrls.map((url) => (
-                                <div
-                                  key={url}
-                                  className="relative group aspect-square"
-                                >
-                                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg z-10">
-                                    <div className="flex gap-2">
-                                      <Button
-                                        type="button"
-                                        variant="destructive"
-                                        size="icon"
-                                        className="h-8 w-8"
-                                        onClick={() => removeImage(url)}
-                                      >
-                                        <Trash2 className="h-4 w-4" />
+                                ) : (
+                                  // Placeholder when no images
+                                  <label
+                                    htmlFor="imageUploadInput"
+                                    className="flex flex-col items-center justify-center h-full p-6 cursor-pointer flex-grow"
+                                  >
+                                    <ImagePlus className="h-12 w-12 text-muted-foreground mb-4" />
+                                    <p className="text-sm text-muted-foreground text-center mb-2">
+                                      {isUploading ? 'Uploading...' : 'Drag & drop images here or click to browse'}
+                                    </p>
+                                    {!isUploading && (
+                                      <Button type="button" variant="outline" disabled={isPending}>
+                                        Browse Files
                                       </Button>
-                                    </div>
-                                  </div>
-                                  <div className="h-full w-full rounded-lg overflow-hidden border border-muted">
-                                    <Image
-                                      src={url}
-                                      alt="Product Image"
-                                      width={150}
-                                      height={150}
-                                      className="h-full w-full object-cover"
-                                    />
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </ScrollArea>
-                        </div>
+                                    )}
+                                  </label>
+                                )}
+                                {/* Drag Overlay */}
+                                {isDragging && <DragOverlay />}
+                              </div>
+                            </>
+                          </FormControl>
+                          <FormMessage /> {/* Show errors related to imageUrls field */}
+                        </FormItem>
                       )}
-                      {isDragging && <DragOverlay />}
-                    </div>
+                    />
                   </CardContent>
                 </Card>
               </div>
             </div>
 
-            {/* Submit Button */}
-            <div className="sticky bottom-4 bg-background/95 p-4 rounded-lg shadow-lg backdrop-blur-md border border-muted">
-              <div className="flex justify-between items-center">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => router.push("/products")}
-                >
+            {/* --- Sticky Footer with Submit Button --- */}
+            <div className="sticky bottom-0 -mx-4 -mb-4 mt-8 p-4 bg-background/95 border-t border-border backdrop-blur-sm z-20">
+              <div className="container mx-auto flex justify-between items-center">
+                <Button type="button" variant="outline" onClick={() => router.back()} disabled={isPending}>
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   className="min-w-[150px]"
-                  disabled={isPending || isUploading}
+                  disabled={isPending || isUploading || !form.formState.isDirty}
                 >
                   {isPending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Adding Product...
+                      {isEditMode ? 'Saving...' : 'Adding...'}
                     </>
+                  ) : isEditMode ? (
+                    'Save Changes'
                   ) : (
-                    "Add Product"
+                    'Add Product'
                   )}
                 </Button>
               </div>

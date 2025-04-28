@@ -12,7 +12,7 @@ import Image from 'next/image';
 import {Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage} from '@/components/ui/form';
 import {Input} from '@/components/ui/input';
 import {Button} from '@/components/ui/button';
-import {Textarea} from '@/components/ui/textarea';
+import { Textarea } from '@/components/ui/textarea';
 import {Skeleton} from '@/components/ui/skeleton';
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
@@ -20,6 +20,9 @@ import {Switch} from '@/components/ui/switch';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import {Badge} from '@/components/ui/badge';
 import {InventoryPolicy, MeasurementUnit} from '@prisma/client';
+import { toast } from 'sonner';
+import { useOrganization } from '@/hooks/use-organization';
+import { useUpdateOrganization } from '@/lib/hooks/use-org';
 
 // Define the timezone options
 const timezones = [
@@ -41,12 +44,6 @@ const timezones = [
 
 // Define currency options
 const currencies = ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'CNY', 'INR', 'BRL', 'KES', 'NGN', 'ZAR'];
-
-// Define dimension units
-const dimensionUnits = ['cm', 'inches', 'm', 'ft'];
-
-// Define weight units
-const weightUnits = ['kg', 'lbs', 'g', 'oz'];
 
 // Organization form schema with all new fields
 const organizationFormSchema = z.object({
@@ -150,6 +147,8 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [tagInput, setTagInput] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { organization, isLoading, error} = useOrganization();
+  const {mutate: updateOrganization, isPending: isUpdating} = useUpdateOrganization();
   const router = useRouter();
 
   const form = useForm({
@@ -181,34 +180,33 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
     },
   });
 
+  
+
   useEffect(() => {
     const loadOrganizationData = async () => {
       try {
-        const data = await fetchOrganization();
-        if (data) {
+        if (organization) {
           // Convert numeric values to strings for the form
           const formData = {
-            ...data,
-            expenseApprovalThreshold: data.expenseApprovalThreshold?.toString() || null,
-            expenseReceiptThreshold: data.expenseReceiptThreshold?.toString() || null,
-            defaultTaxRate: data.defaultTaxRate?.toString() || null,
-            lowStockThreshold: data.lowStockThreshold?.toString() || '10',
+            ...organization,
+            expenseApprovalThreshold: organization.expenseApprovalThreshold?.toString() || null,
+            expenseReceiptThreshold: organization.expenseReceiptThreshold?.toString() || null,
+            defaultTaxRate: organization.settings.defaultTaxRate?.toString() || null,
+            lowStockThreshold: organization.settings.lowStockThreshold?.toString() || '10',
           };
 
           form.reset(formData);
 
-          if (data.logo) {
-            setPreviewLogo(data.logo);
+          if (organization.logo) {
+            setPreviewLogo(organization.logo);
           }
         }
         setLoading(false);
       } catch (error) {
         console.error('Failed to load organization data:', error);
-        // toast({
-        //   title: "Error loading organization data",
-        //   description: "Please try again later.",
-        //   variant: "destructive",
-        // });
+        toast.error("Error loading organization data",{
+          description: "Please try again later.",
+        });
         setLoading(false);
       }
     };
@@ -234,10 +232,9 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
 
       await updateOrganization(apiData);
 
-      // toast({
-      //   title: "Organization updated",
-      //   description: "Your organization settings have been updated successfully.",
-      // });
+      toast.success( "Organization updated",{
+        description: "Your organization settings have been updated successfully.",
+      });
 
       if (onSuccess) {
         onSuccess();
@@ -246,11 +243,9 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
       router.refresh();
     } catch (error) {
       console.error('Failed to update organization:', error);
-      // toast({
-      //   title: "Error updating organization",
-      //   description: "There was an error updating your organization. Please try again.",
-      //   variant: "destructive",
-      // });
+      toast.error("Error updating organization",{
+        description: "There was an error updating your organization. Please try again.",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -267,21 +262,17 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
     // Validate file type
     const validTypes = ['image/jpeg', 'image/png', 'image/svg+xml', 'image/webp'];
     if (!validTypes.includes(file.type)) {
-      // toast({
-      //   title: "Invalid file type",
-      //   description: "Please upload an image file (JPEG, PNG, SVG, or WebP).",
-      //   variant: "destructive",
-      // });
+      toast( "Invalid file type",{
+        description: "Please upload an image file (JPEG, PNG, SVG, or WebP).",
+      });
       return;
     }
 
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      // toast({
-      //   title: "File too large",
-      //   description: "Logo image must be less than 5MB.",
-      //   variant: "destructive",
-      // });
+      toast.error( "File too large",{
+        description: "Logo image must be less than 5MB.",
+      });
       return;
     }
 
@@ -309,17 +300,14 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
       // Update form with the new logo URL
       form.setValue('logo', result.url);
 
-      // toast({
-      //   title: "Logo uploaded",
-      //   description: "Your organization logo has been uploaded successfully.",
-      // });
+      toast("Logo uploaded",{
+        description: "Your organization logo has been uploaded successfully.",
+      });
     } catch (error) {
       console.error('Logo upload failed:', error);
-      // toast({
-      //   title: "Upload failed",
-      //   description: "There was an error uploading your logo. Please try again.",
-      //   variant: "destructive",
-      // });
+      toast( "Upload failed",{
+        description: "There was an error uploading your logo. Please try again.",
+      });
       // Revert to previous logo if there was one
       setPreviewLogo(form.getValues('logo') || null);
     } finally {
@@ -988,9 +976,9 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {dimensionUnits.map(unit => (
-                                <SelectItem key={unit} value={unit}>
-                                  {unit}
+                              {Object.values(MeasurementUnit).map(unit => (
+                                <SelectItem key={unit} value={unit} className="flex-1">
+                                  {unit.replace(/_/g, ' ')}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -1015,9 +1003,9 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {weightUnits.map(unit => (
-                              <SelectItem key={unit} value={unit}>
-                                {unit}
+                            {Object.values(MeasurementUnit).map(unit => (
+                              <SelectItem key={unit} value={unit} className="flex-1">
+                                {unit.replace(/_/g, ' ')}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -1053,46 +1041,4 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
   );
 }
 
-// Placeholder functions - to be implemented with actual API calls
-async function fetchOrganization() {
-  try {
-    const response = await fetch('/api/organization', {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch organization');
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('Error fetching organization:', error);
-    return null;
-  }
-}
-
-async function updateOrganization(data: any) {
-  try {
-    const response = await fetch('/api/organizations/curret', {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || 'Failed to update organization');
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('Error updating organization:', error);
-    throw error;
-  }
-}
 export default EditOrganizationForm;

@@ -1,0 +1,1677 @@
+generator client {
+  provider = "prisma-client-js"
+  // output   = "src/generated/prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Core Models ---
+
+model User {
+  id        String   @id @default(cuid())
+  name      String?
+  email     String   @unique
+  password  String?
+  role      UserRole @default(MEMBER)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  emailVerified        Boolean? // Made optional as not in original schema
+  image                String?
+  banned               Boolean?
+  banReason            String?
+  banExpires           DateTime?
+  username             String?
+  accounts             Account[]
+  members              Member[]
+  invitations          Invitation[]
+  sessions             Session[]
+  activeOrganizationId String?
+  notifications        Notification[]
+  expenseNotifications Notification[] @relation("UserExpenseNotifications")
+
+  @@unique([username]) // Ensure username is optional if field is optional
+  @@map("user")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  DEVELOPER
+  CLIENT
+  MEMBER
+}
+
+enum MemberRole {
+  OWNER // Full control over the organization
+  ADMIN // Can manage most aspects, except billing/org deletion
+  MANAGER // Can manage day-to-day operations (sales, inventory, staff)
+  EMPLOYEE // Standard user, can perform assigned tasks (e.g., make sales, receive stock)
+  CASHIER // Limited role, primarily for making sales
+  REPORTER // View-only access to reports
+}
+
+model Member {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           MemberRole
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Existing relations
+  auditLogs            AuditLog[]
+  sales                Sale[]
+  purchases            Purchase[]
+  purchasePayments     PurchasePayment[]
+  stockAdjustments     StockAdjustment[]
+  stockMovements       StockMovement[]
+  loyaltyTransactions  LoyaltyTransaction[]
+  cashDrawers          CashDrawer[]
+  inventoryManagements InventoryLocation[]  @relation("LocationManager")
+  createdCustomers     Customer[]           @relation("CustomerCreatedBy")
+  updatedCustomers     Customer[]           @relation("CustomerUpdatedBy")
+  uploadedAttachments  Attachment[]
+  processedReturns     Return[]
+  expenseApprovals     ExpenseApproval[]    @relation("ApproverMember")
+
+  // New relations for attendance tracking
+  attendanceRecords Attendance[]
+  workSchedules     WorkSchedule[]
+
+  // Optional: Track current status
+  isCheckedIn       Boolean            @default(false)
+  lastCheckInTime   DateTime?
+  currentLocationId String?
+  notifications     Notification[]
+  currentLocation   InventoryLocation? @relation("MemberCurrentLocation", fields: [currentLocationId], references: [id], onDelete: SetNull)
+
+  // Expense relations
+  submittedExpenses        Expense[]          @relation("ExpenseSubmitter")
+  approvedExpenses         Expense[]          @relation("ExpenseApprover")
+  createdBudgets           Budget[]
+  createdRecurringExpenses RecurringExpense[]
+  generatedBudgetReports   BudgetReport[]
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@index([organizationId])
+  @@index([isCheckedIn]) // New index to quickly find active members
+  @@map("member")
+}
+
+model Organization {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  logo         String?
+  description  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+  customFields Json?
+
+  // UPDATED settings
+  defaultLocationId  String? // Default retail location
+  defaultWarehouseId String? // Default warehouse location
+
+  members              Member[]
+  invitations          Invitation[]
+  customers            Customer[]
+  categories           Category[]
+  products             Product[]
+  productVariants      ProductVariant[]
+  suppliers            Supplier[]
+  sales                Sale[]
+  purchases            Purchase[]
+  returns              Return[]
+  stockBatches         StockBatch[]
+  inventoryLocations   InventoryLocation[]
+  productVariantStocks ProductVariantStock[]
+  stockAdjustments     StockAdjustment[]
+  stockMovements       StockMovement[]
+  cashDrawers          CashDrawer[]
+  loyaltyTransactions  LoyaltyTransaction[]
+  attachments          Attachment[]
+  auditLogs            AuditLog[]
+  settings             OrganizationSettings?
+  executionLogs        ExecutionLog[]
+  notifications        Notification[]
+
+  // New relations for storage management
+  storageZones     StorageZone[]
+  storageUnits     StorageUnit[]
+  storagePositions StoragePosition[]
+
+  // Relations for attendance tracking  
+  attendance    Attendance[]
+  workSchedules WorkSchedule[]
+
+  // Expense management relations
+  expenses          Expense[]
+  budgets           Budget[]
+  recurringExpenses RecurringExpense[]
+  expenseApprovals  ExpenseApproval[]
+  budgetAlerts      BudgetAlert[]
+
+  defaultExpenseCategories ExpenseCategory[] // Default categories for the org
+  expenseApprovalRequired  Boolean           @default(false) // Whether expenses require approval
+  expenseApprovalThreshold Decimal?          @db.Decimal(10, 2) // Amount above which approval is required
+  expenseReceiptRequired   Boolean           @default(true) // Whether receipts are mandatory
+  expenseReceiptThreshold  Decimal?          @db.Decimal(10, 2) // Amount above which receipt is required
+
+  defaultExpenseCurrency String   @default("USD")
+  expenseApprovalChain   Json? // JSON config for approval workflows
+  expenseTagOptions      String[] // Predefined tags for expenses
+
+  @@map("organization")
+}
+
+model Category {
+  id            String     @id @default(cuid())
+  name          String
+  description   String?
+  parentId      String?
+  parent        Category?  @relation("CategoryToSubcategory", fields: [parentId], references: [id], onDelete: Restrict)
+  subcategories Category[] @relation("CategoryToSubcategory")
+  products      Product[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
+
+  @@index([name])
+  @@index([organizationId])
+}
+
+model Product {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  sku          String   @unique
+  barcode      String?  @unique
+  categoryId   String
+  category     Category @relation(fields: [categoryId], references: [id])
+  basePrice    Decimal  @db.Decimal(10, 2) // Suggested retail price
+  baseCost     Decimal? @db.Decimal(10, 2) // Last known/estimated cost
+  reorderPoint Int      @default(5)
+  isActive     Boolean  @default(true)
+  imageUrls    String[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  customFields Json? // For customization
+
+  // NEW Physical dimensions for space calculation
+  width             Float?
+  height            Float?
+  length             Float?
+  dimensionUnit     MeasurementUnit?
+  weight            Float?
+  weightUnit        MeasurementUnit?
+  volumetricWeight  Float? // Calculated dimensional weight
+
+  defaultLocationId String? // Default stocking location
+  defaultLocation   InventoryLocation? @relation("ProductDefaultLocation", fields: [defaultLocationId], references: [id], onDelete: SetNull)
+
+  // Relations
+  variants         ProductVariant[]
+  suppliers        ProductSupplier[]
+  saleItems        SaleItem[]
+  purchaseItems    PurchaseItem[]
+  stockBatches     StockBatch[]
+  stockAdjustments StockAdjustment[]
+  stockMovements   StockMovement[]
+  variantStock     ProductVariantStock[]
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
+
+  @@index([name])
+  @@index([sku])
+  @@index([organizationId])
+  @@index([defaultLocationId])
+}
+
+model ProductVariant {
+  id            String  @id @default(cuid())
+  productId     String
+  product       Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name          String // Name for the variant (e.g., "Red", "Large")
+  sku           String  @unique
+  barcode       String? @unique
+  priceModifier Decimal @default(0) @db.Decimal(10, 2) // Adjustment from base price
+  attributes    Json // e.g., {"color": "Red", "size": "L"}
+  isActive      Boolean @default(true)
+
+  // Stock related fields moved to ProductVariantStock for location-specific stock
+  reorderPoint  Int     @default(5) // Default reorder point, can be overridden in ProductVariantStock
+  reorderQty    Int     @default(10) // Default reorder qty
+  lowStockAlert Boolean @default(false) // Default low stock alert setting
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  saleItems        SaleItem[]
+  purchaseItems    PurchaseItem[]
+  stockBatches     StockBatch[]
+  stockAdjustments StockAdjustment[]
+  stockMovements   StockMovement[]
+  variantStocks    ProductVariantStock[] // One variant can have stock in multiple locations
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
+
+  @@unique([productId, sku])
+  @@index([sku])
+  @@index([organizationId])
+}
+
+model Supplier {
+  id           String   @id @default(cuid())
+  name         String   @unique // Unique within an organization context might be better
+  contactName  String?
+  email        String?
+  phone        String?
+  address      String?
+  paymentTerms String?
+  leadTime     Int? // Lead time in days
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  customFields Json? // Added for customization
+
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
+
+  products  ProductSupplier[]
+  purchases Purchase[]
+
+  // Expense relations
+  expenses          Expense[]
+  recurringExpenses RecurringExpense[]
+  stockBatches       StockBatch[]
+
+  @@unique([organizationId, name]) // Enforce uniqueness per organization
+  @@index([name]) // Keep general index if needed, maybe remove if @@unique above is sufficient
+  @@index([organizationId])
+}
+
+model ProductSupplier {
+  id                   String   @id @default(cuid())
+  productId            String
+  product              Product  @relation(fields: [productId], references: [id], onDelete: Cascade) // Added onDelete
+  supplierId           String
+  supplier             Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade) // Added onDelete
+  supplierSku          String? // The SKU used by the supplier for this product
+  costPrice            Decimal  @db.Decimal(10, 2)
+  minimumOrderQuantity Int? // Added: Minimum quantity required by supplier
+  packagingUnit        String? // Added: e.g., "Case of 12", "Pallet", "Each"
+  isPreferred          Boolean  @default(false) // Is this the preferred supplier for this product?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([productId, supplierId])
+  @@index([supplierId])
+}
+
+model Customer {
+  id            String   @id @default(cuid())
+  name          String
+  email         String? // Unique within an organization
+  phone         String?
+  address       String?
+  notes         String?
+  loyaltyPoints Int      @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdById   String // Link to Member ID
+  updatedById   String? // Link to Member ID
+
+  // Relations
+  organizationId      String
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
+  sales               Sale[]
+  loyaltyTransactions LoyaltyTransaction[]
+  createdBy           Member               @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete: Restrict) // Prevent deleting member if they created customers
+  updatedBy           Member?              @relation("CustomerUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull) // Allow setting null if updater deleted
+
+  @@unique([organizationId, email]) // Email should be unique per organization
+  @@index([name])
+  @@index([email]) // Keep general index if needed
+  @@index([organizationId]) // Index for filtering by org
+}
+
+// --- Transactional Models ---
+
+model Sale {
+  id             String        @id @default(cuid())
+  saleNumber     String // Unique within an organization
+  customerId     String?
+  customer       Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull) // Allow sale without customer, or if customer deleted
+  memberId       String // Changed from userId to memberId for clarity
+  member         Member        @relation(fields: [memberId], references: [id]) // Changed relation name
+  saleDate       DateTime      @default(now())
+  totalAmount    Decimal       @db.Decimal(10, 2) // Before discounts and taxes
+  discountAmount Decimal       @default(0) @db.Decimal(10, 2)
+  taxAmount      Decimal       @default(0) @db.Decimal(10, 2)
+  finalAmount    Decimal       @db.Decimal(10, 2) // After discounts and taxes
+  paymentMethod  PaymentMethod
+  paymentStatus  PaymentStatus @default(PENDING)
+  notes          String?
+  cashDrawerId   String?
+  cashDrawer     CashDrawer?   @relation(fields: [cashDrawerId], references: [id], onDelete: SetNull) // Allow sale if drawer deleted
+  receiptUrl     String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  // Relations
+  items              SaleItem[]
+  attachments        Attachment[]
+  loyaltyTransaction LoyaltyTransaction?
+  returns            Return[]
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
+
+  @@unique([organizationId, saleNumber]) // Enforce uniqueness per organization
+  @@index([memberId]) // Changed from userId
+  @@index([saleDate])
+  @@index([customerId])
+  @@index([organizationId, saleDate])
+  @@index([organizationId, customerId])
+  @@index([organizationId])
+}
+
+model SaleItem {
+  id             String          @id @default(cuid())
+  saleId         String
+  sale           Sale            @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId      String
+  product        Product         @relation(fields: [productId], references: [id], onDelete: Restrict) // Prevent product deletion if sold
+  variantId      String?
+  variant        ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Restrict) // Prevent variant deletion if sold
+  stockBatchId   String // Which specific batch was sold (important for FIFO/FEFO/Costing)
+  stockBatch     StockBatch      @relation(fields: [stockBatchId], references: [id], onDelete: Restrict) // Prevent batch deletion if sold
+  quantity       Int
+  unitPrice      Decimal         @db.Decimal(10, 2) // Price per unit at time of sale
+  unitCost       Decimal         @db.Decimal(10, 2) // Cost per unit from StockBatch at time of sale
+  discountAmount Decimal         @default(0) @db.Decimal(10, 2) // Discount on this item
+  taxRate        Decimal         @default(0) @db.Decimal(5, 4) // Tax rate applied to this item
+  taxAmount      Decimal         @db.Decimal(10, 2) // Calculated tax for this item line
+  totalAmount    Decimal         @db.Decimal(10, 2) // (unitPrice * quantity) - discountAmount + taxAmount
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  // Relations
+  returns ReturnItem[] // Items returned referencing this sale item
+
+  @@index([saleId])
+  @@index([productId])
+  @@index([variantId])
+  @@index([stockBatchId])
+}
+
+model Purchase {
+  id             String         @id @default(cuid())
+  purchaseNumber String // Unique within an organization
+  supplierId     String
+  supplier       Supplier       @relation(fields: [supplierId], references: [id], onDelete: Restrict) // Prevent supplier deletion if purchases exist
+  memberId       String // Changed from userId
+  member         Member         @relation(fields: [memberId], references: [id]) // Changed relation name
+  orderDate      DateTime       @default(now())
+  expectedDate   DateTime?
+  receivedDate   DateTime? // Date when the entire order was fully received
+  totalAmount    Decimal        @db.Decimal(10, 2) // Should be calculated from items' totalCost
+  paidAmount     Decimal        @default(0) @db.Decimal(10, 2)
+  status         PurchaseStatus @default(ORDERED)
+  notes          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  expenses       Expense[]
+
+  // Relations
+  items       PurchaseItem[]
+  payments    PurchasePayment[]
+  attachments Attachment[]
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
+
+  @@unique([organizationId, purchaseNumber]) // Enforce uniqueness per organization
+  @@index([orderDate])
+  @@index([supplierId])
+  @@index([status])
+  @@index([organizationId])
+}
+
+model PurchaseItem {
+  id               String          @id @default(cuid())
+  purchaseId       String
+  purchase         Purchase        @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  productId        String
+  product          Product         @relation(fields: [productId], references: [id], onDelete: Restrict) // Prevent product deletion
+  variantId        String?
+  variant          ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Restrict) // Prevent variant deletion
+  orderedQuantity  Int
+  receivedQuantity Int             @default(0) // Quantity received so far for this item
+  unitCost         Decimal         @db.Decimal(10, 2) // Cost per unit for this purchase
+  totalCost        Decimal         @db.Decimal(10, 2) // unitCost * orderedQuantity
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  // Relations
+  // When items are received, they create StockBatch records
+  stockBatches StockBatch[]
+
+  @@index([purchaseId])
+  @@index([productId])
+  @@index([variantId])
+}
+
+model PurchasePayment {
+  id            String        @id @default(cuid())
+  purchaseId    String
+  purchase      Purchase      @relation(fields: [purchaseId], references: [id], onDelete: Cascade) // Cascade delete with purchase
+  memberId      String // Changed from userId
+  member        Member        @relation(fields: [memberId], references: [id]) // Changed relation name
+  paymentDate   DateTime      @default(now())
+  amount        Decimal       @db.Decimal(10, 2)
+  paymentMethod PaymentMethod
+  reference     String? // e.g., Cheque number, transaction ID
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([purchaseId])
+  @@index([paymentDate])
+  @@index([memberId])
+}
+
+model Return {
+  id           String       @id @default(cuid())
+  returnNumber String // Unique within an organization
+  saleId       String // The original sale ID
+  sale         Sale         @relation(fields: [saleId], references: [id], onDelete: Restrict) // Prevent sale deletion if returns exist
+  reason       ReturnReason // Overall reason for the return
+  status       ReturnStatus @default(PENDING)
+  notes        String?
+  processedAt  DateTime? // When the return was finalized (approved/rejected)
+  memberId     String // Who processed the return
+  member       Member       @relation(fields: [memberId], references: [id]) // Added relation to Member
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  // Relations
+  items ReturnItem[] // List of items being returned
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
+
+  @@unique([organizationId, returnNumber]) // Enforce uniqueness per organization
+  @@index([saleId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([organizationId])
+}
+
+model ReturnItem {
+  id         String           @id @default(cuid())
+  returnId   String
+  return     Return           @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  saleItemId String // Link to the specific item line from the original sale
+  saleItem   SaleItem         @relation(fields: [saleItemId], references: [id], onDelete: Restrict) // Prevent sale item deletion
+  quantity   Int // Quantity of this specific item being returned
+  reason     ReturnReason? // Optional: Item-specific reason, overrides main Return reason if set
+  status     ReturnItemStatus @default(PENDING) // Status for this specific item line
+  unitPrice  Decimal          @db.Decimal(10, 2) // Price at which it was sold (copied from SaleItem for history)
+  notes      String? // Item-specific notes
+  // and potentially creating a new 'returned' batch or adjusting via StockAdjustment
+
+  @@index([returnId])
+  @@index([saleItemId])
+}
+
+enum ReturnStatus {
+  PENDING // Return initiated, awaiting approval
+  APPROVED // Return request approved, items can be returned/refunded
+  REJECTED // Return request denied
+  PROCESSING // Items received, processing refund/replacement
+  COMPLETED // Refund/replacement issued, process finished
+}
+
+enum ReturnItemStatus {
+  PENDING // Waiting for item to be returned/inspected
+  RECEIVED // Item received by the store
+  ACCEPTED // Item accepted for refund/replacement
+  REJECTED // Item rejected (e.g., damaged by customer)
+  RESTOCKED // Item put back into stock (if applicable)
+  REFUNDED // Refund processed for this item
+  REPLACED // Replacement issued for this item
+}
+
+enum ReturnReason {
+  DEFECTIVE
+  WRONG_ITEM
+  NOT_AS_DESCRIBED
+  CHANGE_OF_MIND
+  SIZE_COLOR_ISSUE
+  ARRIVED_LATE
+  DUPLICATE_ORDER
+  DAMAGED_IN_TRANSIT
+  OTHER
+}
+
+// --- Inventory & Stock Models ---
+model InventoryLocation {
+  id               String              @id @default(cuid())
+  name             String
+  description      String?
+  isActive         Boolean             @default(true)
+  isDefault        Boolean             @default(false) // Is this the default location for new products?
+  locationType     LocationType        @default(RETAIL_SHOP)
+  address          String? // Physical address for warehouses/stores
+  totalCapacity    Float? // Total capacity number
+  capacityUnit     MeasurementUnit? // Unit of measurement
+  capacityUsed     Float?              @default(0) // Calculated usage
+  capacityTracking Boolean             @default(false) // Whether to enforce capacity limits
+  parentLocationId String? // For hierarchical locations - e.g., a zone within a warehouse
+  parentLocation   InventoryLocation?  @relation("LocationHierarchy", fields: [parentLocationId], references: [id], onDelete: SetNull)
+  childLocations   InventoryLocation[] @relation("LocationHierarchy")
+  customFields     Json?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  managerId        String?
+  manager          Member?             @relation("LocationManager", fields: [managerId], references: [id], onDelete: SetNull)
+
+  // Existing relations
+  organizationId    String
+  organization      Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  stockBatches      StockBatch[]
+  stockAdjustments  StockAdjustment[]
+  variantStocks     ProductVariantStock[]
+  outgoingMovements StockMovement[]       @relation("FromLocationMovements")
+  incomingMovements StockMovement[]       @relation("ToLocationMovements")
+
+  // New storage management relations
+  zones        StorageZone[]
+  storageUnits StorageUnit[] // Direct storage units (not in zones)
+
+  // Attendance related
+  attendanceRecords Attendance[]
+  workSchedules     WorkSchedule[]
+  currentMembers    Member[]       @relation("MemberCurrentLocation")
+  defaultProducts   Product[]      @relation("ProductDefaultLocation")
+
+  // Expense relations
+  expenses Expense[]
+  budgets  Budget[]
+
+  @@unique([organizationId, name])
+  @@index([name])
+  @@index([organizationId])
+  @@index([managerId])
+  @@index([locationType])
+  @@index([isDefault])
+  @@index([parentLocationId])
+}
+
+model StorageZone {
+  id           String            @id @default(cuid())
+  name         String // e.g., "Zone A", "Electronics Section"
+  description  String?
+  locationId   String
+  location     InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  capacity     Float?
+  capacityUnit MeasurementUnit?
+  capacityUsed Float?            @default(0)
+  isActive     Boolean           @default(true)
+  customFields Json?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  // Relations
+  storageUnits   StorageUnit[]
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([locationId, name])
+  @@index([locationId])
+  @@index([organizationId])
+}
+
+model StorageUnit {
+  id            String            @id @default(cuid())
+  name          String // e.g., "Rack A1", "Bin B23"
+  reference     String? // External reference number/barcode
+  unitType      StorageUnitType
+  locationId    String
+  location      InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  zoneId        String?
+  zone          StorageZone?      @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  width         Float? // Physical dimensions
+  height        Float?
+  depth         Float?
+  dimensionUnit String? // e.g., "cm", "inches"
+  maxWeight     Float? // Maximum weight capacity
+  weightUnit    String? // e.g., "kg", "lbs"
+  capacity      Float? // Storage capacity
+  capacityUnit  MeasurementUnit?
+  capacityUsed  Float?            @default(0)
+  isActive      Boolean           @default(true)
+  position      String? // Physical position reference (e.g., "Aisle 5, Section B")
+  customFields  Json?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  // Relations
+  positions      StoragePosition[]
+  stockBatches   StockBatch[]      @relation("UnitStockBatches") // Direct assignment to unit
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([locationId, zoneId, name])
+  @@index([locationId])
+  @@index([zoneId])
+  @@index([unitType])
+  @@index([organizationId])
+}
+
+model StoragePosition {
+  id            String      @id @default(cuid())
+  identifier    String // e.g., "A1-B2-C3" (unit-shelf-position)
+  storageUnitId String
+  storageUnit   StorageUnit @relation(fields: [storageUnitId], references: [id], onDelete: Cascade)
+  width         Float? // Physical dimensions
+  height        Float?
+  depth         Float?
+  dimensionUnit String? // e.g., "cm", "inches"
+  maxWeight     Float? // Maximum weight capacity
+  weightUnit    String? // e.g., "kg", "lbs"
+  isOccupied    Boolean     @default(false)
+  customFields  Json?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Relations
+  stockBatches   StockBatch[] @relation("PositionStockBatches")
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([storageUnitId, identifier])
+  @@index([storageUnitId])
+  @@index([isOccupied])
+  @@index([organizationId])
+}
+
+model StockBatch {
+  id             String            @id @default(cuid())
+  productId      String
+  product        Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId      String?
+  variant        ProductVariant?   @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  batchNumber    String? // Manufacturer or internal batch number
+  purchaseItemId String? // Link to the purchase item that created this batch
+  purchaseItem   PurchaseItem?     @relation(fields: [purchaseItemId], references: [id], onDelete: SetNull)
+  locationId     String // Location where this batch is physically stored
+  location       InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  // NEW Storage placement fields
+  storageUnitId String? // Which specific storage unit contains this batch
+  storageUnit   StorageUnit?     @relation("UnitStockBatches", fields: [storageUnitId], references: [id], onDelete: SetNull)
+  positionId    String? // Which specific position within the unit
+  position      StoragePosition? @relation("PositionStockBatches", fields: [positionId], references: [id], onDelete: SetNull)
+
+  initialQuantity Int // Quantity when the batch was created/received
+  currentQuantity Int // Current available quantity in this batch
+  purchasePrice   Decimal   @db.Decimal(10, 2) // Cost per unit for items in this batch
+  expiryDate      DateTime? // Expiry date for FEFO tracking
+  receivedDate    DateTime  @default(now()) // Date batch was added to inventory
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // The physical space this batch occupies (can be calculated from product dimensions × quantity)
+  spaceOccupied Float?
+  spaceUnit     MeasurementUnit?
+
+  // Relations
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  saleItems      SaleItem[] // Track which sales depleted this batch
+  adjustments    StockAdjustment[] // Adjustments specifically affecting this batch
+  movements      StockMovement[] // Track movements involving this batch
+
+  supplierId     String?
+  supplier       Supplier?      @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  
+  landedCost      Decimal? @db.Decimal(10, 2) // Total cost including shipping, duties, etc.
+  batchSalePrice  Decimal? @db.Decimal(10, 2) // Optional batch-specific sale price
+  @@index([productId, variantId])
+  @@index([expiryDate])
+  @@index([receivedDate])
+  @@index([currentQuantity])
+  @@index([locationId])
+  @@index([organizationId])
+  @@index([storageUnitId])
+  @@index([positionId])
+}
+
+model ProductVariantStock {
+  id             String            @id @default(cuid())
+  productId      String
+  product        Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId      String
+  variant        ProductVariant    @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  locationId     String
+  location       InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  currentStock   Int               @default(0) // Total available stock
+  reservedStock  Int               @default(0) // Stock reserved but not yet deducted
+  availableStock Int               @default(0) // Calculated: currentStock - reservedStock
+  reorderPoint   Int               @default(5) // Location-specific reorder point
+  reorderQty     Int               @default(10) // Location-specific reorder quantity
+  lastUpdated    DateTime          @updatedAt
+
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([variantId, locationId]) // Only one stock record per variant per location
+  @@index([productId])
+  @@index([locationId])
+  @@index([organizationId])
+}
+
+model StockAdjustment {
+  id             String                @id @default(cuid())
+  productId      String
+  product        Product               @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variantId      String?
+  variant        ProductVariant?       @relation(fields: [variantId], references: [id], onDelete: Restrict)
+  stockBatchId   String?
+  stockBatch     StockBatch?           @relation(fields: [stockBatchId], references: [id], onDelete: SetNull)
+  locationId     String
+  location       InventoryLocation     @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  memberId       String
+  member         Member                @relation(fields: [memberId], references: [id])
+  quantity       Int // Positive for increase, negative for decrease
+  reason         StockAdjustmentReason
+  notes          String?
+  adjustmentDate DateTime              @default(now())
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  referenceNumber String? // Optional reference number for tracking
+
+  // Relations
+  movement       StockMovement? // Link to corresponding movement record
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([productId, variantId])
+  @@index([stockBatchId])
+  @@index([adjustmentDate])
+  @@index([locationId])
+  @@index([memberId])
+  @@index([organizationId])
+}
+
+enum StockAdjustmentReason {
+  INITIAL_STOCK // Setting up initial inventory count
+  RECEIVED_PURCHASE // Use StockBatch creation directly typically
+  DAMAGED // Item damaged while in stock
+  EXPIRED // Item expired while in stock
+  LOST // Item lost or unaccounted for
+  STOLEN // Item confirmed stolen
+  FOUND // Item previously lost/unaccounted for is found
+  RETURN_TO_SUPPLIER // Sending stock back to the supplier
+  CUSTOMER_RETURN // Receiving stock back from a customer (may create a new batch or adjust existing)
+  INVENTORY_COUNT // Adjustment due to physical stock count discrepancy
+  TRANSFER_OUT // Stock moved to another location (use StockMovement)
+  TRANSFER_IN // Stock received from another location (use StockMovement)
+  OTHER // Miscellaneous adjustments
+}
+
+model StockMovement {
+  id             String             @id @default(cuid())
+  productId      String
+  product        Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId      String?
+  variant        ProductVariant?    @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  stockBatchId   String?
+  stockBatch     StockBatch?        @relation(fields: [stockBatchId], references: [id], onDelete: SetNull)
+  quantity       Int // Always positive: the quantity that moved
+  fromLocationId String? // Source Location (null if coming from outside)
+  fromLocation   InventoryLocation? @relation("FromLocationMovements", fields: [fromLocationId], references: [id], onDelete: SetNull)
+  toLocationId   String? // Destination Location (null if leaving tracked inventory)
+  toLocation     InventoryLocation? @relation("ToLocationMovements", fields: [toLocationId], references: [id], onDelete: SetNull)
+  movementType   MovementType
+  referenceId    String? // ID of related record (Sale ID, Purchase ID, etc.)
+  referenceType  String? // Type of reference (e.g., "Sale", "Purchase", "Adjustment")
+  adjustmentId   String?            @unique // Link to adjustment if this was an adjustment
+  adjustment     StockAdjustment?   @relation(fields: [adjustmentId], references: [id], onDelete: SetNull)
+  memberId       String
+  member         Member             @relation(fields: [memberId], references: [id])
+  notes          String?
+  movementDate   DateTime           @default(now())
+  createdAt      DateTime           @default(now())
+
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([productId, variantId])
+  @@index([stockBatchId])
+  @@index([fromLocationId])
+  @@index([toLocationId])
+  @@index([movementType, referenceId])
+  @@index([movementDate])
+  @@index([memberId])
+  @@index([organizationId])
+}
+
+enum MovementType {
+  PURCHASE_RECEIPT // Stock entering from a supplier purchase
+  SALE // Stock leaving due to a customer sale
+  ADJUSTMENT_IN // Stock increased via adjustment (found, count up)
+  ADJUSTMENT_OUT // Stock decreased via adjustment (damaged, lost, expired, count down)
+  TRANSFER // Stock moved between internal locations
+  CUSTOMER_RETURN // Stock returning from a customer
+  SUPPLIER_RETURN // Stock being sent back to a supplier
+  INITIAL_STOCK // Initial stock count entry
+  PRODUCTION_IN // Stock created from internal production (if applicable)
+  PRODUCTION_OUT // Components used in internal production (if applicable)
+}
+
+// --- Utility & Other Models ---
+
+model Attachment {
+  id          String   @id @default(cuid())
+  fileName    String
+  fileUrl     String // URL to access the file (e.g., S3 URL)
+  mimeType    String? // Changed from fileType (e.g., "image/jpeg", "application/pdf")
+  sizeBytes   Int? // Changed from fileSize
+  description String?
+  uploadedAt  DateTime @default(now())
+  memberId    String // Who uploaded it
+  member      Member   @relation(fields: [memberId], references: [id]) // Added relation to Member
+
+  // Polymorphic-like association (can belong to Sale OR Purchase, etc.)
+  relatedTo String // Model name (e.g., "Sale", "Purchase")
+  relatedId String // ID of the related record
+
+  // Relations (Original relations kept for potential direct linking, but polymorphic is more flexible)
+  saleId     String?
+  sale       Sale?     @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  purchaseId String?
+  purchase   Purchase? @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
+
+  // Added Organization relation
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Add polymorphic relations for expense management
+  expenseId          String?
+  expense            Expense?          @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  budgetId           String?
+  recurringExpenseId String?
+  recurringExpense   RecurringExpense? @relation(fields: [recurringExpenseId], references: [id], onDelete: SetNull)
+
+  @@index([relatedTo, relatedId])
+  @@index([saleId])
+  @@index([purchaseId])
+  @@index([memberId])
+  @@index([organizationId])
+}
+
+model CashDrawer {
+  id             String       @id @default(cuid())
+  name           String // Name for the drawer (e.g., "Till 1", "Main Register")
+  // locationId     String?      // Optional: Link to the physical location/terminal
+  // location       InventoryLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull) // Added location relation
+  memberId       String // Changed from userId: Who opened/is responsible for this session
+  member         Member       @relation(fields: [memberId], references: [id]) // Changed relation name
+  openingAmount  Decimal      @db.Decimal(10, 2)
+  closingAmount  Decimal?     @db.Decimal(10, 2)
+  expectedAmount Decimal?     @db.Decimal(10, 2) // Calculated based on sales and opening amount
+  discrepancy    Decimal?     @db.Decimal(10, 2) // closingAmount - expectedAmount
+  notes          String?
+  openedAt       DateTime     @default(now())
+  closedAt       DateTime?
+  status         DrawerStatus @default(OPEN)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Relations
+  sales Sale[] // Sales processed during this drawer session
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
+
+  @@unique([organizationId, name]) // Drawer names unique per org
+  @@index([openedAt])
+  @@index([closedAt])
+  @@index([memberId]) // Changed from userId
+  // @@index([locationId]) 
+  @@index([organizationId])
+}
+
+enum DrawerStatus {
+  OPEN // Drawer session is active
+  CLOSED // Drawer session ended, counts entered
+  BALANCED // Closed and closing amount matches expected amount
+  DISCREPANCY // Closed and closing amount does not match expected
+}
+
+// --- Audit Log Model --- (Generally good as is)
+enum AuditLogAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  INVITE
+  // Add more specific actions as needed
+}
+
+enum AuditEntityType {
+  USER
+  MEMBER
+  ORGANIZATION
+  PRODUCT
+  CATEGORY
+  SUPPLIER
+  CUSTOMER
+  SALE
+  PURCHASE
+  RETURN
+  STOCK_BATCH
+  STOCK_ADJUSTMENT
+  STOCK_MOVEMENT
+  INVENTORY_LOCATION
+  CASH_DRAWER
+  LOYALTY
+  SETTINGS
+  OTHER
+  EXPENSE
+  BUDGET
+  PROJECT
+  RECURRING_EXPENSE
+  ATTENDANCE
+}
+
+model AuditLog {
+  id             String          @id @default(cuid())
+  organizationId String? // Changed from tenantId
+  organization   Organization?   @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added relation
+  memberId       String? // Changed from userId (who performed the action)
+  member         Member?         @relation(fields: [memberId], references: [id], onDelete: SetNull) // Keep log if member deleted
+  action         AuditLogAction
+  entityType     AuditEntityType // Changed from type
+  entityId       String? // ID of the entity that was affected
+  description    String // Human-readable description of the action
+  details        Json? // Changed from metadata (e.g., old/new values for UPDATE)
+  ipAddress      String?
+  userAgent      String?
+  performedAt    DateTime        @default(now())
+  expenseId      String?
+  expense        Expense?        @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  budgetId       String?
+  budget         Budget?         @relation(fields: [budgetId], references: [id], onDelete: SetNull)
+
+  // Add expense-related reference fields
+  recurringExpenseId String?
+  recurringExpense   RecurringExpense? @relation(fields: [recurringExpenseId], references: [id], onDelete: SetNull)
+  expenseApprovalId  String?
+
+  @@index([organizationId])
+  @@index([memberId])
+  @@index([entityType, entityId])
+  @@index([performedAt])
+  @@map("audit_log")
+}
+
+// --- Shared Enums ---
+
+enum PaymentMethod {
+  CASH
+  CREDIT_CARD
+  DEBIT_CARD
+  MOBILE_PAYMENT // e.g., Apple Pay, Google Pay, M-Pesa
+  BANK_TRANSFER
+  CHEQUE
+  STORE_CREDIT
+  GIFT_CARD
+  LOYALTY_POINTS
+  ON_ACCOUNT // Customer pays later
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING // Awaiting payment
+  COMPLETED // Fully paid
+  FAILED // Payment attempt failed
+  REFUNDED // Payment fully refunded
+  PARTIALLY_REFUNDED // Payment partially refunded
+  CANCELLED // Payment was cancelled
+  VOIDED // Payment transaction was voided before settlement
+}
+
+enum PurchaseStatus {
+  DRAFT // Purchase order created but not yet sent
+  ORDERED // PO sent to supplier, awaiting items
+  PARTIALLY_RECEIVED // Some items received, but not all
+  RECEIVED // All items received
+  BILLED // Supplier invoice received (may happen before/after receiving)
+  PARTIALLY_PAID // Partial payment made towards the invoice
+  PAID // Invoice fully paid
+  COMPLETED // Order fully received and paid/closed
+  CANCELLED // Order cancelled before completion
+}
+
+// Added: Specific settings for an organization
+model OrganizationSettings {
+  id                String          @id @default(cuid())
+  organizationId    String          @unique // Enforces one-to-one
+  organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  defaultCurrency   String          @default("USD") // e.g., "USD", "EUR", "GBP"
+  defaultTimezone   String          @default("UTC") // e.g., "Africa/Nairobi"
+  defaultTaxRate    Decimal?        @db.Decimal(5, 4) // Default tax rate for new products/sales
+  inventoryPolicy   InventoryPolicy @default(FEFO) // Added: FIFO, LIFO, or FEFO preference
+  lowStockThreshold Int             @default(10) // Default threshold for low stock alerts
+  negativeStock     Boolean         @default(false) // Allow selling into negative stock?
+  updatedAt         DateTime        @default(now()) @updatedAt
+
+  enableCapacityTracking    Boolean          @default(false) // Enable space management features
+  enforceSpatialConstraints Boolean          @default(false) // Prevent over-capacity situations
+  enableProductDimensions   Boolean          @default(false) // Track product dimensions
+  defaultMeasurementUnit    MeasurementUnit? // Default measurement unit for the org
+  defaultDimensionUnit      String? // e.g., "cm", "inches"
+  defaultWeightUnit         String? // e.g., "kg", "lbs"
+
+  @@map("organization_settings")
+}
+
+enum MeasurementUnit {
+  CUBIC_METER // m³ - Volume
+  CUBIC_FEET // ft³ - Volume
+  SQUARE_METER // m² - Area
+  SQUARE_FEET // ft² - Area
+  METER // m - Length (for shelving)
+  FEET // ft - Length (for shelving)
+  COUNT // Number of positions/slots
+  WEIGHT_KG // Weight capacity in kg
+  WEIGHT_LB // Weight capacity in lbs
+}
+
+enum StorageUnitType {
+  SHELF // Standard shelf
+  RACK // Pallet or other racking system
+  BIN // Smaller container within a shelf/rack
+  DRAWER // Pull-out storage
+  PALLET // Standalone pallet
+  SECTION // Demarcated area within a zone
+  REFRIGERATOR // Temperature controlled unit
+  FREEZER // Freezer unit
+  CABINET // Enclosed cabinet
+  BULK_AREA // Open area for bulk storage
+  OTHER // Other storage type
+}
+
+enum LocationType {
+  RETAIL_SHOP // A store front location where sales occur directly
+  WAREHOUSE // A storage facility primarily for inventory
+  DISTRIBUTION // Facility for receiving and distributing stock
+  PRODUCTION // Manufacturing facility
+  SUPPLIER // External supplier location (for reference)
+  CUSTOMER // External customer location (for reference)
+  TEMPORARY // Temporary or pop-up location
+  OTHER // Any other location type
+}
+
+// Added: Enum for inventory policy setting
+enum InventoryPolicy {
+  FIFO // First-In, First-Out (Based on receivedDate)
+  LIFO // Last-In, First-Out (Based on receivedDate)
+  FEFO // First-Expired, First-Out (Based on expiryDate, fallback to FIFO if no expiry)
+}
+
+model Expense {
+  id             String          @id @default(cuid())
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  expenseNumber  String // Unique within organization
+  description    String
+  amount         Decimal         @db.Decimal(10, 2)
+  expenseDate    DateTime        @default(now())
+  categoryId     String
+  category       ExpenseCategory @relation(fields: [categoryId], references: [id])
+  paymentMethod  PaymentMethod
+  receiptUrl     String? // Link to uploaded receipt
+  notes          String?
+  isReimbursable Boolean         @default(false)
+  status         ExpenseStatus   @default(PENDING)
+  approvedById   String?
+  approvedBy     Member?         @relation("ExpenseApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvalDate   DateTime?
+
+  // Expense allocation
+  locationId String? // Which location this expense belongs to
+  location   InventoryLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  // Who incurred/recorded the expense
+  memberId   String
+  member     Member    @relation("ExpenseSubmitter", fields: [memberId], references: [id], onDelete: Restrict)
+  // Supplier if applicable
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  attachments    Attachment[]
+  auditLogs      AuditLog[]
+
+  // Add link to purchase if this is a purchase-related expense
+  purchaseId String?
+  purchase   Purchase? @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
+
+  // Add link to budget if specifically allocated
+  budgetId           String?
+  budget             Budget?           @relation(fields: [budgetId], references: [id], onDelete: SetNull)
+  approval           ExpenseApproval?  @relation("ExpenseApproval")
+  recurringExpenseId String?
+  recurringExpense   RecurringExpense? @relation("RecurringExpenseExpenses", fields: [recurringExpenseId], references: [id], onDelete: SetNull)
+
+  tags       String[] // For categorization
+  taxAmount  Decimal? @db.Decimal(10, 2) // Tax portion of the expense
+  mileage    Float? // For travel expenses
+  isBillable Boolean  @default(false) // Whether this can be billed to clients
+
+  @@unique([organizationId, expenseNumber])
+  // Add index
+  @@index([isBillable])
+  @@index([expenseDate])
+  @@index([memberId])
+  @@index([locationId])
+  @@index([organizationId])
+  @@index([status])
+}
+
+model ExpenseCategory {
+  id             String       @id @default(cuid())
+  name           String
+  description    String?
+  code           String? // Short code for reporting
+  isActive       Boolean      @default(true)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Add relations
+  expenses          Expense[]
+  recurringExpenses RecurringExpense[]
+
+  // Add index
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@index([isActive])
+}
+
+enum ExpenseStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
+  REIMBURSED
+}
+
+model RecurringExpense {
+  id            String              @id @default(cuid())
+  description   String
+  amount        Decimal             @db.Decimal(10, 2)
+  categoryId    String
+  category      ExpenseCategory     @relation(fields: [categoryId], references: [id])
+  paymentMethod PaymentMethod
+  frequency     RecurrenceFrequency
+  startDate     DateTime
+  endDate       DateTime?
+  isActive      Boolean             @default(true)
+  nextDueDate   DateTime // Calculated field
+
+  // Supplier if applicable
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdById    String
+  createdBy      Member       @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  expenses     Expense[]      @relation("RecurringExpenseExpenses")
+  auditLogs    AuditLog[]
+  executionLog ExecutionLog[]
+  attachments  Attachment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([nextDueDate])
+  @@index([isActive])
+}
+
+enum RecurrenceFrequency {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+model ExpenseApproval {
+  id             String         @id @default(cuid())
+  approverId     String
+  approver       Member         @relation("ApproverMember", fields: [approverId], references: [id], onDelete: Restrict)
+  status         ApprovalStatus @default(PENDING)
+  comments       String?
+  decisionDate   DateTime?
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  expenseId String  @unique
+  expense   Expense @relation("ExpenseApproval", fields: [expenseId], references: [id])
+
+  @@index([approverId])
+  @@index([status])
+  @@index([organizationId])
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REQUEST_CHANGES
+}
+
+model Budget {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  amount      Decimal  @db.Decimal(10, 2)
+  periodStart DateTime
+  periodEnd   DateTime
+  isActive    Boolean  @default(true)
+
+  // Allocation
+  locationId String?
+  location   InventoryLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdById    String
+  createdBy      Member       @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  expenses       Expense[]
+  auditLogs      AuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Add calculated fields
+  amountUsed      Decimal @default(0) @db.Decimal(10, 2) // Sum of related expenses
+  amountRemaining Decimal @db.Decimal(10, 2) // Calculated: amount - amountUsed
+
+  fiscalYear Int? // Fiscal year this budget applies to
+  department String? // Department/team this budget belongs to
+  variance   Decimal? @db.Decimal(10, 2) // Calculated variance (actual vs budget)
+
+  // Add these relations
+  reports BudgetReport[]
+  // Add alerts relation
+  alerts  BudgetAlert[]
+
+  @@unique([organizationId, name, periodStart, periodEnd])
+  // Add index
+  @@index([fiscalYear])
+  @@index([department])
+  @@index([organizationId])
+  @@index([isActive])
+}
+
+model BudgetReport {
+  id            String   @id @default(cuid())
+  budgetId      String
+  budget        Budget   @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  reportDate    DateTime @default(now())
+  periodStart   DateTime
+  periodEnd     DateTime
+  totalSpent    Decimal  @db.Decimal(10, 2)
+  remaining     Decimal  @db.Decimal(10, 2)
+  variance      Decimal  @db.Decimal(10, 2)
+  notes         String?
+  generatedById String
+  generatedBy   Member   @relation(fields: [generatedById], references: [id], onDelete: Restrict)
+
+  // Add index
+  @@index([budgetId])
+  @@index([reportDate])
+}
+
+model BudgetAlert {
+  id         String   @id @default(cuid())
+  budgetId   String
+  budget     Budget   @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  threshold  Decimal  @db.Decimal(5, 2) // Percentage (e.g., 80 = 80% of budget)
+  recipients String[] // Email addresses or member IDs to notify
+  isActive   Boolean  @default(true)
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([budgetId])
+  @@index([organizationId])
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+model Invitation {
+  id             String           @id @default(cuid()) // Use cuid
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String // Email invited
+  role           MemberRole // Role assigned upon acceptance
+  status         InvitationStatus @default(PENDING) // Changed from String
+  token          String           @unique // Added: Unique token for the invitation link
+  expiresAt      DateTime
+  inviterId      String // Member who sent the invitation
+  inviter        User             @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([email])
+  @@index([organizationId])
+  @@index([inviterId])
+  @@map("invitation")
+}
+
+// Add these models to your existing schema.prisma file
+
+model Attendance {
+  id           String             @id @default(cuid())
+  memberId     String
+  member       Member             @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  locationId   String?
+  location     InventoryLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  checkInTime  DateTime           @default(now())
+  checkOutTime DateTime?
+  hoursWorked  Decimal?           @db.Decimal(10, 2) // Calculated field, null until checked out
+  status       AttendanceStatus   @default(CHECKED_IN)
+  notes        String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([memberId])
+  @@index([checkInTime])
+  @@index([organizationId])
+  @@index([locationId])
+  @@index([status])
+}
+
+enum AttendanceStatus {
+  CHECKED_IN // Member is currently checked in
+  CHECKED_OUT // Member has properly checked out
+  AUTO_CHECKOUT // System forced checkout (e.g., forgot to checkout)
+  ABSENT // Member was scheduled but didn't show up
+  LATE // Member checked in late
+  LEFT_EARLY // Member checked out before scheduled time
+}
+
+// Optional: Add a schedule model if you want to track expected working hours
+model WorkSchedule {
+  id            String             @id @default(cuid())
+  memberId      String
+  member        Member             @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  locationId    String?
+  location      InventoryLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  startTime     DateTime
+  endTime       DateTime
+  isRecurring   Boolean            @default(false)
+  recurringDays Int[] // 0=Sunday, 1=Monday, etc. (for recurring schedules)
+  notes         String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([memberId])
+  @@index([startTime])
+  @@index([organizationId])
+}
+
+// --- Customer Loyalty ---
+
+model LoyaltyTransaction {
+  id              String        @id @default(cuid())
+  customerId      String
+  customer        Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade) // Cascade if customer deleted
+  memberId        String // Changed from userId
+  member          Member        @relation(fields: [memberId], references: [id], onDelete: Restrict) // Prevent member deletion if they issued points
+  pointsChange    Int // Positive for earned, negative for redeemed
+  reason          LoyaltyReason
+  relatedSaleId   String?       @unique // Link to the sale that earned/used points
+  relatedSale     Sale?         @relation(fields: [relatedSaleId], references: [id], onDelete: SetNull) // Keep record if sale deleted
+  notes           String?
+  transactionDate DateTime      @default(now())
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Added Organization relation for data isolation/querying
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([transactionDate])
+  @@index([memberId])
+  @@index([organizationId])
+}
+
+enum LoyaltyReason {
+  SALE_EARNED // Points earned from a purchase
+  REDEMPTION // Points spent on a purchase or reward
+  MANUAL_ADJUSTMENT // Admin adjustment (correction, bonus)
+  PROMOTION // Points awarded from a specific promotion
+  SIGN_UP_BONUS // Points for new customer registration
+  RETURN_ADJUSTMENT // Points deducted due to a returned item
+  BIRTHDAY_BONUS // Points awarded for customer's birthday
+  REFERRAL_BONUS // Points for referring a new customer
+  OTHER // Miscellaneous reasons
+}
+
+// Automation model for configuring automated tasks
+
+enum TriggerType {
+  SCHEDULE // Time-based trigger (daily, weekly, etc.)
+  EVENT // Event-based trigger (e.g., low stock, new sale)
+  CONDITION // Condition-based trigger (when certain conditions are met)
+  MANUAL // Manually triggered by a user
+  API // Triggered via API call
+}
+
+enum ActionType {
+  CREATE_PURCHASE_ORDER // Create a purchase order for low stock items
+  SEND_NOTIFICATION // Send notification to staff
+  GENERATE_REPORT // Generate and send a report
+  UPDATE_INVENTORY // Update inventory levels
+  SEND_CUSTOMER_MESSAGE // Send message to customers
+  ADJUST_PRICING // Adjust product pricing
+  EXPORT_DATA // Export data to external system
+  RUN_ANALYSIS // Run data analysis
+  CUSTOM_ACTION // Custom action defined in actionConfig
+}
+
+// Logs for automation executions
+model ExecutionLog {
+  id           String          @id @default(cuid())
+  executedAt   DateTime        @default(now())
+  status       ExecutionStatus
+  details      Json? // Details about the execution
+  result       String? // Result of the execution
+  errorMessage String? // Error message if failed
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  recurringExpenseId String?
+  recurringExpense   RecurringExpense? @relation(fields: [recurringExpenseId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([executedAt])
+  @@index([status])
+}
+
+enum ExecutionStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  type        NotificationType // e.g., "invitation", "mention", "announcement"
+  title       String
+  description String
+  read        Boolean          @default(false)
+  link        String? // Optional URL link associated with the notification
+  createdAt   DateTime         @default(now())
+
+  // --- Recipient ---
+  // EITHER link to a registered User OR store the target email
+  userId         String? // Foreign key for registered user
+  recipientEmail String? // Email address for unregistered users/invitations
+
+  // Relation to the User model (optional)
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade) // Optional: Cascade delete notifications if user is deleted
+
+  // --- Sender Information (Optional) ---
+  senderId String?
+  member   Member? @relation(fields: [senderId], references: [id], onDelete: Cascade) // Optional: Cascade delete notifications if user is deleted
+
+  expenseUserId  String? // Add this field
+  userExpense    User?         @relation("UserExpenseNotifications", fields: [expenseUserId], references: [id], onDelete: Cascade)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  // --- Type-Specific Details ---
+  // Use a JSON field to store variable data based on notification type
+  // Examples: { "organization": "Acme Corp", "role": "Developer" } for invitations
+  //           { "meetingTime": "Tomorrow, 10:00 AM PST" } for reminders
+  details        Json?
+
+  // --- Indexes for Performance ---
+  @@index([userId]) // Index for quickly finding notifications for a specific user
+  @@index([recipientEmail]) // Index for finding notifications sent to a specific email
+  @@index([read]) // Index for filtering read/unread notifications
+  @@index([createdAt]) // Index for sorting by creation time
+}
+
+// Enum for Notification Types
+enum NotificationType {
+  INVITATION
+  MENTION
+  ANNOUNCEMENT
+  REMINDER
+  TASK_UPDATE
+  SYSTEM_ALERT
+  NEW_MEMBER
+  WELCOME
+  INVITATION_ACCEPTED
+  INVITATION_DECLINED
+  EXPENSE_SUBMITTED
+  EXPENSE_APPROVAL
+  EXPENSE_REJECTED
+  EXPENSE_PAID
+  BUDGET_ALERT
+  BUDGET_THRESHOLD
+}
+
+// --- Authentication & Authorization Models --- (Mostly standard, added Organization links)
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime
+  updatedAt             DateTime
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+
+  @@map("verification")
+}
+
+model Session {
+  id             String   @id
+  expiresAt      DateTime
+  token          String   @unique
+  createdAt      DateTime
+  updatedAt      DateTime
+  ipAddress      String?
+  userAgent      String?
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  impersonatedBy String?
+
+  activeOrganizationId String?
+
+  @@map("session")
+}

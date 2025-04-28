@@ -2,14 +2,8 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { EditOrganizationForm } from "./edit-organization-form"
-import { useRouter } from "next/navigation"
 
 export function SettingsPage() {
-  const router = useRouter()
-
-  const handleSuccess = () => {
-    router.push("/organization/dashboard")
-  }
 
   return (
     <div className="space-y-6">
@@ -24,7 +18,7 @@ export function SettingsPage() {
           <CardDescription>Update your organization&apos;s details such as name, description, and logo.</CardDescription>
         </CardHeader>
         <CardContent>
-          <EditOrganizationForm onSuccess={handleSuccess} />
+          <EditOrganizationForm/>
         </CardContent>
       </Card>
     </div>

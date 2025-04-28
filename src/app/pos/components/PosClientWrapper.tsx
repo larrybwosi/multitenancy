@@ -9,6 +9,7 @@ import { CartItem as ProjectCartItem } from "@/app/point-of-sale/types";
 import { processSale } from "@/actions/pos.actions";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { useAppStore } from "@/store/app";
 
 // Update BaseProduct to include missing required fields with non-nullable SKU
 type BaseProduct = {
@@ -63,6 +64,7 @@ export function PosClientWrapper({
     parseAsArrayOf(parseAsString).withDefault([])
   );
 
+  const warehouse = useAppStore((state) => state.currentWarehouse);
   const [cartQuantities, setCartQuantities] = useState<Record<string, number>>({});
 
   const cartItems = useMemo(() => {
@@ -180,12 +182,12 @@ export function PosClientWrapper({
   const handleSaleSubmit = useCallback(
     async (saleData: SaleData) => {
       const processData: ProcessSaleInput = {
-        cartItems: saleData.items.map((item) => ({
+        cartItems: saleData.items.map(item => ({
           productId: item.productId,
           variantId: item.variantId,
           quantity: item.quantity,
         })),
-        locationId,
+        locationId:  'cm9e4ynql0000bkacheb1jxcd',
         customerId: saleData.customerId || undefined,
         paymentMethod: saleData.paymentMethod,
         notes: saleData.notes,

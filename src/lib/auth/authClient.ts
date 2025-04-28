@@ -15,7 +15,6 @@ export const {
   admin,
   changePassword,
   organization,
-  passkey,
 } = createAuthClient({
   baseURL: process.env.BETTER_AUTH_URL,
   plugins: [

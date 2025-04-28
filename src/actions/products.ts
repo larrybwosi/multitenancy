@@ -4,7 +4,7 @@ import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { getServerAuthContext } from "./auth";
-import { EditProductSchema, ProductSchema, ProductSupplierInput, ProductVariantInput } from "@/lib/validations/product";
+import { AddProductSchema, EditProductSchema, ProductSupplierInput, ProductVariantInput } from "@/lib/validations/product";
 
 // --- Helper Functions ---
 
@@ -240,7 +240,7 @@ export async function addProduct(formData: FormData) {
     suppliers: parsedSuppliers,
   };
 
-  const validatedFields = ProductSchema.safeParse(dataToValidate);
+  const validatedFields = AddProductSchema.safeParse(dataToValidate);
 
   if (!validatedFields.success) {
     console.error("Validation Errors:", validatedFields.error.flatten().fieldErrors);

@@ -17,7 +17,7 @@ import { SectionHeader } from "@/components/ui/SectionHeader";
 import { toast } from "sonner";
 import { InventoryLocation } from "@prisma/client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useState } from "react";
+import { useQueryState } from "nuqs";
 
 const fetcher = (url: string) =>
   fetch(url).then((res) => {
@@ -28,7 +28,10 @@ const fetcher = (url: string) =>
   });
 
 export function WarehousePage() {
-  const [showCreateSheet, setShowCreateSheet] = useState(false);
+  const [showCreateSheet, setShowCreateSheet] = useQueryState('modal', {
+    parse: v => v === 'true',
+    serialize: v => (v ? 'true' : 'false'),
+  });
 
   const { data, error, isLoading, mutate } = useSWR<{
     warehouses: InventoryLocation[];
@@ -57,7 +60,6 @@ export function WarehousePage() {
           title="Warehouse Management"
           subtitle="Manage your organization's warehouses and storage facilities"
           icon={<Boxes className="h-8 w-8 text-gray-600" />}
-          autoUpdate="2 min"
         />
         <div className="flex gap-2">
           <Button variant="outline">
@@ -121,7 +123,7 @@ export function WarehousePage() {
       )}
 
       <WarehouseCreateSheet
-        open={showCreateSheet}
+        open={showCreateSheet as boolean}
         onOpenChange={setShowCreateSheet}
         onSuccess={handleCreateSuccess}
       />

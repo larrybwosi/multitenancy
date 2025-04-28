@@ -154,6 +154,8 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
         description: err.message || "Failed to load warehouse details",
       });
     },
+    revalidateOnFocus: false,
+    refreshInterval: 120000, // Auto-refresh every 2 minutes
   });
 
   const warehouse = data?.warehouse;

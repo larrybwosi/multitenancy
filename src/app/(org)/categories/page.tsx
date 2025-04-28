@@ -65,7 +65,6 @@ export default async function CategoriesPage(params: {
         title="Categories"
         subtitle="Manage your categories efficiently and effectively"
         icon={<FolderKanban className="h-8 w-8 text-indigo-500" />}
-        autoUpdate="2 min"
       />
 
       <Suspense fallback={<div>Loading categories...</div>}>

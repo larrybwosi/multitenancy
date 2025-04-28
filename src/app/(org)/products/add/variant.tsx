@@ -45,6 +45,7 @@ export function VariantModal({
       reorderQty: newVariantReorderQty,
       isActive: newVariantActive,
       lowStockAlert: newVariantLowStockAlert,
+      priceModifier: 0,
       barcode: '',
     };
 

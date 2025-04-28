@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { addProduct, updateProduct } from "@/actions/products";
-import { getServerAuthContext } from "@/actions/auth";
+import { addProduct, editProduct } from "@/actions/product-add-edit";
 
 type ApiErrorResponse = {
   error: string;
@@ -14,11 +13,6 @@ type ApiSuccessResponse<T> = {
 
 export async function POST(request: NextRequest) {
   try {
-    const authContext = await getServerAuthContext();
-    if (!authContext?.userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const formData = await request.formData();
     const result = await addProduct(formData);
     
@@ -49,13 +43,8 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const authContext = await getServerAuthContext();
-    if (!authContext?.userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const formData = await request.formData();
-    const result = await updateProduct(formData);
+    const result = await editProduct(formData);
     
     if ('error' in result) {
       const errorResponse: ApiErrorResponse = { 

@@ -18,7 +18,20 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Dealio - SaaS Application",
   description:
-    "Dealio is a SaaS Application for Invoicing, Pro Account, Spend & Expenses Management and Accounting automation.",
+    "Dealio is a SaaS Application for Invoicing, Pro Account, Spend & Expenses Management, Warehouse Management, POS, Supplier Management, Customer Management and Accounting automation.",
+  keywords: [
+    "Dealio",
+    "SaaS",
+    "Application",
+    "Invoicing",
+    'Accounting',
+    'POS',
+    'Expenses',
+    'Management',
+    'Supplier',
+    'Restaurant Management',
+    'Supplier Management',
+  ]
 };
 export default function RootLayout({
   children,

@@ -1,10 +1,8 @@
+import { Organization, OrganizationSettings } from "@prisma/client";
 import { useQuery } from "@tanstack/react-query";
 
-interface Organization {
-  id: string;
-  name: string;
-  slug: string;
-  logo?: string;
+interface OrganizationWithSettings extends Organization {
+  settings: OrganizationSettings;
 }
 
 export function useOrganization() {
@@ -14,7 +12,7 @@ export function useOrganization() {
       const res = await fetch("/api/organization");
       if (!res.ok) throw new Error("Failed to fetch organization");
       const data = await res.json();
-      return data as Organization;
+      return data as OrganizationWithSettings;
     },
   });
 
