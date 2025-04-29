@@ -82,3 +82,16 @@ export default async function Page(props: {
   const slug = params.slug
   const query = searchParams.query
 }
+
+import { getUser } from './data';
+import { unstable_cache } from 'next/cache';
+ 
+const getCachedUser = unstable_cache(
+  async (id) => getUser(id),
+  ['my-app-user']
+);
+ 
+export default async function Component({ userID }) {
+  const user = await getCachedUser(userID);
+  ...
+}

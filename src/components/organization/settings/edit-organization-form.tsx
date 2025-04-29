@@ -416,7 +416,7 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                     <FormField
                       control={form.control}
                       name="name"
-                      render={({field}) => (
+                      render={({ field }) => (
                         <FormItem>
                           <FormLabel>Organization Name</FormLabel>
                           <FormControl>
@@ -431,7 +431,7 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                     <FormField
                       control={form.control}
                       name="slug"
-                      render={({field}) => (
+                      render={({ field }) => (
                         <FormItem>
                           <FormLabel>Organization URL</FormLabel>
                           <FormControl>
@@ -461,7 +461,7 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                     <FormField
                       control={form.control}
                       name="defaultCurrency"
-                      render={({field}) => (
+                      render={({ field }) => (
                         <FormItem>
                           <FormLabel>Default Currency</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
@@ -487,7 +487,7 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                     <FormField
                       control={form.control}
                       name="defaultTimezone"
-                      render={({field}) => (
+                      render={({ field }) => (
                         <FormItem>
                           <FormLabel>Default Timezone</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
@@ -514,7 +514,7 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                   <FormField
                     control={form.control}
                     name="defaultTaxRate"
-                    render={({field}) => (
+                    render={({ field }) => (
                       <FormItem>
                         <FormLabel>Default Tax Rate</FormLabel>
                         <FormControl>
@@ -546,7 +546,7 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                   <FormField
                     control={form.control}
                     name="description"
-                    render={({field}) => (
+                    render={({ field }) => (
                       <FormItem>
                         <FormLabel>Organization Description</FormLabel>
                         <FormControl>
@@ -577,7 +577,7 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                     <FormField
                       control={form.control}
                       name="expenseApprovalRequired"
-                      render={({field}) => (
+                      render={({ field }) => (
                         <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                           <div className="space-y-0.5">
                             <FormLabel className="text-base">Require Expense Approval</FormLabel>
@@ -593,7 +593,7 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                     <FormField
                       control={form.control}
                       name="expenseReceiptRequired"
-                      render={({field}) => (
+                      render={({ field }) => (
                         <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                           <div className="space-y-0.5">
                             <FormLabel className="text-base">Require Expense Receipts</FormLabel>
@@ -611,7 +611,7 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                     <FormField
                       control={form.control}
                       name="expenseApprovalThreshold"
-                      render={({field}) => (
+                      render={({ field }) => (
                         <FormItem>
                           <FormLabel>Approval Threshold</FormLabel>
                           <FormControl>
@@ -642,7 +642,7 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                     <FormField
                       control={form.control}
                       name="expenseReceiptThreshold"
-                      render={({field}) => (
+                      render={({ field }) => (
                         <FormItem>
                           <FormLabel>Receipt Threshold</FormLabel>
                           <FormControl>
@@ -674,7 +674,7 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                   <FormField
                     control={form.control}
                     name="defaultExpenseCurrency"
-                    render={({field}) => (
+                    render={({ field }) => (
                       <FormItem>
                         <FormLabel>Default Expense Currency</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
@@ -745,7 +745,7 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                   <FormField
                     control={form.control}
                     name="expenseApprovalChain"
-                    render={({field}) => (
+                    render={({ field }) => (
                       <FormItem>
                         <FormLabel>Approval Workflow</FormLabel>
                         <FormControl>
@@ -785,7 +785,7 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                     <FormField
                       control={form.control}
                       name="inventoryPolicy"
-                      render={({field}) => (
+                      render={({ field }) => (
                         <FormItem>
                           <FormLabel>Inventory Policy</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
@@ -809,7 +809,7 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                     <FormField
                       control={form.control}
                       name="lowStockThreshold"
-                      render={({field}) => (
+                      render={({ field }) => (
                         <FormItem>
                           <FormLabel>Low Stock Threshold</FormLabel>
                           <FormControl>
@@ -839,7 +839,7 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                   <FormField
                     control={form.control}
                     name="negativeStock"
-                    render={({field}) => (
+                    render={({ field }) => (
                       <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                         <div className="space-y-0.5">
                           <FormLabel className="text-base">Allow Negative Stock</FormLabel>
@@ -892,7 +892,7 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                     <FormField
                       control={form.control}
                       name="enableCapacityTracking"
-                      render={({field}) => (
+                      render={({ field }) => (
                         <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                           <div className="space-y-0.5">
                             <FormLabel className="text-base">Enable Capacity Tracking</FormLabel>
@@ -908,7 +908,7 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                     <FormField
                       control={form.control}
                       name="enforceSpatialConstraints"
-                      render={({field}) => (
+                      render={({ field }) => (
                         <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                           <div className="space-y-0.5">
                             <FormLabel className="text-base">Enforce Spatial Constraints</FormLabel>
@@ -925,7 +925,7 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                   <FormField
                     control={form.control}
                     name="enableProductDimensions"
-                    render={({field}) => (
+                    render={({ field }) => (
                       <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                         <div className="space-y-0.5">
                           <FormLabel className="text-base">Enable Product Dimensions</FormLabel>
@@ -942,7 +942,7 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                     <FormField
                       control={form.control}
                       name="defaultMeasurementUnit"
-                      render={({field}) => (
+                      render={({ field }) => (
                         <FormItem>
                           <FormLabel>Default Measurement System</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value || ''}>
@@ -966,7 +966,7 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                     <FormField
                       control={form.control}
                       name="defaultDimensionUnit"
-                      render={({field}) => (
+                      render={({ field }) => (
                         <FormItem>
                           <FormLabel>Default Dimension Unit</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value || ''}>
@@ -976,11 +976,23 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {Object.values(MeasurementUnit).map(unit => (
-                                <SelectItem key={unit} value={unit} className="flex-1">
-                                  {unit.replace(/_/g, ' ')}
-                                </SelectItem>
-                              ))}
+                              {Object.values(MeasurementUnit)
+                                // Filter for appropriate dimension units (adjust as needed)
+                                .filter(
+                                  value =>
+                                    !value.startsWith('WEIGHT_') &&
+                                    !value.startsWith('AREA_') &&
+                                    !value.startsWith('VOLUME_')
+                                )
+                                .map(value => (
+                                  <SelectItem key={value} value={value}>
+                                    {value
+                                      .replace('_', ' ')
+                                      .toLowerCase()
+                                      .replace(/\b\w/g, l => l.toUpperCase())}{' '}
+                                    {/* Format display name */}
+                                  </SelectItem>
+                                ))}
                             </SelectContent>
                           </Select>
                           <FormDescription>Default unit for measuring dimensions.</FormDescription>
@@ -993,7 +1005,7 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                   <FormField
                     control={form.control}
                     name="defaultWeightUnit"
-                    render={({field}) => (
+                    render={({ field }) => (
                       <FormItem>
                         <FormLabel>Default Weight Unit</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value || ''}>

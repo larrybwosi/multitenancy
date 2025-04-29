@@ -18,7 +18,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 interface VariantModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  variants: ProductVariantInput[];
+  variants?: ProductVariantInput[];
   onAddVariant: (variant: ProductVariantInput) => void;
   onRemoveVariant: (index: number) => void;
 }
@@ -69,11 +69,11 @@ export function VariantModal({
             {/* Existing Variants */}
             <div className="space-y-4">
               <Label>Existing Variants</Label>
-              {variants.length === 0 ? (
+              {variants?.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No variants added yet</p>
               ) : (
                 <div className="space-y-3">
-                  {variants.map((variant, index) => (
+                  {variants && variants?.map((variant, index) => (
                     <div key={index} className="p-4 border rounded-md relative bg-muted/20">
                       <Button
                         type="button"

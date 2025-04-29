@@ -165,19 +165,19 @@ export default function AddProductPage() {
                   <TabsList className="w-full justify-start px-4 pt-2">
                     <TabsTrigger value="basic" className="relative">
                       Basic Info
-                      {Object.keys(errors).some((key) =>
-                        ["name", "description", "sku", "barcode", "categoryId"].includes(key),
+                      {Object.keys(errors).some(key =>
+                        ['name', 'description', 'sku', 'barcode', 'categoryId'].includes(key)
                       ) && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-destructive" />}
                     </TabsTrigger>
                     <TabsTrigger value="pricing" className="relative">
                       Pricing
-                      {Object.keys(errors).some((key) => ["basePrice", "baseCost", "reorderPoint"].includes(key)) && (
+                      {Object.keys(errors).some(key => ['basePrice', 'baseCost', 'reorderPoint'].includes(key)) && (
                         <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-destructive" />
                       )}
                     </TabsTrigger>
                     <TabsTrigger value="dimensions" className="relative">
                       Dimensions
-                      {Object.keys(errors).some((key) => ["width", "height", "length", "weight"].includes(key)) && (
+                      {Object.keys(errors).some(key => ['width', 'height', 'length', 'weight'].includes(key)) && (
                         <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-destructive" />
                       )}
                     </TabsTrigger>
@@ -205,7 +205,7 @@ export default function AddProductPage() {
                 </TabsContent>
 
                 <TabsContent value="dimensions" className="p-6 animate-fade-in">
-                  <ProductDimensions control={control} errors={errors} />
+                  <ProductDimensions control={control} />
                 </TabsContent>
 
                 <TabsContent value="variants" className="p-6 animate-fade-in">
@@ -227,7 +227,11 @@ export default function AddProductPage() {
                       Add Supplier
                     </Button>
                   </div>
-                  <ProductSuppliers suppliers={suppliers} onRemove={handleRemoveSupplier} />
+                  <ProductSuppliers
+                    suppliers={suppliers}
+                    onRemove={handleRemoveSupplier}
+                    onAddSupplier={() => setIsSupplierModalOpen(true)}
+                  />
                 </TabsContent>
               </Tabs>
             </Card>
@@ -246,5 +250,5 @@ export default function AddProductPage() {
 
       <AddSupplierModal open={isSupplierModalOpen} onOpenChange={setIsSupplierModalOpen} onAdd={handleAddSupplier} />
     </div>
-  )
+  );
 }

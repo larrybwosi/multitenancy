@@ -1,11 +1,8 @@
-import { MeasurementUnit, Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 
 // --- Zod Schemas (Aligned with schema.txt) ---
-
-// Base schema for MeasurementUnit validation
-export const MeasurementUnitEnum = z.nativeEnum(MeasurementUnit);
 
 // Schema for individual product variants
 export const ProductVariantSchema = z.object({
@@ -89,7 +86,7 @@ export const BaseProductSchema = z.object({
   description: z.string().optional().nullable(), // [cite: 30]
   sku: z.string().min(1, 'Product SKU is required.').optional().nullable(), // [cite: 30] Will generate if missing on add
   barcode: z.string().optional().nullable(), // [cite: 31] Nullable string
-  categoryId: z.string().cuid('Invalid Category ID.'), // [cite: 31]
+  categoryId: z.string().min(3,'Invalid Category ID.'), // [cite: 31]
   // [cite: 31] Decimal
   basePrice: z
     .union([z.number(), z.string()])
@@ -133,12 +130,8 @@ export const BaseProductSchema = z.object({
   width: z.union([z.number(), z.string()]).pipe(z.coerce.number().positive().optional().nullable()),
   height: z.union([z.number(), z.string()]).pipe(z.coerce.number().positive().optional().nullable()),
   length: z.union([z.number(), z.string()]).pipe(z.coerce.number().positive().optional().nullable()),
-  // [cite: 36] MeasurementUnit enum, optional
-  dimensionUnit: MeasurementUnitEnum.optional().nullable(),
   // [cite: 37] Float, optional
   weight: z.union([z.number(), z.string()]).pipe(z.coerce.number().positive().optional().nullable()),
-  // [cite: 37] MeasurementUnit enum, optional
-  weightUnit: MeasurementUnitEnum.optional().nullable(),
   // [cite: 38] Float, optional
   volumetricWeight: z.union([z.number(), z.string()]).pipe(z.coerce.number().positive().optional().nullable()),
   // [cite: 38] String CUID, optional
@@ -159,7 +152,7 @@ export const EditProductSchema = BaseProductSchema
     productId: z.string().cuid('Product ID is required for editing.'),
     // Overwrite partial fields to make them required again for edit
     name: z.string().min(1, 'Product name is required.'),
-    categoryId: z.string().cuid('Invalid Category ID.'),
+    categoryId: z.string().min(4,'Invalid Category ID.'),
     // Use the same variant/supplier schemas (which include optional 'id')
     variants: z.array(ProductVariantSchema).optional().default([]),
     suppliers: z.array(ProductSupplierSchema).optional().default([]),

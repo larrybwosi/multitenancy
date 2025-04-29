@@ -9,6 +9,7 @@ export async function getPosData(): Promise<{
   customers: Customer[];
 }> {
   const { organizationId } = await getServerAuthContext();
+  
   const CACHE_KEY = `pos-data:${organizationId}`;
   // Try cache first
   const cached = await redis.get(CACHE_KEY);
@@ -40,6 +41,20 @@ async function fetchFreshPosData() {
         barcode: true,
         basePrice: true,
         imageUrls: true,
+        variants: {
+          select: {
+            id: true,
+            name: true,
+            sku: true,
+            barcode: true,
+            priceModifier: true,
+            attributes: true,
+            isActive: true,
+            reorderPoint: true,
+            reorderQty: true,
+            lowStockAlert: true,
+          },
+        }
       },
       orderBy: { name: "asc" },
     }),
@@ -67,6 +82,7 @@ async function fetchFreshPosData() {
 
 // Call this when data changes to invalidate cache
 export async function invalidatePosDataCache(organizationId: string) {
+  console.log('Revalidating data cache...')
   const CACHE_KEY = `pos-data:${organizationId}`;
   await redis.del(CACHE_KEY);
 }

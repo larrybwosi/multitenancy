@@ -19,14 +19,14 @@ model User {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  // Relations
-  emailVerified        Boolean? // Made optional as not in original schema
+  emailVerified        Boolean?
   image                String?
   banned               Boolean?
   banReason            String?
   banExpires           DateTime?
   username             String?
+
+  // Relations
   accounts             Account[]
   members              Member[]
   invitations          Invitation[]
@@ -368,6 +368,8 @@ model Sale {
   finalAmount    Decimal       @db.Decimal(10, 2) // After discounts and taxes
   paymentMethod  PaymentMethod
   paymentStatus  PaymentStatus @default(PENDING)
+  locationId     String // Location where the sale was made
+  location       InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Cascade) // Prevent deletion if sales exist
   notes          String?
   cashDrawerId   String?
   cashDrawer     CashDrawer?   @relation(fields: [cashDrawerId], references: [id], onDelete: SetNull) // Allow sale if drawer deleted
@@ -593,7 +595,7 @@ model InventoryLocation {
   updatedAt        DateTime            @updatedAt
   managerId        String?
   manager          Member?             @relation("LocationManager", fields: [managerId], references: [id], onDelete: SetNull)
-
+  sales            Sale[] // Sales made from this location
   // Existing relations
   organizationId    String
   organization      Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)

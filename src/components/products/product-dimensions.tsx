@@ -1,19 +1,16 @@
 "use client"
 
 import type { Control } from "react-hook-form"
-import { MeasurementUnit } from "@/lib/schemas/product-schema"
 
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 interface ProductDimensionsProps {
   control: Control<any>
-  errors: any
 }
 
-export function ProductDimensions({ control, errors }: ProductDimensionsProps) {
+export function ProductDimensions({ control }: ProductDimensionsProps) {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
@@ -96,32 +93,6 @@ export function ProductDimensions({ control, errors }: ProductDimensionsProps) {
               />
             </div>
 
-            <div className="mt-4">
-              <FormField
-                control={control}
-                name="dimensionUnit"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Unit</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select unit" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {Object.entries(MeasurementUnit).map(([key, value]) => (
-                          <SelectItem key={key} value={value}>
-                            {value}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
           </CardContent>
         </Card>
 
@@ -154,30 +125,6 @@ export function ProductDimensions({ control, errors }: ProductDimensionsProps) {
                 )}
               />
 
-              <FormField
-                control={control}
-                name="weightUnit"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Unit</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select unit" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {Object.entries(MeasurementUnit).map(([key, value]) => (
-                          <SelectItem key={key} value={value}>
-                            {value}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
             </div>
 
             <div className="mt-4">

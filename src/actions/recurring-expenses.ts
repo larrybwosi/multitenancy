@@ -20,7 +20,7 @@ export async function getRecurringExpenses(params: RecurringExpensesParams = {})
     // Get server context for authentication and authorization
     const { organizationId } = await getServerAuthContext();
     
-    if (!organization) {
+    if (!organizationId) {
       throw new Error('Not authorized to access this organization');
     }
 

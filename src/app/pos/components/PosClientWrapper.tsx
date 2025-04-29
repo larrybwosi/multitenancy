@@ -7,8 +7,6 @@ import { Cart } from "./Cart";
 import { Customer, PaymentMethod } from "@prisma/client";
 import { CartItem as ProjectCartItem } from "@/app/point-of-sale/types";
 import { processSale } from "@/actions/pos.actions";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { useAppStore } from "@/store/app";
 
 // Update BaseProduct to include missing required fields with non-nullable SKU
@@ -63,7 +61,7 @@ export function PosClientWrapper({
     "cartItems",
     parseAsArrayOf(parseAsString).withDefault([])
   );
-
+  
   const warehouse = useAppStore((state) => state.currentWarehouse);
   const [cartQuantities, setCartQuantities] = useState<Record<string, number>>({});
 
@@ -72,7 +70,10 @@ export function PosClientWrapper({
       .map((productId) => {
         const product = products.find((p) => p.id === productId);
         if (!product) return null;
-
+        // Get default variant id
+        // TODO: Use selected variant
+        const defaultVariantId = product.variants[0].id;
+        
         const quantity = cartQuantities[productId] || 0;
         // Convert string price to number for display
         const price = parseFloat(product.basePrice);
@@ -83,11 +84,11 @@ export function PosClientWrapper({
           productId: product.id,
           name: product.name,
           productName: product.name,
-          sku: product.sku, // SKU is non-nullable
+          sku: product.sku,
           quantity,
           price,
           unitPrice: price, // Add unit price
-          variantId: null,
+          variantId: defaultVariantId,
           imageUrls: product.image ? [product.image] : null,
           totalPrice: price * quantity, // Add total price
         } as CartItem;
@@ -187,13 +188,13 @@ export function PosClientWrapper({
           variantId: item.variantId,
           quantity: item.quantity,
         })),
-        locationId:  'cm9e4ynql0000bkacheb1jxcd',
+        locationId: warehouse?.id || "",
         customerId: saleData.customerId || undefined,
         paymentMethod: saleData.paymentMethod,
         notes: saleData.notes,
         discountAmount: 0,
       };
-
+console.log("processData: ", processData)
       const result = await processSale(processData);
 
       if (!result.success) {

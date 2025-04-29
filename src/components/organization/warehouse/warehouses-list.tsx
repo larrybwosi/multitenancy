@@ -189,7 +189,7 @@ export function WarehouseList({ warehouses }: WarehouseListProps) {
                           <DropdownMenuItem className="cursor-pointer">
                             <Link href={`/warehouses/${warehouse.id}`} className="flex items-center gap-2">
                               <Eye className="mr-2 h-4 w-4" />
-                              <span>View</span>s
+                              <span>View</span>
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem className="cursor-pointer">

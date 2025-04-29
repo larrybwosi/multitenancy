@@ -8,6 +8,7 @@ import EditProductDialog from "./edit-product-dialog";
 import { toast } from "sonner";
 import { RestockDialog } from "./restock";
 import { ProductTable } from "./products-table";
+import { PaginationProps } from "@/components/pagination";
 
 type ProductWithRelations = Product & {
   category: Category | null;
@@ -19,11 +20,26 @@ type ProductWithRelations = Product & {
 interface ProductsTabProps {
   initialProducts: ProductWithRelations[];
   initialCategories: Category[];
+  pagination: PaginationProps;
+  onSearchChange: (value: string) => void;
+  onCategoryChange: (value: string) => void;
+  onSortChange: (by: 'name' | 'createdAt' | 'basePrice', order: 'asc' | 'desc') => void;
+  currentFilters: {
+    search: string;
+    categoryId: string;
+    sortBy: 'name' | 'createdAt' | 'basePrice';
+    sortOrder: 'asc' | 'desc';
+  };
 }
 
 export default function ProductsTab({
   initialProducts,
   initialCategories,
+  pagination,
+  onSearchChange,
+  onCategoryChange,
+  onSortChange,
+
 }: ProductsTabProps) {
   const [isRestockOpen, setIsRestockOpen] = useState(false);
   const [isEditProductOpen, setIsEditProductOpen] = useState(false);
@@ -45,7 +61,7 @@ export default function ProductsTab({
   const filterOptions = {
     searchPlaceholder: "Search products...",
     showSearch: true,
-    onSearch: (value: string) => console.log("Searching:", value),
+    onSearch: (value: string) => onSearchChange(value),
 
     showFilterButton: true,
     onFilterButtonClick: () => console.log("Advanced filters clicked"),
@@ -73,7 +89,7 @@ export default function ProductsTab({
           })),
         ],
         defaultValue: "all",
-        onChange: (value: string) => console.log("Category filter:", value),
+        onChange: (value: string) => onCategoryChange(value),
       },
       {
         name: "stockStatus",
@@ -124,26 +140,13 @@ export default function ProductsTab({
     ],
   };
 
-  const paginationProps = {
-    currentPage: 1,
-    totalPages: 5,
-    pageSize: 10,
-    totalItems: 50,
-    onPageChange: (page: number) => console.log("Page changed to:", page),
-    onPageSizeChange: (size: number) =>
-      console.log("Page size changed to:", size),
-  };
 
   return (
     <div className="px-4 py-6 space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
-            Product Inventory
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Manage your products and inventory
-          </p>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Product Inventory</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your products and inventory</p>
         </div>
 
         <Button
@@ -158,14 +161,14 @@ export default function ProductsTab({
         </Button>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <ProductTable
           products={initialProducts}
           onDelete={() => {}}
           onRestock={handleRestockClick}
           onEdit={handleEditClick}
           filterControlsProps={filterOptions}
-          paginationProps={paginationProps}
+          paginationProps={pagination}
         />
       </div>
 
@@ -174,8 +177,9 @@ export default function ProductsTab({
           productId={selectedProductForRestock.id}
           open={isRestockOpen}
           onOpenChange={setIsRestockOpen}
+          variantId={selectedProductForRestock.variants?.[0]?.id}
           onSuccess={() => {
-            toast.success("Restock successful", {
+            toast.success('Restock successful', {
               description: `${selectedProductForRestock.name} has been restocked`,
             });
           }}
@@ -188,20 +192,20 @@ export default function ProductsTab({
           setIsOpen={setIsEditProductOpen}
           product={selectedProductForEdit}
           categories={initialCategories}
-          onSuccess={(message) =>
-            toast.success("Product Updated", {
+          onSuccess={message =>
+            toast.success('Product Updated', {
               description: message,
               action: {
-                label: "View Changes",
+                label: 'View Changes',
                 onClick: () => {},
               },
             })
           }
-          onError={(message) =>
-            toast.error("Update Failed", {
+          onError={message =>
+            toast.error('Update Failed', {
               description: message,
               action: {
-                label: "Retry",
+                label: 'Retry',
                 onClick: () => setIsEditProductOpen(true),
               },
             })

@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/db"; 
 import { revalidatePath } from "next/cache";
-import { Prisma } from "@prisma/client";
+import { MeasurementUnit, Prisma } from "@prisma/client";
 import { getServerAuthContext } from "./auth";
 import { AddProductSchema, EditProductSchema, ProductSupplierInput, ProductVariantInput } from "@/lib/validations/product";
 
@@ -265,11 +265,11 @@ export async function addProduct(formData: FormData) {
         width: productData.width,
         height: productData.height,
         length: productData.length,
-        dimensionUnit: productData.dimensionUnit,
+        dimensionUnit: MeasurementUnit.METER,
         weight: productData.weight,
-        weightUnit: productData.weightUnit,
+        weightUnit: MeasurementUnit.WEIGHT_KG,
         volumetricWeight: productData.volumetricWeight,
-        defaultLocation: { connect: { id: defaultLocationId } },
+        defaultLocation: { connect: { id: defaultLocationId ||''} },
         sku: `PROD-${crypto.randomUUID().slice(0, 6)}`,
         barcode: productData.barcode? productData.barcode : undefined,
         variants: {
@@ -363,7 +363,7 @@ export async function updateProduct(formData: FormData) {
   }
 
   const {
-    id,
+    productId:id,
     categoryId,
     variants: submittedVariants,
     suppliers: submittedSuppliers,
@@ -435,16 +435,16 @@ export async function updateProduct(formData: FormData) {
         data: {
           ...productData,
           category: { connect: { id: categoryId } },
-          basePrice: new Prisma.Decimal(productData.basePrice),
+          basePrice: new Prisma.Decimal(productData.basePrice || 0),
           reorderPoint: productData.reorderPoint,
           imageUrls: productData.imageUrls ?? [],
           isActive: productData.isActive,
           width: productData.width,
           height: productData.height,
           length: productData.length,
-          dimensionUnit: productData.dimensionUnit,
+          dimensionUnit: MeasurementUnit.METER,
           weight: productData.weight,
-          weightUnit: productData.weightUnit,
+          weightUnit: MeasurementUnit.WEIGHT_KG,
           volumetricWeight: productData.volumetricWeight,
           defaultLocation: defaultLocationId
             ? { connect: { id: defaultLocationId } }

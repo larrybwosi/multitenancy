@@ -2,7 +2,7 @@
 
 import prisma from '@/lib/db';
 import { revalidatePath } from 'next/cache';
-import { Prisma } from '@prisma/client';
+import { MeasurementUnit, Prisma } from '@prisma/client';
 import { z } from 'zod';
 import crypto from 'crypto';
 import { getServerAuthContext } from './auth';
@@ -133,6 +133,8 @@ const parsedSuppliersResult = parseJsonArrayField(formData, 'suppliers', Product
   // 2. Prepare data structure for final Zod validation
   const dataToValidate = {
     ...rawData,
+    // @ts-expect-error trim() not available on FormData
+    sku: rawData.sku ? rawData.sku.trim() : `PROD-${crypto.randomUUID().toLocaleUpperCase().slice(0, 6)}`,
     variants: parsedVariants,
     suppliers: parsedSuppliers,
     imageUrls: formData.getAll('imageUrls').filter(url => typeof url === 'string' && url.trim()),
@@ -170,9 +172,7 @@ const parsedSuppliersResult = parseJsonArrayField(formData, 'suppliers', Product
     height,
     length, // number | null | undefined
     weight,
-    volumetricWeight, // number | null | undefined
-    dimensionUnit, // MeasurementUnit | null | undefined
-    weightUnit, // MeasurementUnit | null | undefined
+    volumetricWeight,
     variants: validatedVariants, // ProductVariantInput[]
     suppliers: validatedSuppliers, // ProductSupplierInput[]
     customFields: validatedCustomFields, // JSON object or null
@@ -225,9 +225,9 @@ const parsedSuppliersResult = parseJsonArrayField(formData, 'suppliers', Product
         width: width, // [cite: 34] Float | null
         height: height, // [cite: 35] Float | null
         length: length, // [cite: 34] Float | null (corrected typo length->depth if applicable, schema says length)
-        dimensionUnit: dimensionUnit, // [cite: 36] MeasurementUnit | null
+        dimensionUnit: MeasurementUnit.METER, // [cite: 36] MeasurementUnit | null
         weight: weight, // [cite: 37] Float | null
-        weightUnit: weightUnit, // [cite: 37] MeasurementUnit | null
+        weightUnit: MeasurementUnit.WEIGHT_KG, // [cite: 37] MeasurementUnit | null
         volumetricWeight: volumetricWeight, // [cite: 38] Float | null
 
         // Relations
@@ -359,9 +359,7 @@ const parsedSuppliersResult = parseJsonArrayField(formData, 'suppliers', Product
     height,
     length, // number | null | undefined
     weight,
-    volumetricWeight, // number | null | undefined
-    dimensionUnit, // MeasurementUnit | null | undefined
-    weightUnit, // MeasurementUnit | null | undefined
+    volumetricWeight,
     variants: validatedVariants, // ProductVariantInput[]
     suppliers: validatedSuppliers, // ProductSupplierInput[]
     customFields: validatedCustomFields, // JSON object | null | undefined
@@ -411,13 +409,13 @@ const parsedSuppliersResult = parseJsonArrayField(formData, 'suppliers', Product
         width: width,
         height: height,
         length: length,
-        dimensionUnit: dimensionUnit,
+        dimensionUnit: MeasurementUnit.METER,
         weight: weight,
-        weightUnit: weightUnit,
+        weightUnit: MeasurementUnit.WEIGHT_KG,
         volumetricWeight: volumetricWeight,
 
         // Relations (only connect/disconnect if ID is present in validated data)
-        category: categoryId ? { connect: { id: categoryId } } : undefined, // Required by schema
+        category: categoryId ? { connect: { id: categoryId } } : undefined, 
         defaultLocation:
           defaultLocationId === null
             ? { disconnect: true }

@@ -304,11 +304,12 @@ export async function processSale(
               variantId: stockLookupVariantId, // Use the explicit variantId for lookup [cite: 121]
               currentQuantity: { gte: item.quantity }, // Check if batch has enough quantity [cite: 128]
             },
-            orderBy: {
-              // Select ordering based on inventory policy
-              ...(inventoryPolicy === 'FEFO' && { expiryDate: 'asc' }), // [cite: 128]
-              receivedDate: 'asc', // FIFO is default or fallback for FEFO with null expiry [cite: 128]
-            },
+            //TODO: Add ordering based on inventory policy
+            // orderBy: {
+            //   // Select ordering based on inventory policy
+            //   ...(inventoryPolicy === 'FEFO' && { expiryDate: 'asc' }), // [cite: 128]
+            //   receivedDate: 'asc', // FIFO is default or fallback for FEFO with null expiry [cite: 128]
+            // },
           });
 
           if (!availableBatch) {
@@ -445,7 +446,7 @@ export async function processSale(
 
         // --- 3e. Create Sale Record ---
         // Consider a more robust sequence generator for production (e.g., database sequence or UUID)
-        const saleNumber = `SALE-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+        const saleNumber = `SALE-${Math.random().toString(36).substring(0, 8).toUpperCase()}-${new Date().getTime()}`; // [cite: 58]
         console.log(`Creating Sale record: ${saleNumber}`);
 
         const sale = await tx.sale.create({

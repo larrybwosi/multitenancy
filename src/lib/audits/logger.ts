@@ -1,125 +1,159 @@
-'use server'
-import { db } from "@/lib/db"
-import { headers } from "next/headers"
-import { auth } from "@/lib/auth"
-import { AuditEntityType, AuditLogAction, Prisma } from "@prisma/client"
+// --- Audit Log Helper Function ---
 
-interface AuditLogParams {
-  action: AuditLogAction;
-  resource: AuditEntityType;
-  resourceId?: string | number;
-  description: string;
-  details?: Record<string, unknown>;
+import { Prisma, PrismaClient } from "@prisma/client";
+
+// Mirror the enums from your Prisma schema
+// (Ensure these match exactly what's in schema.prisma)
+export enum AuditLogActionEnum {
+  CREATE = 'CREATE',
+  UPDATE = 'UPDATE',
+  DELETE = 'DELETE',
+  LOGIN = 'LOGIN',
+  LOGOUT = 'LOGOUT',
+  INVITE = 'INVITE',
+  // Add other actions from your schema...
+  APPROVE = 'APPROVE', // Example
+  REJECT = 'REJECT', // Example
+  COMPLETE = 'COMPLETE', // Example
+  CANCEL = 'CANCEL', // Example
 }
 
-export async function logAuditEvent({
-  action,
-  resource,
-  resourceId,
-  description,
-  details,
-}: AuditLogParams) {
+export enum AuditEntityTypeEnum {
+  USER = 'USER',
+  MEMBER = 'MEMBER',
+  ORGANIZATION = 'ORGANIZATION',
+  PRODUCT = 'PRODUCT',
+  PRODUCT_VARIANT = 'PRODUCT_VARIANT', // Added based on common need
+  CATEGORY = 'CATEGORY',
+  SUPPLIER = 'SUPPLIER',
+  CUSTOMER = 'CUSTOMER',
+  SALE = 'SALE',
+  PURCHASE = 'PURCHASE',
+  RETURN = 'RETURN',
+  STOCK_BATCH = 'STOCK_BATCH',
+  STOCK_ADJUSTMENT = 'STOCK_ADJUSTMENT',
+  STOCK_MOVEMENT = 'STOCK_MOVEMENT',
+  INVENTORY_LOCATION = 'INVENTORY_LOCATION',
+  STORAGE_ZONE = 'STORAGE_ZONE', // Added based on schema
+  STORAGE_UNIT = 'STORAGE_UNIT', // Added based on schema
+  STORAGE_POSITION = 'STORAGE_POSITION', // Added based on schema
+  CASH_DRAWER = 'CASH_DRAWER',
+  LOYALTY = 'LOYALTY',
+  SETTINGS = 'SETTINGS',
+  ATTACHMENT = 'ATTACHMENT', // Added based on schema
+  EXPENSE = 'EXPENSE', // Added based on schema
+  EXPENSE_CATEGORY = 'EXPENSE_CATEGORY', // Added based on schema
+  RECURRING_EXPENSE = 'RECURRING_EXPENSE', // Added based on schema
+  BUDGET = 'BUDGET', // Added based on schema
+  ATTENDANCE = 'ATTENDANCE', // Added based on schema
+  INVITATION = 'INVITATION', // Added based on schema
+  NOTIFICATION = 'NOTIFICATION', // Added based on schema
+  OTHER = 'OTHER',
+}
+
+/**
+ * Parameters for creating an audit log entry.
+ */
+export interface AuditLogParams {
+  organizationId?: string; // Optional, but highly recommended [cite: 172]
+  memberId: string; // ID of the member performing the action [cite: 173]
+  action: AuditLogActionEnum; // The type of action performed
+  entityType: AuditEntityTypeEnum; // The type of entity affected
+  entityId?: string; // Optional: ID of the specific entity affected [cite: 175]
+  description: string; // Human-readable description of the event
+  details?: Record<string, any> | Prisma.JsonValue; // Optional: JSON object with extra data (e.g., changes) [cite: 176]
+  ipAddress?: string; // Optional: Request IP Address [cite: 177]
+  userAgent?: string; // Optional: Request User Agent [cite: 177]
+}
+
+/**
+ * Creates an audit log entry in the database.
+ *
+ * @param prisma - An instance of the PrismaClient or Prisma Transaction Client.
+ * @param params - The details for the audit log entry.
+ * @returns A Promise resolving to the created AuditLog entry or null if logging fails silently.
+ * @throws Error if Prisma operation fails (unless caught silently).
+ */
+export async function createAuditLog(
+  prisma: PrismaClient | Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>, // Allows passing PrismaClient or a transaction client (tx)
+  params: AuditLogParams
+): Promise<Prisma.AuditLogGetPayload<{}> | null> {
+  const { organizationId, memberId, action, entityType, entityId, description, details, ipAddress, userAgent } = params;
+
+  if (!memberId) {
+    console.error('Audit Log Error: memberId is required.');
+    return null; // Or throw error depending on desired strictness
+  }
+  if (!description) {
+    console.error('Audit Log Error: description is required.');
+    return null; // Or throw error
+  }
+
   try {
-    const session = await auth.api.getSession({ headers: await headers() })
-    const headersList = await headers()
-    const ip = headersList.get("x-forwarded-for") || "unknown"
-    const userAgent = headersList.get("user-agent") || "unknown"
-
-    await db.auditLog.create({
+    const logEntry = await prisma.auditLog.create({
       data: {
-        action,
-        entityType: resource,
-        description,
-        entityId: resourceId ? resourceId.toString() : undefined,
-        details: details ? JSON.stringify(details) : undefined,
-        ipAddress: ip,
-        userAgent: userAgent,
-        member:{connect:{id: session?.user?.id}}
+        organizationId: organizationId, // Link to organization if available [cite: 172]
+        memberId: memberId, // Link to the member [cite: 173, 174]
+        action: action, // Action type [cite: 171]
+        entityType: entityType, // Entity type [cite: 171]
+        entityId: entityId, // Specific entity ID [cite: 175]
+        description: description, // Description of the event
+        details: details || Prisma.JsonNull, // Store additional details as JSON [cite: 176]
+        ipAddress: ipAddress, // Optional IP [cite: 177]
+        userAgent: userAgent, // Optional User Agent [cite: 177]
+        performedAt: new Date(), // Timestamp the action
       },
-    })
+    });
+    // console.log(`Audit log created: ${logEntry.id} - ${logEntry.description}`); // Optional: for debugging
+    return logEntry;
   } catch (error) {
-    console.error("Failed to log audit event:", error)
-    // Attempt to log the failure itself
-    try {
-      const headersList = await headers()
-      const ip = headersList.get("x-forwarded-for") || "unknown"
-      
-      await db.auditLog.create({
-        data: {
-          action,
-          entityType: resource,
-          description,
-          entityId: resourceId ? resourceId.toString() : undefined,
-          details: JSON.stringify({
-            error: error instanceof Error ? error.message : "Unknown error",
-            originalDetails: details,
-          }),
-          ipAddress: ip,
-          // operation_status: "FAILED",
-        },
-      });
-    } catch (innerError) {
-      console.error("Critical: Failed to log audit failure:", innerError)
-    }
+    console.error('Failed to create audit log entry:', error);
+    console.error('Audit Log Parameters:', params);
+    // Decide if you want to throw the error or fail silently
+    // throw error; // Option 1: Propagate the error
+    return null; // Option 2: Log error and continue
   }
 }
 
-interface GetAuditLogsParams {
-  userId?: string;
-  action: AuditLogAction;
-  resource: AuditEntityType;
-  resourceId?: string;
-  startDate?: Date;
-  endDate?: Date;
-  limit?: number;
-  offset?: number;
-  status?: "SUCCESS" | "FAILED" | "ALL";
+// --- Example Usage of createAuditLog ---
+/*
+async function exampleAudit(prisma: PrismaClient, tx: any) { // tx could be Prisma transaction client
+  const memberPerformingAction = "mem_janedoe05";
+  const orgContext = "org_nktsupermarket";
+  const productBeingUpdated = "prod_oil001";
+
+  // Example 1: Simple log during a transaction
+  await createAuditLog(tx, { // Use 'tx' if inside a transaction
+     memberId: memberPerformingAction,
+     organizationId: orgContext,
+     action: AuditLogActionEnum.UPDATE,
+     entityType: AuditEntityTypeEnum.PRODUCT,
+     entityId: productBeingUpdated,
+     description: `Updated price for product ${productBeingUpdated}.`,
+     details: { oldPrice: 190, newPrice: 195 } // Example details
+  });
+
+  // Example 2: Log outside a transaction
+  await createAuditLog(prisma, { // Use 'prisma' if not in transaction
+     memberId: memberPerformingAction,
+     organizationId: orgContext,
+     action: AuditLogActionEnum.LOGIN,
+     entityType: AuditEntityTypeEnum.USER, // Or MEMBER
+     entityId: memberPerformingAction, // Log against the member/user themselves
+     description: `Member ${memberPerformingAction} logged in.`,
+     ipAddress: "192.168.1.100", // Example IP
+     userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ..." // Example User Agent
+  });
+
+   // Example 3: Log for created entity without specific ID known yet (use description)
+    await createAuditLog(prisma, {
+      memberId: memberPerformingAction,
+      organizationId: orgContext,
+      action: AuditLogActionEnum.CREATE,
+      entityType: AuditEntityTypeEnum.CUSTOMER,
+      // entityId might not be available yet if logging happens before commit/creation ID is known
+      description: `Attempted to create a new customer: John Doe`,
+      details: { name: "John Doe", email: "john.doe@example.com" }
+    });
 }
-
-export async function getAuditLogs({
-  action,
-  resourceId,
-  startDate,
-  endDate,
-  limit = 100,
-  offset = 0,
-}: GetAuditLogsParams) {
-  
-  const where: Prisma.AuditLogWhereInput = {};
-
-  if (action) where.action = action
-  if (resourceId) where.entityId = resourceId
-  // if (status && status !== 'ALL') where.operationStatus = status
-
-  if (startDate || endDate) {
-    where.performedAt = {}
-    if (startDate) where.performedAt = startDate
-    if (endDate) where.performedAt = endDate
-  }
-
-  const [logs, count] = await Promise.all([
-    db.auditLog.findMany({
-      where,
-      orderBy: { performedAt: "desc" },
-      take: limit,
-      skip: offset,
-      include: {
-        member: {
-          select: {
-            id: true,
-            user: { select: { name: true, email: true } },
-          },
-        },
-      },
-    }),
-    db.auditLog.count({ where }),
-  ]);
-
-  return {
-    logs,
-    count,
-    totalPages: Math.ceil(count / limit),
-    currentPage: Math.floor(offset / limit) + 1,
-  }
-}
-
+*/

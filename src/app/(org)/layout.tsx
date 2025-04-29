@@ -2,9 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Providers } from "@/lib/providers";
 import { getServerAuthContext } from "@/actions/auth";
-import { redirect } from "next/navigation";
-// import { getServerAuthContext } from "@/actions/auth";
-// import { db } from "@/lib/db";
+import { db } from "@/lib/db";
+import { unstable_cache } from "next/cache";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,11 +16,14 @@ const geistMono = Geist_Mono({
 });
 
 export const generateMetadata = async(): Promise<Metadata> => {
-  // const {organizationId } = await getServerAuthContext();
-  // const org = await db.organization.findUnique({where: {id: organizationId}, select: {name: true}});
+  const {organizationId } = await getServerAuthContext();
+  const getOrg = unstable_cache(
+    async id => await db.organization.findUnique({ where: { id }, select: { name: true } }),
+    [organizationId]
+  );
+  const org = await getOrg(organizationId);
   return {
-    // title: org?.name || "Dealio - SaaS Application",
-    title: "Dealio - SaaS Application",
+    title: org?.name || "Dealio - SaaS Application",
     description:
       "Dealio is a SaaS Application for Invoicing, Pro Account, Spend & Expenses Management and Accounting automation.",
   };
@@ -32,9 +34,6 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // if(!organizationId) {
-  //   return redirect("/organizations");
-  // }
 
   return (
     <html lang="en">

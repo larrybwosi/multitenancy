@@ -201,6 +201,7 @@ model Product {
   categoryId   String
   category     Category @relation(fields: [categoryId], references: [id])
   basePrice    Decimal  @db.Decimal(10, 2) // Suggested retail price
+  wholesalePrice Decimal? @db.Decimal(10, 2) // NEW: Price typically for bulk buyers or resellers
   baseCost     Decimal? @db.Decimal(10, 2) // Last known/estimated cost
   reorderPoint Int      @default(5)
   isActive     Boolean  @default(true)
@@ -209,7 +210,7 @@ model Product {
   updatedAt    DateTime @updatedAt
   customFields Json? // For customization
 
-  // NEW Physical dimensions for space calculation
+  // Physical dimensions for space calculation
   width             Float?
   height            Float?
   length             Float?

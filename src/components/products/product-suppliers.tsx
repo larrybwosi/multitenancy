@@ -1,6 +1,6 @@
 "use client"
 
-import { Trash2 } from "lucide-react"
+import { Plus, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -10,16 +10,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 interface ProductSuppliersProps {
   suppliers: any[]
   onRemove: (index: number) => void
+  onAddSupplier: ()=> void
 }
 
-export function ProductSuppliers({ suppliers, onRemove }: ProductSuppliersProps) {
+export function ProductSuppliers({ suppliers, onRemove, onAddSupplier }: ProductSuppliersProps) {
   // Mock supplier data
   const supplierNames = {
-    supplier1: "Acme Supplies",
-    supplier2: "Global Distribution Inc.",
-    supplier3: "Tech Parts Ltd.",
-    supplier4: "Quality Goods Co.",
-  }
+    supplier1: 'Acme Supplies',
+    supplier2: 'Global Distribution Inc.',
+    supplier3: 'Tech Parts Ltd.',
+    supplier4: 'Quality Goods Co.',
+  };
 
   if (suppliers.length === 0) {
     return (
@@ -27,11 +28,15 @@ export function ProductSuppliers({ suppliers, onRemove }: ProductSuppliersProps)
         <CardContent className="pt-6 text-center">
           <p className="text-muted-foreground">No suppliers added yet.</p>
           <p className="text-sm text-muted-foreground mt-1">
-            Click the "Add Supplier" button to link suppliers to this product.
+            Click the &quot;Add Supplier&quot; button to link suppliers to this product.
           </p>
+          <Button variant='outline' onClick={()=>onAddSupplier()} className="bg-zinc-600 text-teal-50 mt-10">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Supplier
+          </Button>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
@@ -51,11 +56,11 @@ export function ProductSuppliers({ suppliers, onRemove }: ProductSuppliersProps)
           {suppliers.map((supplier, index) => (
             <TableRow key={index} className="animate-fade-in" style={{ animationDelay: `${index * 0.05}s` }}>
               <TableCell className="font-medium">
-                {supplierNames[supplier.supplierId as keyof typeof supplierNames] || "Unknown Supplier"}
+                {supplierNames[supplier.supplierId as keyof typeof supplierNames] || 'Unknown Supplier'}
               </TableCell>
-              <TableCell>{supplier.supplierSku || "—"}</TableCell>
-              <TableCell>${supplier.costPrice?.toFixed(2) || "0.00"}</TableCell>
-              <TableCell>{supplier.minimumOrderQuantity || "—"}</TableCell>
+              <TableCell>{supplier.supplierSku || '—'}</TableCell>
+              <TableCell>${supplier.costPrice?.toFixed(2) || '0.00'}</TableCell>
+              <TableCell>{supplier.minimumOrderQuantity || '—'}</TableCell>
               <TableCell>
                 {supplier.isPreferred ? (
                   <Badge className="bg-blue-500">Preferred</Badge>
@@ -79,5 +84,5 @@ export function ProductSuppliers({ suppliers, onRemove }: ProductSuppliersProps)
         </TableBody>
       </Table>
     </div>
-  )
+  );
 }

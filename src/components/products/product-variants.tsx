@@ -20,7 +20,7 @@ export function ProductVariants({ variants, onRemove }: ProductVariantsProps) {
         <CardContent className="pt-6 text-center">
           <p className="text-muted-foreground">No variants added yet.</p>
           <p className="text-sm text-muted-foreground mt-1">
-            Click the "Add Variant" button to create product variations.
+            Click the &quot;Add Variant&quot; button to create product variations.
           </p>
         </CardContent>
       </Card>

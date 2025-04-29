@@ -3,10 +3,12 @@ import prisma from "@/lib/db";
 
 export async function GET(
   request: Request,
-  { params }: { params: { saleId: string } }
+  { params }: { params: Promise<{ saleId: string }> }
 ) {
-  const saleId = await params.saleId;
-  console.log("saleId", saleId);
+  const { saleId } = await params;
+  if (!saleId) {
+    return NextResponse.json({ error: "Sale ID is required" }, { status: 400 });
+  }
   try {
     const sale = await prisma.sale.findUnique({
       where: { id: saleId},

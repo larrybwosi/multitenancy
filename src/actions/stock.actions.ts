@@ -1,16 +1,16 @@
-"use server";
+'use server';
 
-import prisma from "@/lib/db";
-import { revalidatePath } from "next/cache";
-import { Prisma, Product, StockAdjustmentReason } from "@prisma/client";
-import { getServerAuthContext } from "./auth";
-import { handleApiError } from "@/lib/api-utils";
-import { CreateStockAdjustmentSchema } from "@/lib/validations/schemas";
-import { RestockSchema } from "@/lib/validations/product";
-import { convertToBaseUnit, generateBatchNumber, RestockProductParams, UNIT_DEFINITIONS } from "@/lib/unit-conversion";
+import prisma from '@/lib/db';
+import { revalidatePath } from 'next/cache';
+import { Prisma, StockAdjustmentReason } from '@prisma/client';
+import { getServerAuthContext } from './auth';
+import { handleApiError } from '@/lib/api-utils';
+import { CreateStockAdjustmentSchema } from '@/lib/validations/schemas';
+import { RestockSchema } from '@/lib/validations/product';
+import { convertToBaseUnit, generateBatchNumber, UNIT_DEFINITIONS } from '@/lib/unit-conversion';
 
 export type LowStockItem = {
-  type: "product" | "variant";
+  type: 'product' | 'variant';
   id: string;
   name: string;
   sku: string;
@@ -45,16 +45,13 @@ export async function getLowStockProducts() {
 
     const lowStockItems: LowStockItem[] = [];
 
-    products.forEach((p) => {
-      const baseStock = p.stockBatches.reduce(
-        (sum, batch) => sum + batch.currentQuantity,
-        0
-      );
+    products.forEach(p => {
+      const baseStock = p.stockBatches.reduce((sum, batch) => sum + batch.currentQuantity, 0);
 
       if (p.reorderPoint !== null && baseStock <= p.reorderPoint) {
         if (p.variants.length === 0) {
           lowStockItems.push({
-            type: "product",
+            type: 'product',
             id: p.id,
             name: p.name,
             sku: p.sku,
@@ -66,14 +63,11 @@ export async function getLowStockProducts() {
         }
       }
 
-      p.variants.forEach((v) => {
-        const variantStock = v.stockBatches.reduce(
-          (sum, batch) => sum + batch.currentQuantity,
-          0
-        );
+      p.variants.forEach(v => {
+        const variantStock = v.stockBatches.reduce((sum, batch) => sum + batch.currentQuantity, 0);
         if (v.reorderPoint !== null && variantStock <= v.reorderPoint) {
           lowStockItems.push({
-            type: "variant",
+            type: 'variant',
             id: v.id,
             name: v.name,
             sku: v.sku,
@@ -88,8 +82,8 @@ export async function getLowStockProducts() {
 
     return { data: lowStockItems };
   } catch (error) {
-    console.error("Error fetching low stock products:", error);
-    return { error: "Failed to fetch low stock products." };
+    console.error('Error fetching low stock products:', error);
+    return { error: 'Failed to fetch low stock products.' };
   }
 }
 
@@ -101,21 +95,15 @@ export async function addStockBatch(formData: FormData) {
     ...rawData,
     initialQuantity: rawData.initialQuantity,
     purchasePrice: rawData.purchasePrice,
-    expiryDate:
-      rawData.expiryDate && rawData.expiryDate !== ""
-        ? new Date(rawData.expiryDate as string)
-        : null,
+    expiryDate: rawData.expiryDate && rawData.expiryDate !== '' ? new Date(rawData.expiryDate as string) : null,
   };
 
   const validatedFields = RestockSchema.safeParse(dataToValidate);
 
   if (!validatedFields.success) {
-    console.error(
-      "Validation Errors (addStockBatch):",
-      validatedFields.error.flatten().fieldErrors
-    );
+    console.error('Validation Errors (addStockBatch):', validatedFields.error.flatten().fieldErrors);
     return {
-      error: "Validation failed.",
+      error: 'Validation failed.',
       fieldErrors: validatedFields.error.flatten().fieldErrors,
     };
   }
@@ -142,7 +130,7 @@ export async function addStockBatch(formData: FormData) {
       },
     });
 
-    revalidatePath("/inventory");
+    revalidatePath('/inventory');
     revalidatePath(`/products/${data.productId}`);
     return { success: true, data: newBatch };
   } catch (error) {
@@ -228,9 +216,7 @@ export async function getStockBatches(
       prisma.stockBatch.findMany({
         where,
         include: {
-          product: includeProduct
-            ? { select: { id: true, name: true, sku: true, basePrice: true } }
-            : false,
+          product: includeProduct ? { select: { id: true, name: true, sku: true, basePrice: true } } : false,
           variant: includeVariant
             ? {
                 select: {
@@ -254,12 +240,10 @@ export async function getStockBatches(
       prisma.stockBatch.count({ where }),
     ]);
 
-    const cleanBatches: StockBatchWithDetails[] = batches.map((batch) => ({
+    const cleanBatches: StockBatchWithDetails[] = batches.map(batch => ({
       ...batch,
       purchasePrice: batch.purchasePrice.toString(),
-      product: batch.product
-        ? { ...batch.product, basePrice: batch.product.basePrice.toString() }
-        : null,
+      product: batch.product ? { ...batch.product, basePrice: batch.product.basePrice.toString() } : null,
       variant: batch.variant
         ? {
             ...batch.variant,
@@ -280,8 +264,8 @@ export async function getStockBatches(
       },
     };
   } catch (error) {
-    console.error("Error fetching stock batches:", error);
-    return { error: "Failed to fetch stock batches." };
+    console.error('Error fetching stock batches:', error);
+    return { error: 'Failed to fetch stock batches.' };
   }
 }
 
@@ -297,44 +281,31 @@ export async function adjustStock(formData: FormData) {
   const validatedFields = CreateStockAdjustmentSchema.safeParse(dataToValidate);
 
   if (!validatedFields.success) {
-    console.error(
-      "Validation Errors (adjustStock):",
-      validatedFields.error.flatten().fieldErrors
-    );
+    console.error('Validation Errors (adjustStock):', validatedFields.error.flatten().fieldErrors);
     return {
-      error: "Validation failed.",
+      error: 'Validation failed.',
       fieldErrors: validatedFields.error.flatten().fieldErrors,
     };
   }
 
-  const {
-    productId,
-    variantId,
-    stockBatchId,
-    locationId,
-    quantity,
-    reason,
-    notes,
-  } = validatedFields.data;
+  const { productId, variantId, stockBatchId, locationId, quantity, reason, notes } = validatedFields.data;
 
   try {
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async tx => {
       const batchToUpdate = await tx.stockBatch.findUnique({
         where: { id: stockBatchId },
         select: { currentQuantity: true, productId: true, variantId: true },
       });
 
       if (!batchToUpdate) {
-        throw new Error("Stock batch not found.");
+        throw new Error('Stock batch not found.');
       }
 
       if (
         productId !== batchToUpdate.productId ||
         (variantId || undefined) !== (batchToUpdate.variantId || undefined)
       ) {
-        throw new Error(
-          "Product/Variant mismatch with the specified stock batch."
-        );
+        throw new Error('Product/Variant mismatch with the specified stock batch.');
       }
 
       const previousStock = batchToUpdate.currentQuantity;
@@ -369,7 +340,7 @@ export async function adjustStock(formData: FormData) {
           variantId: variantId || undefined,
           stockBatchId,
           memberId,
-          locationId: locationId || "",
+          locationId: locationId || '',
           quantity,
           reason,
           notes,
@@ -379,30 +350,30 @@ export async function adjustStock(formData: FormData) {
       await tx.stockMovement.create({
         data: {
           productId,
-          variantId: variantId || "",
+          variantId: variantId || '',
           organizationId,
           stockBatchId,
           quantity,
           memberId,
-          movementType: "ADJUSTMENT_IN",
+          movementType: 'ADJUSTMENT_IN',
           referenceId: adjustment.id,
-          notes: `Reason: ${reason}. ${notes || ""}`.trim(),
+          notes: `Reason: ${reason}. ${notes || ''}`.trim(),
         },
       });
 
       return adjustment;
     });
 
-    revalidatePath("/inventory");
+    revalidatePath('/inventory');
     revalidatePath(`/products/${productId}`);
     return { success: true, data: result };
   } catch (error: unknown) {
-    console.error("Error adjusting stock:", error);
+    console.error('Error adjusting stock:', error);
     if (error instanceof Error) {
       if (
-        error.message.includes("negative stock") ||
-        error.message.includes("Stock batch not found") ||
-        error.message.includes("Product/Variant mismatch")
+        error.message.includes('negative stock') ||
+        error.message.includes('Stock batch not found') ||
+        error.message.includes('Product/Variant mismatch')
       ) {
         return { error: error.message };
       }
@@ -411,9 +382,7 @@ export async function adjustStock(formData: FormData) {
   }
 }
 
-export async function getPastStockBatches(
-  options: { includeProduct?: boolean } = {}
-) {
+export async function getPastStockBatches(options: { includeProduct?: boolean } = {}) {
   const { organizationId } = await getServerAuthContext();
   try {
     const batches = await prisma.stockBatch.findMany({
@@ -430,22 +399,18 @@ export async function getPastStockBatches(
         },
       },
       orderBy: {
-        receivedDate: "desc",
+        receivedDate: 'desc',
       },
       take: 100,
     });
     return { batches };
   } catch (error) {
-    console.error("Error fetching past stock batches:", error);
-    return { error: "Failed to fetch past stock batches." };
+    console.error('Error fetching past stock batches:', error);
+    return { error: 'Failed to fetch past stock batches.' };
   }
 }
 
-export async function getProductStock(
-  productId: string,
-  variantId?: string,
-  locationId?: string
-) {
+export async function getProductStock(productId: string, variantId?: string, locationId?: string) {
   return await prisma.productVariantStock.findMany({
     where: {
       productId,
@@ -459,10 +424,33 @@ export async function getProductStock(
   });
 }
 
+// Assuming RestockProductParams interface is defined elsewhere
+interface RestockProductParams {
+  productId: string;
+  variantId?: string; // Optional variant ID
+  unit: string; // Make sure 'unit' aligns with keys in UNIT_DEFINITIONS
+  unitQuantity: number;
+  locationId: string;
+  supplierId?: string;
+  purchaseItemId?: string;
+  expiryDate?: Date;
+  purchasePrice?: number;
+  costPrice?: number;
+  retailPrice?: number; // Note: retailPrice isn't directly used in stock models here
+  notes?: string;
+  actualDeliveryDate?: Date;
+}
+
+// Define types based on schema for clarity (adjust imports as needed)
+type ProductWithVariants = Prisma.ProductGetPayload<{
+  include: { variants: true; defaultLocation: true };
+}>;
+type ProductVariant = Prisma.ProductVariantGetPayload<{}>;
+
 export async function restockProduct(params: RestockProductParams) {
   const {
     productId,
-    variantId,
+    variantId: providedVariantId, // Rename for clarity
     unit,
     unitQuantity,
     locationId,
@@ -471,145 +459,154 @@ export async function restockProduct(params: RestockProductParams) {
     expiryDate,
     purchasePrice,
     costPrice,
-    retailPrice,
+    // retailPrice, // Not directly used in stock models
     notes,
     actualDeliveryDate,
   } = params;
 
   const { memberId, organizationId } = await getServerAuthContext();
-  // Validate the product/variant exists
-  const product = await prisma.product.findUnique({
+
+  // 1. Validate the product and determine the target variant
+  // Always include variants to handle both cases
+  const product: ProductWithVariants | null = await prisma.product.findUnique({
     where: { id: productId },
     include: {
-      variants: variantId ? { where: { id: variantId } } : false,
+      variants: true, // Fetch all variants [cite: 40, 41]
       defaultLocation: true,
     },
   });
 
   if (!product) {
-    throw new Error("Product not found");
+    throw new Error('Product not found');
   }
 
-  if (variantId && !product.variants?.length) {
-    throw new Error("Product variant not found");
-  }
+  let targetVariant: ProductVariant | undefined;
+  let targetVariantId: string;
 
-  // Validate the location exists
-  const location = await prisma.inventoryLocation.findUnique({
-    where: { id: locationId },
-  });
-
-  if (!location) {
-    throw new Error("Inventory location not found");
-  }
-
-  // Validate supplier if provided
-  if (supplierId) {
-    const supplier = await prisma.supplier.findUnique({
-      where: { id: supplierId, organizationId },
-    });
-    if (!supplier) {
-      throw new Error("Supplier not found or not part of organization");
+  if (providedVariantId) {
+    // If a specific variant ID is given, find it
+    targetVariant = product.variants.find(v => v.id === providedVariantId);
+    if (!targetVariant) {
+      throw new Error(`Product variant with ID ${providedVariantId} not found for product ${product.name}`);
     }
+    targetVariantId = targetVariant.id;
+  } else {
+    // If no variant ID is given, check if there's at least one variant (required by schema for ProductVariantStock)
+    if (!product.variants || product.variants.length === 0) {
+      // According to the schema, stock is tracked via ProductVariantStock, which requires a variant[cite: 133, 135].
+      throw new Error(
+        `Cannot restock product '${product.name}': Product must have at least one variant defined for stock tracking.`
+      );
+    }
+    // Assume the first variant is the default/only one if none is specified
+    targetVariant = product.variants[0];
+    targetVariantId = targetVariant.id;
   }
 
-  // Convert to base units (pieces for count-based items)
+  // 2. Convert quantity to base units
+  // Ensure 'unit' exists in UNIT_DEFINITIONS before accessing
+  if (!UNIT_DEFINITIONS[unit]) {
+    throw new Error(`Invalid unit provided: ${unit}`);
+  }
   const baseUnit = UNIT_DEFINITIONS[unit].baseUnit;
   const quantityInBaseUnits = convertToBaseUnit(unitQuantity, unit);
 
-  // Generate batch number
-  const batchNumber = generateBatchNumber(organizationId, productId);
+  // 3. Generate batch number (assuming helper exists)
+  const batchNumber = generateBatchNumber(productId, targetVariantId); // Pass variantId too if needed
 
-  // Start a transaction
-  return await prisma.$transaction(async (tx) => {
-    // 1. Create a new StockBatch record
+  // 4. Start Transaction
+  return await prisma.$transaction(async tx => {
+    // 4.1. Create StockBatch record
     const stockBatch = await tx.stockBatch.create({
       data: {
         productId,
-        variantId: variantId || null,
+        variantId: targetVariantId, // Use the determined target variant ID
         batchNumber,
         locationId,
         initialQuantity: quantityInBaseUnits,
         currentQuantity: quantityInBaseUnits,
-        purchasePrice: purchasePrice || 0,
+        purchasePrice: purchasePrice ?? product.baseCost ?? 0, // Use provided, fallback to product cost, then 0
         expiryDate: expiryDate || null,
         receivedDate: actualDeliveryDate || new Date(),
-        supplierId: supplierId || null,
-        purchaseItemId: purchaseItemId || null,
+        supplierId: supplierId || null, // Link supplier if provided [cite: 130]
+        purchaseItemId: purchaseItemId || null, // Link purchase item if provided [cite: 123]
         organizationId,
-        spaceOccupied: calculateSpaceOccupied(product, quantityInBaseUnits),
-        // spaceUnit: product.dimensionUnit as MeasurementUnit || "CUBIC_METER",
-        spaceUnit: "CUBIC_METER",
+        spaceOccupied: calculateSpaceOccupied(product, quantityInBaseUnits), // Helper function needed
+        spaceUnit: product.dimensionUnit || 'CUBIC_METER', // Use product's unit or default [cite: 129, 36]
+        // costPrice: costPrice ?? product.baseCost ?? purchasePrice ?? 0, // Use specific cost, fallback to base, fallback to purchase
+        // landedCost: Calculate or set later [cite: 131]
       },
     });
 
-    // 2. Update ProductVariantStock (inventory levels)
-    // const stockRecord = await tx.productVariantStock.upsert({
-    //   where: {
-    //     variantId_locationId: {
-    //       variantId: variantId || product.variants?.[0]?.id || productId,
-    //       locationId,
-    //     },
-    //   },
-    //   create: {
-    //     productId,
-    //     variantId: variantId || product.variants?.[0]?.id || productId,
-    //     locationId,
-    //     currentStock: quantityInBaseUnits,
-    //     reservedStock: 0,
-    //     availableStock: quantityInBaseUnits,
-    //     reorderPoint: variantId
-    //       ? product.variants?.[0]?.reorderPoint || 5
-    //       : product.reorderPoint,
-    //     reorderQty: variantId ? product.variants?.[0]?.reorderQty || 10 : 10,
-    //     organizationId,
-    //   },
-    //   update: {
-    //     currentStock: { increment: quantityInBaseUnits },
-    //     availableStock: { increment: quantityInBaseUnits },
-    //     lastUpdated: new Date(),
-    //   },
-    // });
+    // 4.2. Upsert ProductVariantStock (inventory levels)
+    const stockRecord = await tx.productVariantStock.upsert({
+      where: {
+        // Use the correct composite key [cite: 135]
+        variantId_locationId: {
+          variantId: targetVariantId,
+          locationId,
+        },
+      },
+      create: {
+        productId,
+        variantId: targetVariantId, // Use the determined target variant ID
+        locationId,
+        currentStock: quantityInBaseUnits,
+        reservedStock: 0,
+        availableStock: quantityInBaseUnits, // available = current - reserved [cite: 134]
+        // Use variant-specific reorder points/qty, fallback to product defaults if needed, then schema defaults [cite: 40, 134]
+        reorderPoint: targetVariant.reorderPoint ?? 5,
+        reorderQty: targetVariant.reorderQty ?? 10,
+        organizationId,
+      },
+      update: {
+        currentStock: { increment: quantityInBaseUnits },
+        availableStock: { increment: quantityInBaseUnits }, // available = current - reserved
+        lastUpdated: new Date(),
+      },
+    });
 
-    // 3. Create a StockAdjustment record
+    // 4.3. Create StockAdjustment record
     const adjustment = await tx.stockAdjustment.create({
       data: {
         productId,
-        variantId: variantId || null,
-        stockBatchId: stockBatch.id,
+        variantId: targetVariantId, // Use the determined target variant ID
+        stockBatchId: stockBatch.id, // Link to the created batch [cite: 137]
         locationId,
         memberId,
-        quantity: quantityInBaseUnits,
-        reason: supplierId ? "RECEIVED_PURCHASE" : "INVENTORY_COUNT",
-        notes:
-          notes ||
-          `Restocked ${unitQuantity} ${unit} (${quantityInBaseUnits} base units)`,
+        quantity: quantityInBaseUnits, // Positive for restock
+        reason: supplierId ? 'RECEIVED_PURCHASE' : 'INVENTORY_COUNT', // Or INITIAL_STOCK? [cite: 138]
+        notes: notes || `Restocked ${unitQuantity} ${unit} (${quantityInBaseUnits} base units)`,
         organizationId,
       },
     });
 
-    // 4. Create a StockMovement record
+    // 4.4. Create StockMovement record
     const movement = await tx.stockMovement.create({
       data: {
         productId,
-        variantId: variantId || null,
-        stockBatchId: stockBatch.id,
+        variantId: targetVariantId, // Use the determined target variant ID
+        stockBatchId: stockBatch.id, // Link to the batch being moved [cite: 145]
         quantity: quantityInBaseUnits,
-        movementType: supplierId ? "PURCHASE_RECEIPT" : "ADJUSTMENT_IN",
+        // Movement is INTO the target location, so 'from' is null (external)
+        fromLocationId: null, // Null signifies stock coming from outside the tracked locations [cite: 146]
+        toLocationId: locationId, // Destination is the specified location [cite: 148]
+        movementType: supplierId ? 'PURCHASE_RECEIPT' : 'ADJUSTMENT_IN', // Or INITIAL_STOCK? [cite: 155]
         memberId,
-        notes: notes || `Restocked ${unitQuantity} ${unit}`,
+        notes: notes || `Restocked ${unitQuantity} ${unit} into location ${locationId}`,
         organizationId,
-        adjustmentId: adjustment.id,
-        referenceId: purchaseItemId || null,
-        referenceType: purchaseItemId ? "PurchaseItem" : null,
+        adjustmentId: adjustment.id, // Link to the adjustment record [cite: 152]
+        referenceId: purchaseItemId || null, // Reference the purchase item if applicable [cite: 150]
+        referenceType: purchaseItemId ? 'PurchaseItem' : null, // [cite: 151]
       },
     });
 
-    // 5. Update supplier product relationship if applicable
+    // 4.5. Update ProductSupplier relationship if supplier provided
     if (supplierId) {
       await tx.productSupplier.upsert({
         where: {
           productId_supplierId: {
+            // Correct composite key [cite: 51]
             productId,
             supplierId,
           },
@@ -617,30 +614,34 @@ export async function restockProduct(params: RestockProductParams) {
         create: {
           productId,
           supplierId,
-          costPrice: costPrice || purchasePrice || 0,
-          minimumOrderQuantity: unitQuantity,
-          packagingUnit: unit,
-          isPreferred: false,
+          // Use provided cost, fallback to purchase price, fallback to product baseCost, then 0
+          costPrice: costPrice ?? purchasePrice ?? product.baseCost ?? 0,
+          minimumOrderQuantity: unitQuantity, // Default MOQ to the restocked quantity? Or require input? [cite: 49]
+          packagingUnit: unit, // [cite: 50]
+          isPreferred: false, // Default preferred to false [cite: 51]
         },
         update: {
-          costPrice: costPrice || purchasePrice || undefined,
-          packagingUnit: unit,
+          // Only update cost/packaging if explicitly provided or relevant
+          costPrice: costPrice ?? purchasePrice ?? undefined, // Update cost if provided
+          packagingUnit: unit, // Update packaging unit used in this restock
         },
       });
     }
 
-    // 6. Create audit log
+    // 4.6. Create Audit Log
     await tx.auditLog.create({
       data: {
-        action: "CREATE",
-        entityType: "STOCK_BATCH",
-        entityId: stockBatch.id,
+        action: 'CREATE', // Or maybe "UPDATE" if considering inventory level change? CREATE is for the batch.
+        entityType: 'STOCK_BATCH', // Logging the creation of the batch [cite: 171]
+        entityId: stockBatch.id, // ID of the created batch [cite: 175]
         memberId,
         organizationId,
-        description: `Restocked product ${product.name}${variantId ? ` variant` : ""}`,
+        description: `Restocked product ${product.name} (${targetVariant.name}) - Batch ${batchNumber}`,
         details: {
+          // [cite: 176]
           productId,
-          variantId,
+          variantId: targetVariantId,
+          variantName: targetVariant.name,
           unit,
           unitQuantity,
           baseUnitQuantity: quantityInBaseUnits,
@@ -650,15 +651,21 @@ export async function restockProduct(params: RestockProductParams) {
           supplierId,
           purchasePrice,
           costPrice,
-          retailPrice,
+          stockBatchId: stockBatch.id,
+          adjustmentId: adjustment.id,
+          movementId: movement.id,
         },
       },
     });
 
-    revalidatePath('/products')
+    // 5. Revalidate cache if using Next.js App Router
+    revalidatePath('/products'); // Adjust path as needed
+    revalidatePath(`/products/${productId}`);
+
+    // 6. Return relevant created records
     return {
       stockBatch,
-      // stockRecord,
+      stockRecord, // Return the updated/created stock level record
       adjustment,
       movement,
       unitConversion: {
@@ -672,10 +679,16 @@ export async function restockProduct(params: RestockProductParams) {
   });
 }
 
-// Helper function to calculate space occupied
-function calculateSpaceOccupied(product: Product, quantity: number): number | null {
-  if (!product.width || !product.height || !product.length) return null;
+// Helper function to calculate space occupied (ensure Product type matches schema)
+// Needs 'ProductWithVariants' type which includes dimensions
+function calculateSpaceOccupied(product: ProductWithVariants, quantity: number): number | null {
+  // Check if dimensions and unit exist [cite: 34, 35, 36]
+  if (product.width == null || product.height == null || product.length == null || !product.dimensionUnit) {
+    return null;
+  }
 
+  // Basic volume calculation - assumes dimensions are in meters if unit is CUBIC_METER
+  // TODO: Add proper unit conversion if dimensionUnit is not meters
   const unitVolume = product.width * product.height * product.length;
   return unitVolume * quantity;
 }

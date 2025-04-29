@@ -14,40 +14,34 @@ import Image from 'next/image';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { useCategories } from '@/lib/hooks/use-categories';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { useFieldArray, useForm, UseFieldArrayRemove } from 'react-hook-form';
+import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useLocations, useSuppliers } from '@/lib/hooks/use-supplier'; // Assuming useSuppliers exists and works
+import { useLocations } from '@/lib/hooks/use-supplier';
 import { DragOverlay } from '@/components/ui/drag-overlay';
-import { VariantModal } from '../add/variant'; // Assuming VariantModal handles add/edit internally or via props
-// Assuming SupplierModal exists for managing suppliers similarly to variants
-// import { SupplierModal } from '../add/supplier';
+import { VariantModal } from '../add/variant';
 import { Checkbox } from '@/components/ui/checkbox';
-import { MeasurementUnit, Prisma } from '@prisma/client'; // Make sure Prisma is imported if used directly (like Prisma.JsonNull)
-import Loading from './loading'; // Assuming Loading component exists
+import { Prisma } from '@prisma/client';
+import Loading from './loading';
 import {
   AddProductSchema,
   EditProductSchema,
   ProductVariantInput,
-  ProductSupplierInput, // Import supplier types if needed for modals/forms
+  ProductSupplierInput,
   AddProductSchemaType,
   EditProductSchemaType,
 } from '@/lib/validations/product';
 
-// Define the expected shape of the product data for editing
-// Adjust based on your actual prisma query result for a single product
-type ProductForEditing = Omit<AddProductSchemaType, 'suppliers' | 'variants'> & {
+type ProductFormType = AddProductSchemaType | EditProductSchemaType;
+
+type ProductForEditing = EditProductSchemaType & {
   id: string;
-  // Ensure variants and suppliers match the expected input structure,
-  // especially handling potential null/undefined values from the DB
-  // that need transformation before hitting the form.
-  variants: (ProductVariantInput & { id?: string })[]; // variants might have IDs in edit mode
-  suppliers: (ProductSupplierInput & { id?: string })[]; // suppliers might have IDs
-  // Add any other fields fetched for the product edit page
+  variants: (ProductVariantInput & { id?: string })[];
+  suppliers: (ProductSupplierInput & { id?: string })[];
 };
 
 interface AddProductFormProps {
-  product?: ProductForEditing; // Optional product data for editing
+  product?: ProductForEditing;
 }
 
 export default function AddProductForm({ product }: AddProductFormProps) {
@@ -56,157 +50,87 @@ export default function AddProductForm({ product }: AddProductFormProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [variantModalOpen, setVariantModalOpen] = useState(false);
-  // const [supplierModalOpen, setSupplierModalOpen] = useState(false); // For supplier modal
   const [isDragging, setIsDragging] = useState(false);
   const [previewFiles, setPreviewFiles] = useState<{ file: File; preview: string }[]>([]);
 
   const isEditMode = !!product?.id;
   const currentSchema = isEditMode ? EditProductSchema : AddProductSchema;
 
-  const form = useForm({
+  const form = useForm<ProductFormType>({
     resolver: zodResolver(currentSchema),
-    mode: 'onChange',
-    defaultValues: isEditMode
-      ? {
-          // productId: product.id, // Required by EditProductSchema
-          name: product.name ?? '',
-          description: product.description ?? '',
-          sku: product.sku ?? '', // Edit schema makes SKU required
-          barcode: product.barcode ?? '',
-          categoryId: product.categoryId ?? '',
-          basePrice: product.basePrice ?? 0, // Ensure type matches schema expectation (number)
-          baseCost: product.baseCost ?? undefined,
-          isActive: product.isActive ?? true,
-          // isActive: product.isActive ?? true,
-          imageUrls: product.imageUrls ?? [],
-          customFields: product.customFields ?? Prisma.JsonNull, // Use Prisma.JsonNull for default empty JSON
-          width: product.width ?? undefined,
-          height: product.height ?? undefined,
-          length: product.length ?? undefined,
-          dimensionUnit: product.dimensionUnit ?? MeasurementUnit.METER,
-          weight: product.weight ?? undefined,
-          weightUnit: product.weightUnit ?? MeasurementUnit.WEIGHT_KG,
-          volumetricWeight: product.volumetricWeight ?? undefined,
-          reorderPoint: product.reorderPoint ?? 5,
-          defaultLocationId: product.defaultLocationId ?? undefined,
-          // Map variants and suppliers carefully, ensuring structure matches schema
-          variants:
-            product.variants?.map(v => ({
-              ...v,
-              priceModifier: v.priceModifier ?? 0,
-              attributes: v.attributes ?? Prisma.JsonNull,
-              isActive: v.isActive ?? true,
-              reorderPoint: v.reorderPoint ?? 5,
-              reorderQty: v.reorderQty ?? 10,
-              lowStockAlert: v.lowStockAlert ?? false,
-            })) ?? [],
-          suppliers:
-            product.suppliers?.map(s => ({
-              ...s,
-              costPrice: s.costPrice ?? 0, // Provide a default number or handle null based on schema/DB
-              minimumOrderQuantity: s.minimumOrderQuantity ?? undefined,
-              isPreferred: s.isPreferred ?? false,
-            })) ?? [],
-        }
-      : {
-          // Default values for Add Mode (aligned with AddProductSchema)
-          name: '',
-          description: '',
-          sku: '', // Add schema allows optional SKU initially
-          barcode: '',
-          categoryId: '',
-          basePrice: undefined, // Use undefined or '' and let zod coerce
-          baseCost: undefined,
-          isActive: true,
-          imageUrls: [],
-          customFields: Prisma.JsonNull,
-          width: undefined,
-          height: undefined,
-          length: undefined,
-          dimensionUnit: MeasurementUnit.METER,
-          weight: undefined,
-          weightUnit: MeasurementUnit.WEIGHT_KG,
-          volumetricWeight: undefined,
-          reorderPoint: 5, // Default from schema
-          defaultLocationId: undefined,
-          variants: [], // Start with empty array or a default variant if desired
-          suppliers: [],
-        },
+    defaultValues: {
+      name: '',
+      description: null,
+      sku: null,
+      barcode: null,
+      categoryId: '',
+      basePrice: 0,
+      baseCost: null,
+      isActive: true,
+      imageUrls: [],
+      customFields: Prisma.JsonNull,
+      width: null,
+      height: null,
+      length: null,
+      dimensionUnit: 'cm',
+      weight: null,
+      weightUnit: 'kg',
+      volumetricWeight: null,
+      reorderPoint: 5,
+      defaultLocationId: null,
+      variants: [],
+      suppliers: [],
+      ...(isEditMode && { productId: product.id }),
+    },
   });
 
-  // Reset form if product data changes (e.g., navigating between edit pages)
   useEffect(() => {
-    if (isEditMode) {
+    if (isEditMode && product) {
       form.reset({
-        // productId: product.id,
-        name: product.name ?? '',
-        description: product.description ?? '',
-        sku: product.sku ?? '',
-        barcode: product.barcode ?? '',
-        categoryId: product.categoryId ?? '',
-        basePrice: product.basePrice ?? 0,
-        baseCost: product.baseCost ?? undefined,
-        isActive: product.isActive ?? true,
-        imageUrls: product.imageUrls ?? [],
+        ...product,
+        productId: product.id,
+        description: product.description ?? null,
+        sku: product.sku ?? null,
+        barcode: product.barcode ?? null,
+        baseCost: product.baseCost ?? null,
         customFields: product.customFields ?? Prisma.JsonNull,
-        width: product.width ?? undefined,
-        height: product.height ?? undefined,
-        length: product.length ?? undefined,
-        dimensionUnit: product.dimensionUnit ?? MeasurementUnit.METER,
-        weight: product.weight ?? undefined,
-        weightUnit: product.weightUnit ?? MeasurementUnit.WEIGHT_KG,
-        volumetricWeight: product.volumetricWeight ?? undefined,
-        reorderPoint: product.reorderPoint ?? 5,
-        defaultLocationId: product.defaultLocationId ?? undefined,
+        width: product.width ?? null,
+        height: product.height ?? null,
+        length: product.length ?? null,
+        weight: product.weight ?? null,
+        volumetricWeight: product.volumetricWeight ?? null,
+        defaultLocationId: product.defaultLocationId ?? null,
         variants:
           product.variants?.map(v => ({
             ...v,
-            priceModifier: v.priceModifier ?? 0,
+            sku: v.sku ?? null,
+            barcode: v.barcode ?? null,
             attributes: v.attributes ?? Prisma.JsonNull,
-            isActive: v.isActive ?? true,
-            reorderPoint: v.reorderPoint ?? 5,
-            reorderQty: v.reorderQty ?? 10,
-            lowStockAlert: v.lowStockAlert ?? false,
           })) ?? [],
         suppliers:
           product.suppliers?.map(s => ({
             ...s,
-            costPrice: s.costPrice ?? 0,
-            minimumOrderQuantity: s.minimumOrderQuantity ?? undefined,
-            isPreferred: s.isPreferred ?? false,
+            supplierSku: s.supplierSku ?? null,
+            minimumOrderQuantity: s.minimumOrderQuantity ?? null,
+            packagingUnit: s.packagingUnit ?? null,
           })) ?? [],
       });
-    } else {
-      // Optionally reset to add-mode defaults if needed
-      // form.reset(form.formState.defaultValues); // Or specific add defaults
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product, isEditMode, form.reset]); // Ensure form.reset is stable
+  }, [product, isEditMode, form]);
 
   const {
     fields: variantFields,
-    append: appendVariant,
-    remove: removeVariant,
-    update: updateVariant, // Needed for editing variants
+    append,
+    remove,
   } = useFieldArray({
     control: form.control,
     name: 'variants',
   });
 
-  const {
-    fields: supplierFields,
-    append: appendSupplier,
-    remove: removeSupplier,
-    update: updateSupplier, // Needed for editing suppliers
-  } = useFieldArray({
-    control: form.control,
-    name: 'suppliers',
-  });
-
   const { data: locationsResult, error: locationsError, isLoading: isLoadingLocations } = useLocations();
   const locations = locationsResult?.warehouses || [];
-  const { data: suppliersResult, error: suppliersError, isLoading: isLoadingSuppliers } = useSuppliers();
-  // const suppliersList = suppliersResult?.data || []; // Assuming this structure for supplier selection dropdown
+  // const { data: suppliersResult, error: suppliersError, isLoading: isLoadingSuppliers } = useSuppliers();
+  // const suppliersList = suppliersResult?.data || [];
   const { data: categoriesResult, error: categoriesError, isLoading: isLoadingCategories } = useCategories();
   const categories = categoriesResult?.data || [];
 
@@ -230,7 +154,6 @@ export default function AddProductForm({ product }: AddProductFormProps) {
           formData.append('file', file);
 
           const response = await fetch('/api/upload', {
-            // Use your actual upload endpoint
             method: 'POST',
             body: formData,
           });
@@ -241,7 +164,6 @@ export default function AddProductForm({ product }: AddProductFormProps) {
           if (!data.url) throw new Error(`Invalid response for ${file.name}`);
 
           uploadedUrls.push(data.url);
-          // Remove successful preview
           setPreviewFiles(prev => prev.filter(p => p.file !== file));
           URL.revokeObjectURL(newPreviews.find(p => p.file === file)?.preview || '');
         }
@@ -249,12 +171,11 @@ export default function AddProductForm({ product }: AddProductFormProps) {
         const currentUrls = form.getValues('imageUrls') || [];
         form.setValue('imageUrls', [...currentUrls, ...uploadedUrls], { shouldValidate: true, shouldDirty: true });
         toast.success('Images uploaded successfully!');
-      } catch (error: any) {
+      } catch (error) {
         console.error('Image upload failed:', error);
-        const errorMessage = error.message || 'Image upload failed. Please try again.';
+        const errorMessage = error instanceof Error ? error.message : 'Image upload failed. Please try again.';
         setGeneralError(errorMessage);
         toast.error(errorMessage);
-        // Clean up previews for files that failed
         newPreviews.forEach(p => URL.revokeObjectURL(p.preview));
         setPreviewFiles(prev => prev.filter(p => !newPreviews.some(np => np.preview === p.preview)));
       } finally {
@@ -264,129 +185,120 @@ export default function AddProductForm({ product }: AddProductFormProps) {
     [form]
   );
 
-  const removePreview = useCallback((previewToRemove: string) => {
-    setPreviewFiles(prev => prev.filter(p => p.preview !== previewToRemove));
-    URL.revokeObjectURL(previewToRemove);
-  }, []);
-
   const removeImage = useCallback(
     (urlToRemove: string) => {
       const currentUrls = form.getValues('imageUrls') || [];
       form.setValue(
         'imageUrls',
-        currentUrls.filter((url: string) => url !== urlToRemove),
+        currentUrls.filter(url => url !== urlToRemove),
         { shouldValidate: true, shouldDirty: true }
       );
     },
     [form]
   );
+const onSubmit = async (data: ProductFormType) => {
+  setGeneralError(null);
 
-  const onSubmit = async (values: AddProductSchemaType | EditProductSchemaType) => {
-    setGeneralError(null);
+  startTransition(async () => {
+    try {
+      const apiUrl = isEditMode ? `/api/products/${product?.id}` : '/api/products';
+      const apiMethod = isEditMode ? 'PUT' : 'POST';
 
-    // Create FormData - FormData is often required if you are uploading files directly
-    // OR if your backend expects it. If your backend accepts JSON, you might not need FormData.
-    // Let's assume JSON is preferred for simplicity here unless file upload is part of THIS form submission.
-    // If using FormData, append complex types as JSON strings.
+      // Prepare the payload
+      const payload = {
+        ...data,
+        // Handle variants and suppliers with optional IDs in edit mode
+        variants: data.variants?.map(({ id, ...rest }) => (isEditMode && id ? { id, ...rest } : rest)),
+        suppliers: data.suppliers?.map(({ id, ...rest }) => (isEditMode && id ? { id, ...rest } : rest)),
+      };
 
-    // console.log('Form values:', values); // Debug: Check the validated data
+      // Create FormData instance
+      const formData = new FormData();
 
-    startTransition(async () => {
-      try {
-        const apiUrl = isEditMode ? `/api/products/${product.id}` : '/api/products';
-        const apiMethod = isEditMode ? 'PUT' : 'POST';
+      // Append all simple fields
+      for (const [key, value] of Object.entries(payload)) {
+        // Skip complex fields that need special handling
+        if (key === 'variants' || key === 'suppliers' || key === 'imageUrls' || key === 'customFields') continue;
 
-        // Filter out empty IDs from variants/suppliers before sending if backend requires it
-        const payload = {
-          ...values,
-          variants: values.variants?.map(({ id, ...rest }) => (isEditMode && id ? { id, ...rest } : rest)),
-          suppliers: values.suppliers?.map(({ id, ...rest }) => (isEditMode && id ? { id, ...rest } : rest)),
-          // Ensure numeric fields that are optional are sent as null if empty/undefined
-          // Zod coercion should handle number conversion, but check backend expectations
-          baseCost: values.baseCost || null,
-          width: values.width || null,
-          height: values.height || null,
-          length: values.length || null,
-          weight: values.weight || null,
-          volumetricWeight: values.volumetricWeight || null,
-          defaultLocationId: values.defaultLocationId || null,
-        };
-
-        const response = await fetch(apiUrl, {
-          method: apiMethod,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        });
-
-        if (!response.ok) {
-          try {
-            const errorData = await response.json();
-            console.error('Server error data:', errorData);
-            const message = errorData.error || `HTTP error! status: ${response.status}`;
-            // Map Zod-like errors from backend to form fields if possible
-            if (errorData.fieldErrors) {
-              Object.entries(errorData.fieldErrors).forEach(([field, error]: [string, any]) => {
-                // Need to potentially map backend field names to form field names
-                // This mapping logic depends heavily on your backend error structure
-                // Example: errorData.fieldErrors['variants.0.name'] might map to 'variants.0.name'
-                try {
-                  form.setError(field as any, {
-                    type: 'server',
-                    message: Array.isArray(error) ? error.join(', ') : String(error),
-                  });
-                } catch (e) {
-                  console.warn(`Failed to set error for field: ${field}`, e);
-                }
-              });
-            }
-            throw new Error(message); // Throw error with server message
-          } catch (jsonError) {
-            // If response is not JSON or JSON parsing fails
-            console.error('Failed to parse error response:', jsonError);
-            throw new Error(`HTTP error! status: ${response.status}. Failed to get error details.`);
-          }
-        }
-
-        const result = await response.json(); // Assuming success response is JSON
-
-        // console.log('API Result:', result); // Debug: Check API response
-
-        toast.success(`Product ${isEditMode ? 'updated' : 'added'} successfully!`);
-        router.push('/products'); // Redirect on success
-        router.refresh(); // Refresh server components if needed
-      } catch (error: any) {
-        console.error('Form submission error:', error);
-        const message = error.message || 'An unexpected error occurred.';
-        setGeneralError(message);
-        toast.error(message);
-
-        // Attempt to focus the first field with an error
-        const firstErrorField = Object.keys(form.formState.errors)[0];
-        if (firstErrorField) {
-          // Need robust way to find element, field name might be nested (e.g., variants.0.name)
-          // Basic attempt:
-          try {
-            const elements = document.getElementsByName(firstErrorField);
-            if (elements.length > 0) {
-              elements[0]?.focus();
-              elements[0]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-          } catch (e) {
-            console.warn('Could not focus error field:', firstErrorField);
-          }
+        // Handle null/undefined values
+        if (value === null || value === undefined) {
+          formData.append(key, '');
+        } else if (typeof value === 'object') {
+          // Handle nested objects (like attributes)
+          formData.append(key, JSON.stringify(value));
+        } else {
+          // Convert all other values to string
+          formData.append(key, String(value));
         }
       }
-    });
-  };
 
-  if (isLoadingCategories || isLoadingLocations || isLoadingSuppliers) {
+      // Handle customFields (Prisma.JsonValue)
+      if (payload.customFields && payload.customFields !== Prisma.JsonNull) {
+        formData.append('customFields', JSON.stringify(payload.customFields));
+      }
+
+      // Handle variants and suppliers as JSON arrays
+      formData.append('variants', JSON.stringify(payload.variants || []));
+      formData.append('suppliers', JSON.stringify(payload.suppliers || []));
+
+      // Handle image URLs
+      if (payload.imageUrls) {
+        payload.imageUrls.forEach((url, index) => {
+          formData.append(`imageUrls[${index}]`, url);
+        });
+      }
+
+      // Handle preview files (new uploads)
+      if (previewFiles.length > 0) {
+        previewFiles.forEach((file, index) => {
+          formData.append(`newImages`, file.file);
+        });
+      }
+
+      // Send the request
+      const response = await fetch(apiUrl, {
+        method: apiMethod,
+        // Don't set Content-Type header - let the browser set it with the correct boundary
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        const errorMessage = errorData.message || `HTTP error! status: ${response.status}`;
+
+        // Handle field-specific errors
+        if (errorData.fieldErrors) {
+          Object.entries(errorData.fieldErrors).forEach(([field, errors]) => {
+            if (Array.isArray(errors)) {
+              form.setError(field as any, {
+                type: 'server',
+                message: errors.join(', '),
+              });
+            }
+          });
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+      console.log(result)
+      toast.success(`Product ${isEditMode ? 'updated' : 'added'} successfully!`);
+      router.push('/products');
+      router.refresh();
+    } catch (error: unknown) {
+      console.error('Form submission error:', error);
+      const message = error instanceof Error ? error.message : 'An unexpected error occurred.';
+      setGeneralError(message);
+      toast.error(message);
+    }
+  });
+};
+
+  if (isLoadingCategories || isLoadingLocations) {
     return <Loading />;
   }
 
-  // Consolidate error checking
-  const dataLoadingError = categoriesError || locationsError || suppliersError;
+  const dataLoadingError = categoriesError || locationsError ;
   if (dataLoadingError) {
     return (
       <div className="container mx-auto p-4">
@@ -401,40 +313,19 @@ export default function AddProductForm({ product }: AddProductFormProps) {
     );
   }
 
-  // Helper to manage variant modal state and data passing
   const handleManageVariants = () => {
     setVariantModalOpen(true);
   };
 
-  // Helper to manage supplier modal state and data passing (if implementing)
-  // const handleManageSuppliers = () => {
-  //     setSupplierModalOpen(true);
-  // };
-
-  // --- RENDER LOGIC ---
-
   return (
     <>
-      {/* Pass necessary props to modals */}
       <VariantModal
         open={variantModalOpen}
         onOpenChange={setVariantModalOpen}
-        variants={form.watch('variants')} // Pass current variants
-        appendVariant={appendVariant}
-        removeVariant={removeVariant as UseFieldArrayRemove} // Cast if necessary or adjust types
-        updateVariant={updateVariant} // Pass update function
-        // Pass any other required props like measurement units if needed inside modal
+        variants={form.watch('variants')}
+        onAddVariant={variant => append(variant)}
+        onRemoveVariant={index => remove(index)}
       />
-
-      {/* <SupplierModal
-         open={supplierModalOpen}
-         onOpenChange={setSupplierModalOpen}
-         suppliers={form.watch('suppliers')}
-         appendSupplier={appendSupplier}
-         removeSupplier={removeSupplier as UseFieldArrayRemove}
-         updateSupplier={updateSupplier}
-         suppliersList={suppliersList} // Pass list of available suppliers
-       /> */}
 
       <div className="container mx-auto p-4 space-y-6">
         <SectionHeader
@@ -454,7 +345,6 @@ export default function AddProductForm({ product }: AddProductFormProps) {
         />
 
         <Form {...form}>
-          {/* Ensure onSubmit uses the refactored handler */}
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             {generalError && (
               <Alert variant="destructive">
@@ -465,9 +355,7 @@ export default function AddProductForm({ product }: AddProductFormProps) {
             )}
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* --- Left Column: Basic Info & Physical Attributes --- */}
               <div className="lg:col-span-6 space-y-6">
-                {/* Basic Information Card */}
                 <Card className="bg-gradient-to-br from-background to-muted/20 shadow-md border-primary/10">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-primary text-xl flex items-center gap-2">
@@ -477,7 +365,6 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                     <CardDescription>Enter the core details of the product.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {/* Name & SKU/Barcode */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
@@ -492,27 +379,7 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                           </FormItem>
                         )}
                       />
-                      {/* SKU is required for Edit, optional for Add (but backend might generate) */}
-                      <FormField
-                        control={form.control}
-                        name="sku"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>SKU {isEditMode ? '*' : '(Optional)'}</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="e.g., SKU12345"
-                                {...field}
-                                value={field.value ?? ''}
-                                className="bg-background/60"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
                     </div>
-                    {/* Barcode */}
                     <FormField
                       control={form.control}
                       name="barcode"
@@ -532,7 +399,6 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                       )}
                     />
 
-                    {/* Description */}
                     <FormField
                       control={form.control}
                       name="description"
@@ -552,7 +418,6 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                       )}
                     />
 
-                    {/* Category & Base Price */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
@@ -561,7 +426,7 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                           <FormItem>
                             <FormLabel>Category *</FormLabel>
                             <Select
-                              value={field.value ?? ''} // Handle potential null/undefined value
+                              value={field.value}
                               onValueChange={field.onChange}
                               disabled={isPending || isLoadingCategories}
                             >
@@ -593,14 +458,12 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                           <FormItem>
                             <FormLabel>Base Price *</FormLabel>
                             <FormControl>
-                              {/* Use type="text" and let Zod coerce for better UX with decimals */}
                               <Input
-                                type="text" // Changed from number
-                                inputMode="decimal" // Hint for mobile keyboards
+                                type="text"
+                                inputMode="decimal"
                                 placeholder="0.00"
                                 {...field}
-                                value={field.value ?? ''} // Handle potential null/undefined value
-                                onChange={e => field.onChange(e.target.value)} // Pass string value
+                                onChange={e => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
                                 className="bg-background/60"
                               />
                             </FormControl>
@@ -610,7 +473,6 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                       />
                     </div>
 
-                    {/* Base Cost & Default Location */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
@@ -625,7 +487,7 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                                 placeholder="0.00"
                                 {...field}
                                 value={field.value ?? ''}
-                                onChange={e => field.onChange(e.target.value)}
+                                onChange={e => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
                                 className="bg-background/60"
                               />
                             </FormControl>
@@ -633,7 +495,7 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                           </FormItem>
                         )}
                       />
-                      {/* <FormField
+                      <FormField
                         control={form.control}
                         name="defaultLocationId"
                         render={({ field }) => (
@@ -646,15 +508,10 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                             >
                               <FormControl>
                                 <SelectTrigger className="bg-background/60">
-                                  {isLoadingLocations ? (
-                                    <span className="text-muted-foreground">Loading...</span>
-                                  ) : (
-                                    <SelectValue placeholder="Select location" />
-                                  )}
+                                  <SelectValue placeholder="Select a location" />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="">None</SelectItem>
                                 {locations.map(location => (
                                   <SelectItem key={location.id} value={location.id}>
                                     {location.name}
@@ -665,21 +522,18 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                             <FormMessage />
                           </FormItem>
                         )}
-                      /> */}
+                      />
                     </div>
                   </CardContent>
                 </Card>
 
-                {/* Physical Attributes Card */}
                 <Card className="bg-gradient-to-br from-background to-muted/20 shadow-md border-primary/10">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-primary text-xl">Physical Attributes (Optional)</CardTitle>
                     <CardDescription>Specify the physical characteristics.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {/* Dimensions */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {/* Width, Height, Length - use type="text" */}
                       {(['width', 'height', 'length'] as const).map(dim => (
                         <FormField
                           key={dim}
@@ -695,7 +549,7 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                                   placeholder="0.0"
                                   {...field}
                                   value={field.value ?? ''}
-                                  onChange={e => field.onChange(e.target.value)}
+                                  onChange={e => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
                                   className="bg-background/60"
                                 />
                               </FormControl>
@@ -705,44 +559,6 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                         />
                       ))}
                     </div>
-                    {/* Dimension Unit */}
-                    <FormField
-                      control={form.control}
-                      name="dimensionUnit"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Dimension Unit</FormLabel>
-                          <Select value={field.value ?? MeasurementUnit.METER} onValueChange={field.onChange}>
-                            <FormControl>
-                              <SelectTrigger className="bg-background/60">
-                                <SelectValue placeholder="Select unit" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {Object.values(MeasurementUnit)
-                                // Filter for appropriate dimension units (adjust as needed)
-                                .filter(
-                                  value =>
-                                    !value.startsWith('WEIGHT_') &&
-                                    !value.startsWith('AREA_') &&
-                                    !value.startsWith('VOLUME_')
-                                )
-                                .map(value => (
-                                  <SelectItem key={value} value={value}>
-                                    {value
-                                      .replace('_', ' ')
-                                      .toLowerCase()
-                                      .replace(/\b\w/g, l => l.toUpperCase())}{' '}
-                                    {/* Format display name */}
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    {/* Weight & Weight Unit */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
@@ -757,7 +573,7 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                                 placeholder="0.00"
                                 {...field}
                                 value={field.value ?? ''}
-                                onChange={e => field.onChange(e.target.value)}
+                                onChange={e => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
                                 className="bg-background/60"
                               />
                             </FormControl>
@@ -771,20 +587,17 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Weight Unit</FormLabel>
-                            <Select value={field.value ?? MeasurementUnit.WEIGHT_KG} onValueChange={field.onChange}>
+                            <Select value={field.value} onValueChange={field.onChange}>
                               <FormControl>
                                 <SelectTrigger className="bg-background/60">
                                   <SelectValue placeholder="Select unit" />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                {Object.values(MeasurementUnit)
-                                  .filter(value => value.startsWith('WEIGHT_'))
-                                  .map(value => (
-                                    <SelectItem key={value} value={value}>
-                                      {value.replace('WEIGHT_', '')}
-                                    </SelectItem>
-                                  ))}
+                                <SelectItem value="kg">kg</SelectItem>
+                                <SelectItem value="g">g</SelectItem>
+                                <SelectItem value="lb">lb</SelectItem>
+                                <SelectItem value="oz">oz</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -792,7 +605,6 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                         )}
                       />
                     </div>
-                    {/* Volumetric Weight */}
                     <FormField
                       control={form.control}
                       name="volumetricWeight"
@@ -806,32 +618,8 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                               placeholder="0.00"
                               {...field}
                               value={field.value ?? ''}
-                              onChange={e => field.onChange(e.target.value)}
+                              onChange={e => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
                               className="bg-background/60"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    {/* Custom Fields (Example Textarea - adjust based on actual needs) */}
-                    <FormField
-                      control={form.control}
-                      name="customFields" // Assuming customFields is handled as a JSON string or object
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Custom Fields (JSON)</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder='e.g., {"material": "cotton", "origin": "USA"}'
-                              {...field}
-                              value={
-                                typeof field.value === 'string'
-                                  ? field.value
-                                  : JSON.stringify(field.value !== Prisma.JsonNull ? field.value : {})
-                              }
-                              onChange={e => field.onChange(e.target.value)} // Store as string, schema transforms
-                              className="bg-background/60 min-h-[80px] font-mono text-sm"
                             />
                           </FormControl>
                           <FormMessage />
@@ -842,16 +630,13 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                 </Card>
               </div>
 
-              {/* --- Right Column: Inventory, Variants, Images --- */}
               <div className="lg:col-span-6 space-y-6">
-                {/* Inventory Settings Card */}
                 <Card className="bg-gradient-to-br from-background to-muted/20 shadow-md border-primary/10">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-primary text-xl">Inventory Settings</CardTitle>
                     <CardDescription>Configure stock and availability.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {/* Reorder Point */}
                     <FormField
                       control={form.control}
                       name="reorderPoint"
@@ -860,14 +645,11 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                           <FormLabel>Reorder Point</FormLabel>
                           <FormControl>
                             <Input
-                              type="number" // Keep as number for integer input
+                              type="number"
                               step="1"
                               placeholder="e.g., 10"
                               {...field}
-                              value={field.value ?? ''}
-                              onChange={e =>
-                                field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))
-                              } // Parse to int
+                              onChange={e => field.onChange(Number(e.target.value))}
                               className="bg-background/60"
                             />
                           </FormControl>
@@ -875,15 +657,13 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                         </FormItem>
                       )}
                     />
-                    {/* Active Status */}
                     <FormField
                       control={form.control}
                       name="isActive"
                       render={({ field }) => (
                         <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-background/30">
                           <FormControl>
-                            {/* Ensure checked state handles potential undefined */}
-                            <Checkbox checked={!!field.value} onCheckedChange={field.onChange} />
+                            <Checkbox checked={field.value} onCheckedChange={field.onChange} />
                           </FormControl>
                           <div className="space-y-1 leading-none">
                             <FormLabel>Active Product</FormLabel>
@@ -894,38 +674,9 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                         </FormItem>
                       )}
                     />
-                    {/* Suppliers Section (Placeholder for potential SupplierModal trigger) */}
-                    {/*
-                     <Card className="bg-background/30">
-                       <CardHeader className="pb-2">
-                           <CardTitle className="text-lg flex items-center justify-between">
-                               <span>Suppliers</span>
-                               <Button type="button" variant="outline" onClick={handleManageSuppliers} className="h-8">
-                                   Manage Suppliers
-                               </Button>
-                           </CardTitle>
-                           <CardDescription>Assign suppliers and their details.</CardDescription>
-                       </CardHeader>
-                       <CardContent>
-                           {supplierFields.length > 0 ? (
-                               <div className="space-y-2 max-h-40 overflow-auto">
-                                   {supplierFields.map((field, index) => (
-                                       <div key={field.id} className="p-2 border rounded bg-background/50">
-                                           <p className="font-medium">{suppliersList.find(s => s.id === field.supplierId)?.name || 'Unknown Supplier'}</p>
-                                           <p className="text-sm text-muted-foreground">SKU: {field.supplierSku || 'N/A'} | Cost: ${field.costPrice?.toFixed(2) ?? 'N/A'}</p>
-                                       </div>
-                                   ))}
-                               </div>
-                           ) : (
-                               <p className="text-muted-foreground text-center py-2">No suppliers assigned.</p>
-                           )}
-                       </CardContent>
-                     </Card>
-                     */}
                   </CardContent>
                 </Card>
 
-                {/* Variants Card */}
                 <Card className="bg-gradient-to-br from-background to-muted/20 shadow-md border-primary/10">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-primary text-xl flex items-center justify-between">
@@ -942,15 +693,13 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                         <div className="space-y-2 pr-3">
                           {variantFields.map((field, index) => (
                             <div
-                              key={field.id} // react-hook-form provides stable ID
+                              key={field.id}
                               className="p-3 border rounded bg-background/50 hover:bg-background/80 transition-colors"
                             >
                               <div className="flex justify-between items-center">
                                 <p className="font-medium">
                                   {form.watch(`variants.${index}.name`) || 'Unnamed Variant'}
                                 </p>
-                                {/* Optionally add edit button per variant if modal edits all */}
-                                {/* <Button variant="ghost" size="sm" onClick={() => openVariantModalForEdit(index)}>Edit</Button> */}
                               </div>
                               <div className="mt-1 text-sm text-muted-foreground space-y-1">
                                 <div className="flex justify-between">
@@ -978,8 +727,6 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                                     {form.watch(`variants.${index}.lowStockAlert`) ? 'Low Stock Alert' : ''}
                                   </span>
                                 </div>
-                                {/* Optionally display simple attributes */}
-                                {/* <div>Attributes: {JSON.stringify(form.watch(`variants.${index}.attributes`))}</div> */}
                               </div>
                             </div>
                           ))}
@@ -996,7 +743,6 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                   </CardContent>
                 </Card>
 
-                {/* Product Images Card */}
                 <Card className="bg-gradient-to-br from-background to-muted/20 shadow-md border-primary/10">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-primary text-xl flex items-center gap-2">
@@ -1009,11 +755,8 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                     <FormField
                       control={form.control}
                       name="imageUrls"
-                      render={(
-                        { field } // Use field to access value and onChange
-                      ) => (
+                      render={({ field }) => (
                         <FormItem>
-                          {/* Input is hidden, label acts as dropzone and button trigger */}
                           <FormControl>
                             <>
                               <Input
@@ -1040,7 +783,6 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                                   if (e.dataTransfer.files) handleImageUpload(e.dataTransfer.files);
                                 }}
                               >
-                                {/* Display Uploaded Images */}
                                 {(field.value?.length ?? 0) > 0 || previewFiles.length > 0 ? (
                                   <div className="p-4 flex-grow">
                                     <div className="flex justify-between items-center mb-2">
@@ -1062,25 +804,20 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                                     </div>
                                     <ScrollArea className="h-[180px]">
                                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 pr-3">
-                                        {/* Preview Files */}
                                         {previewFiles.map(item => (
                                           <div key={item.preview} className="relative group aspect-square">
-                                            {/* Overlay shown during upload */}
                                             <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10 rounded-lg">
                                               <Loader2 className="h-6 w-6 animate-spin text-white" />
                                             </div>
                                             <Image
                                               src={item.preview}
                                               alt="Uploading preview"
-                                              layout="fill"
-                                              objectFit="cover"
-                                              className="rounded-lg border border-muted"
-                                              // No revoke here, handled in upload logic
+                                              fill
+                                              className="rounded-lg border border-muted object-cover"
                                             />
                                           </div>
                                         ))}
-                                        {/* Uploaded Files */}
-                                        {field.value?.map((url: string) => (
+                                        {field.value?.map(url => (
                                           <div key={url} className="relative group aspect-square">
                                             <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg z-10">
                                               <Button
@@ -1097,9 +834,8 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                                             <Image
                                               src={url}
                                               alt="Product Image"
-                                              layout="fill"
-                                              objectFit="cover"
-                                              className="rounded-lg border border-muted"
+                                              fill
+                                              className="rounded-lg border border-muted object-cover"
                                             />
                                           </div>
                                         ))}
@@ -1107,7 +843,6 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                                     </ScrollArea>
                                   </div>
                                 ) : (
-                                  // Placeholder when no images
                                   <label
                                     htmlFor="imageUploadInput"
                                     className="flex flex-col items-center justify-center h-full p-6 cursor-pointer flex-grow"
@@ -1123,12 +858,11 @@ export default function AddProductForm({ product }: AddProductFormProps) {
                                     )}
                                   </label>
                                 )}
-                                {/* Drag Overlay */}
                                 {isDragging && <DragOverlay />}
                               </div>
                             </>
                           </FormControl>
-                          <FormMessage /> {/* Show errors related to imageUrls field */}
+                          <FormMessage />
                         </FormItem>
                       )}
                     />
@@ -1137,7 +871,6 @@ export default function AddProductForm({ product }: AddProductFormProps) {
               </div>
             </div>
 
-            {/* --- Sticky Footer with Submit Button --- */}
             <div className="sticky bottom-0 -mx-4 -mb-4 mt-8 p-4 bg-background/95 border-t border-border backdrop-blur-sm z-20">
               <div className="container mx-auto flex justify-between items-center">
                 <Button type="button" variant="outline" onClick={() => router.back()} disabled={isPending}>

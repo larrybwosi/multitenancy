@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { addProduct, editProduct } from "@/actions/product-add-edit";
+import { getProducts } from "@/actions/products";
 
 type ApiErrorResponse = {
   error: string;
@@ -10,6 +11,36 @@ type ApiSuccessResponse<T> = {
   success: true;
   data: T;
 };
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+
+    const options = {
+      includeVariants: searchParams.get('includeVariants') === 'true',
+      includeCategory: searchParams.get('includeCategory') === 'true',
+      includeSuppliers: searchParams.get('includeSuppliers') === 'true',
+      includeDefaultLocation: searchParams.get('includeDefaultLocation') === 'true',
+      page: Number(searchParams.get('page')) || 1,
+      limit: Number(searchParams.get('limit')) || 10,
+      search: searchParams.get('search') || undefined,
+      categoryId: searchParams.get('categoryId') || undefined,
+      sortBy: (searchParams.get('sortBy') as 'name' | 'createdAt' | 'basePrice') || 'name',
+      sortOrder: (searchParams.get('sortOrder') as 'asc' | 'desc') || 'asc',
+    };
+
+    const result = await getProducts(options);
+
+    if ('error' in result) {
+      return NextResponse.json({ error: result.error }, { status: 500 });
+    }
+
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error('Error in products API route:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
