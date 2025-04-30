@@ -446,7 +446,7 @@ export async function processSale(
 
         // --- 3e. Create Sale Record ---
         // Consider a more robust sequence generator for production (e.g., database sequence or UUID)
-        const saleNumber = `SALE-${Math.random().toString(36).substring(0, 8).toUpperCase()}-${new Date().getTime()}`; // [cite: 58]
+        const saleNumber = `SALE-${Math.random().toString(36).substring(4, 10).toUpperCase()}-${new Date().getTime().toString().slice(0,4)}`; // [cite: 58]
         console.log(`Creating Sale record: ${saleNumber}`);
 
         const sale = await tx.sale.create({
@@ -483,7 +483,7 @@ export async function processSale(
             },
             customer: true, // [cite: 58]
             member: { select: { id: true, user: { select: { name: true } } } }, // Get member and user's name [cite: 11]
-            organization: { select: { id: true, name: true } }, // [cite: 17]
+            organization: { select: { id: true, name: true, logo: true,  } }, // [cite: 17]
             // Include location if added to Sale schema: location: { select: { id: true, name: true } }
           },
         });
@@ -589,7 +589,8 @@ export async function processSale(
            // If it needs just the name directly:
            // userName: result.member.user.name
          };
-         receiptUrl = await generateAndSaveReceiptPdf(receiptInput as SaleWithDetails); // Pass the necessary data [cite: 62]
+         
+         receiptUrl = await generateAndSaveReceiptPdf(receiptInput); // Pass the necessary data [cite: 62]
 
         // Update the Sale record with the receipt URL (outside transaction, best effort)
         if (receiptUrl) {

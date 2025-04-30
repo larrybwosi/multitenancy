@@ -52,7 +52,7 @@ const CallToAction: React.FC = () => {
               Contact Us
             </motion.a>
             <motion.a
-              href="#"
+              href="/signup"
               className="border border-white text-white px-6 py-3 rounded-md font-medium hover:bg-white/10 transition-colors"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}

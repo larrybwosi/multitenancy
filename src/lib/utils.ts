@@ -1,4 +1,4 @@
-import { Decimal } from "@prisma/client/runtime/library";
+import { Prisma } from "@prisma/client";
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -17,7 +17,7 @@ export function cn(...inputs: ClassValue[]) {
  * @returns Formatted currency string
  */
 export function formatCurrency(
-  amount: number | Decimal | string,
+  amount: number | Prisma.Decimal | string,
   currency: string = "KSH",
   locale: string = "en-US"
 ): string {

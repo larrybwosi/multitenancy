@@ -194,7 +194,7 @@ export function PosClientWrapper({
         notes: saleData.notes,
         discountAmount: 0,
       };
-console.log("processData: ", processData)
+      
       const result = await processSale(processData);
 
       if (!result.success) {

@@ -5,8 +5,9 @@ import Footer from "@/components/home/footer";
 import Hero from "@/components/home/Hero";
 import Navbar from "@/components/home/Navbar";
 import Testimonials from "@/components/home/Testimonials";
-import DealioFeatures from "./pos/components/features";
-import DealioResourceLibrary from "./pos/components/resourses";
+// import DealioFeatures from "./pos/components/features";
+// import DealioResourceLibrary from "./pos/components/resourses";
+import FeaturesSection from "@/components/home/Feats";
 
 
 const App: React.FC = () => {
@@ -16,9 +17,9 @@ const App: React.FC = () => {
       <main>
         <Hero />
         <Features />
+        <FeaturesSection />
         <Testimonials />
-        <DealioFeatures />
-        <DealioResourceLibrary />
+        {/* <DealioResourceLibrary /> */}
         <CallToAction />
       </main>
       <Footer />
