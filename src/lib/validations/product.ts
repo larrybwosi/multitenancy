@@ -10,7 +10,6 @@ export const ProductVariantSchema = z.object({
   name: z.string().min(1, 'Variant name cannot be empty.'),
   sku: z.string().min(1, 'Variant SKU is required.').optional().nullable(),
   barcode: z.string().optional().nullable(),
-  priceModifier: z.number().default(0).pipe(z.coerce.number().nonnegative('Price modifier must be non-negative.')),
   attributes: z
     .union([z.string(), z.record(z.string(), z.any()), z.null()])
     .transform((val, ctx) => {
@@ -86,17 +85,18 @@ export const BaseProductSchema = z.object({
   description: z.string().optional().nullable(), // [cite: 30]
   sku: z.string().min(1, 'Product SKU is required.').optional().nullable(), // [cite: 30] Will generate if missing on add
   barcode: z.string().optional().nullable(), // [cite: 31] Nullable string
-  categoryId: z.string().min(3,'Invalid Category ID.'), // [cite: 31]
+  categoryId: z.string().min(3, 'Invalid Category ID.'), // [cite: 31]
   // [cite: 31] Decimal
-  basePrice: z
+  buyingPrice: z
     .union([z.number(), z.string()])
     .pipe(z.coerce.number().positive('Base price must be a positive number.')),
   // [cite: 32] Decimal, optional
-  baseCost: z
+  retailPrice: z
     .union([z.number(), z.string()])
     .pipe(z.coerce.number().nonnegative('Base cost must be non-negative.').optional().nullable()),
-  // [cite: 32] Int, default 5
-  reorderPoint: z.union([z.number(), z.string()]).pipe(z.coerce.number().int().nonnegative().default(5)),
+  wholesalePrice: z
+    .union([z.number(), z.string()])
+    .pipe(z.coerce.number().nonnegative('Base cost must be non-negative.').optional().nullable()),
   isActive: z
     .union([z.boolean(), z.string()]) // [cite: 32] Boolean, default true
     .transform(val => val === true || val === 'true' || val === 'on')
@@ -144,6 +144,23 @@ export const AddProductSchema = BaseProductSchema.extend({
   variants: z.array(ProductVariantSchema).optional().default([]),
   suppliers: z.array(ProductSupplierSchema).optional().default([]),
 });
+
+export const AddProductMinimalSchema = z.object({
+  name: BaseProductSchema.shape.name, // Required: string, min 1
+  categoryId: BaseProductSchema.shape.categoryId, // Required: string, CUID format check likely in BaseProductSchema already
+  buyingPrice: BaseProductSchema.shape.buyingPrice, // Required: number (positive after coercion)
+
+  // Optional fields that might influence the default variant or are good to have early
+  sku: BaseProductSchema.shape.sku.optional().nullable(), // Optional: string, min 1 (will be generated if null/empty)
+  barcode: BaseProductSchema.shape.barcode.optional(), // Optional: string | null
+  retailPrice: BaseProductSchema.shape.retailPrice.optional(), // Optional: number (non-negative) | null
+  wholesalePrice: BaseProductSchema.shape.wholesalePrice.optional(), // Optional: number (non-negative) | null
+  imageUrls: BaseProductSchema.shape.imageUrls.optional(), // Optional: string[] (array of URLs)
+  reorderPoint: z.coerce.number().int().positive('Reorder point must be positive.').optional(), // Optional: number (non-negative int), default 5 will be handled by Prisma create if not provided here
+  isActive: BaseProductSchema.shape.isActive.optional(), // Optional: boolean, default true will be handled by Prisma create if not provided here
+});
+
+export type AddProductMinimalInput = z.infer<typeof AddProductMinimalSchema>;
 
 // --- Schema for Editing a Product ---
 export const EditProductSchema = BaseProductSchema

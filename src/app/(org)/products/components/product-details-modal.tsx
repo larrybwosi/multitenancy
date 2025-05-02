@@ -9,44 +9,8 @@ import {
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Product } from "@prisma/client";
 
-interface Category {
-  id: string;
-  name: string;
-  description: string | null;
-}
-
-interface Variant {
-  id: string;
-  name: string;
-  price: number;
-  cost: number;
-  sku: string;
-  barcode: string;
-}
-
-interface Product {
-  id: string;
-  name: string;
-  description: string | null;
-  sku: string;
-  barcode: string | null;
-  basePrice: string | number;
-  baseCost: number | null;
-  category: Category;
-  categoryId: string;
-  imageUrls: string[];
-  totalStock: number;
-  reorderPoint: number;
-  isActive: boolean;
-  weight?: number;
-  height?: number;
-  width?: number;
-  length?: number;
-  variants?: Variant[];
-  createdAt: Date;
-  updatedAt: Date;
-}
 
 const ProductModal: React.FC<{
   product: Product;

@@ -171,7 +171,6 @@ export async function getProducts(
           const variantStockTotal = v.stockBatches.reduce((sum, batch) => sum + batch.currentQuantity,0 );
           return {
             ...v,
-            priceModifier: v.priceModifier.toString(),
             totalStock: variantStockTotal,
             attributes: v.attributes
           };
@@ -183,7 +182,7 @@ export async function getProducts(
 
       return {
         ...p,
-        basePrice: p.basePrice.toString(),
+        buyingPrice: p.buyingPrice.toString(),
         totalStock: baseStock + totalVariantStock,
         variants: variantsWithStock,
         suppliers: p.suppliers?.map(s => ({
@@ -596,7 +595,6 @@ export async function getProductVariants(productId: string) {
     // Calculate stock and convert decimals
     const variantsWithStock = variants.map((v) => ({
       ...v,
-      priceModifier: v.priceModifier.toString(), // Convert Decimal
       totalStock: v.stockBatches.reduce(
         (sum, batch) => sum + batch.currentQuantity,
         0
@@ -638,28 +636,3 @@ export async function toggleVariantStatus(
 }
 
 
-export async function deleteProduct(id: string) {
-  const { organizationId } = await getServerAuthContext();
-  try {
-    await prisma.product.delete({
-      where: { id, organizationId },
-    });
-    
-    revalidatePath("/products");
-    return { success: true, message: "Product deleted successfully." };
-  } catch (error) {
-    console.error("Failed to delete product:", error);
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      // Handle related records preventing deletion if necessary (e.g., P2014)
-      if (error.code === "P2025") {
-        // Record not found
-        return { success: false, message: "Product not found." };
-      }
-      // Add more specific error handling if needed (e.g., foreign key constraints)
-    }
-    return {
-      success: false,
-      message: "Database error: Failed to delete product.",
-    };
-  }
-}

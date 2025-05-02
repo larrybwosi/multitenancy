@@ -1,138 +1,130 @@
-"use client";
-
-import { useCallback, useState } from "react";
-import { Card, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { ShoppingCart, ImageIcon, CheckCircle } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
-import Image from "next/image";
+import { useState } from 'react';
+import { ShoppingCart, ChevronLeft, ChevronRight, ImageIcon } from 'lucide-react';
+import Image from 'next/image';
 
 interface Product {
   id: string;
   name: string;
   sku?: string;
-  basePrice: number | string;
+  retailPrice: number | string;
   imageUrls?: string[];
   stock?: number;
-  // Add other product properties as needed
 }
 
-export function ProductCard({
-  product,
-  onAddToCart,
-}: {
+interface ProductCardProps {
   product: Product;
   onAddToCart: (productId: string) => void;
-}) {
-  const [isAdded, setIsAdded] = useState(false);
+}
 
-  const handleAdd = useCallback(() => {
-    onAddToCart(product.id);
-    setIsAdded(true);
-    setTimeout(() => setIsAdded(false), 1500);
-  }, [product.id, onAddToCart]);
+export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
 
-  // Basic check for image URL - adapt if structure is different
-  const imageUrl =
-    product.imageUrls && product.imageUrls.length > 0
-      ? product.imageUrls[0]
-      : null;
+  const { id, name, sku, retailPrice, imageUrls = [], stock = 0 } = product;
 
-  const lowStock =
-    product.stock !== undefined && product.stock <= 5 && product.stock > 0;
+  const hasMultipleImages = imageUrls.length > 1;
+  const isInStock = stock > 0;
+  const formattedPrice = typeof retailPrice === 'number' ? `$${retailPrice.toFixed(2)}` : `$${retailPrice}`;
+
+  const nextImage = () => {
+    setCurrentImageIndex(prev => (prev + 1) % imageUrls.length);
+  };
+
+  const prevImage = () => {
+    setCurrentImageIndex(prev => (prev - 1 + imageUrls.length) % imageUrls.length);
+  };
+
+  const handleAddToCart = () => {
+    // if (isInStock) {
+      onAddToCart(id);
+    // }
+  };
 
   return (
-    <Card
-      className="overflow-x-auto flex flex-col group border border-neutral-200 dark:border-neutral-800 hover:border-primary/60 transition-all duration-300 shadow-sm hover:shadow-lg mx-auto w-64 rounded-xl"
-      aria-label={`Product: ${product.name}`}
+    <div
+      className="relative w-64 rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-300 bg-white"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Product Image Area with gradient overlay */}
-      <div
-        className="aspect-square bg-gradient-to-b from-neutral-50 to-neutral-100 dark:from-neutral-900 dark:to-neutral-950 flex items-center justify-center overflow-hidden relative cursor-pointer"
-        onClick={() => {
-          /* Navigate to product detail */
-        }}
-        tabIndex={0}
-        onKeyDown={(e) =>
-          (e.key === "Enter" || e.key === " ") &&
-          {
-            /* Navigate to product detail */
-          }
-        }
-        role="button"
-      >
-        {imageUrl ? (
-          <Image
-            src={imageUrl}
-            alt={product.name}
-            width={350}
-            height={350}
-            className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-500 ease-in-out"
-          />
+      {/* Image Section */}
+      <div className="relative h-64 bg-gray-100">
+        {imageUrls.length > 0 ? (
+          <Image src={imageUrls[currentImageIndex]} alt={name} className="w-full h-full object-cover" />
         ) : (
-          <ImageIcon className="w-1/3 h-1/3 text-neutral-300 dark:text-neutral-700" />
+          <div className="w-full h-full flex items-center justify-center text-gray-400">
+            <ImageIcon size={48} onClick={handleAddToCart} />
+          </div>
         )}
 
-        {/* Overlay for add to cart */}
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
-          <Button
-            className="bg-white text-black hover:bg-white/90 font-medium transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 shadow-md"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleAdd();
-            }}
-          >
-            {isAdded ? (
-              <>
-                <CheckCircle size={16} className="mr-2" /> Added
-              </>
-            ) : (
-              <>
-                <ShoppingCart size={16} className="mr-2" /> Add to Cart
-              </>
-            )}
-          </Button>
-        </div>
+        {/* Image Navigation */}
+        {hasMultipleImages && isHovered && (
+          <>
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                prevImage();
+              }}
+              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 rounded-full p-1 shadow-md hover:bg-white transition-colors"
+            >
+              <ChevronLeft size={20} className="text-gray-700" />
+            </button>
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                nextImage();
+              }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 rounded-full p-1 shadow-md hover:bg-white transition-colors"
+            >
+              <ChevronRight size={20} className="text-gray-700" />
+            </button>
+          </>
+        )}
 
-        {/* Stock indicator */}
-        {lowStock && (
-          <div className="absolute top-3 left-3 bg-amber-500 text-white text-xs px-2 py-1 rounded-full font-medium">
-            Only {product.stock} left
+        {/* Image Indicator Dots */}
+        {hasMultipleImages && (
+          <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex space-x-1">
+            {imageUrls.map((_, index) => (
+              <div
+                key={index}
+                className={`w-2 h-2 rounded-full ${index === currentImageIndex ? 'bg-white' : 'bg-white/50'}`}
+              />
+            ))}
           </div>
+        )}
+
+        {/* Stock Badge */}
+        {!isInStock && (
+          <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-md">Out of Stock</div>
         )}
       </div>
 
-      <CardHeader className="p-2 flex-grow">
-        <CardTitle className="text-base font-medium leading-tight line-clamp-2 group-hover:text-primary transition-colors duration-300">
-          {product.name}
-        </CardTitle>
-        {product.sku && (
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 pt-1">
-            SKU: {product.sku}
+      {/* Content Section */}
+      <div className="p-4">
+        <h3 className="font-medium text-gray-900 text-lg truncate">{name}</h3>
+
+        {sku && <p className="text-gray-500 text-xs mt-1">SKU: {sku}</p>}
+
+        <div className="mt-2 flex items-center justify-between">
+          <span className="font-bold text-lg">{formattedPrice}</span>
+
+          <button
+            onClick={handleAddToCart}
+            className={`flex items-center justify-center p-2 rounded-lg w-40 h-10 ${
+              isInStock ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-300 text-gray-500 '
+            } transition-colors duration-200`}
+          >
+            <ShoppingCart size={18} />
+          </button>
+        </div>
+
+        {isInStock && (
+          <p className="text-xs text-gray-500 mt-1">
+            {stock} {stock === 1 ? 'item' : 'items'} in stock
           </p>
         )}
-      </CardHeader>
-
-      <CardFooter className="p-2 pt-2 flex justify-between items-center">
-        <p className="text-base font-bold text-primary">
-          {formatCurrency(product.basePrice)}
-        </p>
-        <Button
-          variant="outline"
-          size="sm"
-          className="rounded-full h-9 w-9 flex items-center justify-center border-neutral-200 dark:border-neutral-800 hover:bg-primary hover:text-white hover:border-primary transition-all duration-300"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleAdd();
-          }}
-        >
-          {isAdded ? (
-            <CheckCircle size={18} className="text-primary" />
-          ) : (
-            <ShoppingCart size={18} />
-          )}
-        </Button>
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   );
-}
+};
+
+export default ProductCard;

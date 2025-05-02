@@ -3,11 +3,12 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQueryState, parseAsArrayOf, parseAsString } from "nuqs";
 import { ProductGrid } from "./ProductGrid";
-import { Cart } from "./Cart";
+// import { Cart } from "./Cart";
 import { Customer, PaymentMethod } from "@prisma/client";
 import { CartItem as ProjectCartItem } from "@/app/point-of-sale/types";
 import { processSale } from "@/actions/pos.actions";
 import { useAppStore } from "@/store/app";
+import Cart from "./cart-test";
 
 // Update BaseProduct to include missing required fields with non-nullable SKU
 type BaseProduct = {

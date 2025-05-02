@@ -3,72 +3,21 @@
 import {
   Prisma,
   Product,
-  PaymentMethod,
   Customer,
   PaymentStatus,
   LoyaltyReason,
-  Sale,
-  SaleItem,
-  Member,
-  ProductVariant,
   ProductVariantStock,
+  AuditLogAction,
+  AuditEntityType,
 } from '@prisma/client';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import db from '@/lib/db';
 import { generateAndSaveReceiptPdf } from '@/lib/receiptGenerator';
 import { getServerAuthContext } from './auth';
+import { createAuditLog } from '@/lib/audits/logger';
+import { ProcessSaleResult, ProcessSaleSchema } from '@/lib/validations/sale';
 
-// --- Type Definitions ---
-
-// Type returned after successful sale (keeping original structure)
-type ProcessSaleResult = {
-  success: boolean;
-  message: string;
-  saleId?: string;
-  receiptUrl?: string | null;
-  error?: string | object; // Return structured error or message string
-};
-
-// --- Zod Schemas ---
-
-// Updated Schema to include locationId
-const ProcessSaleSchema = z.object({
-  cartItems: z
-    .array(
-      z.object({
-        productId: z.string().cuid('Invalid Product ID format.'),
-        // Variant ID is optional if selling the base product without variants,
-        // or if the product has no variants. Check schema relations. [cite: 65, 72, 121, 134, 141]
-        variantId: z.string().cuid('Invalid Variant ID format.').optional().nullable(),
-        quantity: z.number().int('Quantity must be an integer.').positive('Quantity must be positive.'),
-      })
-    )
-    .min(1, 'Cart cannot be empty.'),
-  // Assuming locationId is determined by the POS terminal/session
-  // This MUST be provided by the frontend context
-  locationId: z.string().cuid('Location ID is required.'),
-  customerId: z.string().cuid('Invalid Customer ID format.').optional().nullable(),
-  paymentMethod: z.nativeEnum(PaymentMethod, {
-    errorMap: () => ({ message: 'Invalid Payment Method selected.' }),
-  }),
-  discountAmount: z.number().min(0, 'Discount cannot be negative.').default(0),
-  // Add other potential inputs like notes, cashDrawerId if needed
-  cashDrawerId: z.string().cuid('Invalid Cash Drawer ID format.').optional().nullable(),
-  notes: z.string().optional(),
-});
-
-// Type for Sale with necessary relations for receipt generation
-// Adjust includes based on what generateAndSaveReceiptPdf actually needs
-export type SaleWithDetails = Sale & {
-  items: (SaleItem & {
-    product: Product & { category?: { name: string } };
-    variant: ProductVariant | null;
-  })[];
-  customer: Customer | null;
-  member: Member & { user: { name: string | null } }; // [cite: 11]
-  organization: { name: string /*, other fields */ };
-};
 
 // --- Server Actions ---
 
@@ -261,7 +210,7 @@ export async function processSale(
             include: {
               // Conditionally include variant only if variantId is provided
               variants: item.variantId
-                ? { where: { id: item.variantId, isActive: true, organizationId } } // Ensure variant belongs to the org [cite: 41]
+                ? { where: { id: item.variantId, isActive: true } } // Ensure variant belongs to the org [cite: 41]
                 : false, // Don't include variants if no variantId is specified
             },
           });
@@ -290,9 +239,7 @@ export async function processSale(
 
 
           // Determine Unit Price (Base Price + Variant Modifier)
-          const unitPrice = variant
-            ? new Prisma.Decimal(product.basePrice).add(variant.priceModifier) // [cite: 30, 40]
-            : new Prisma.Decimal(product.basePrice); // [cite: 30]
+          const unitPrice = variant?.retailPrice;
 
           // --- 3b. Stock Check and Batch Selection (FIFO/FEFO within Location) ---
           // Find the oldest (FIFO) or soonest-expiring (FEFO) stock batch with sufficient quantity
@@ -366,7 +313,6 @@ export async function processSale(
 
           // If we found a suitable batch:
            const unitCost = new Prisma.Decimal(availableBatch.purchasePrice); // Cost from the selected batch [cite: 66, 128]
-           const itemTotal = unitPrice.mul(item.quantity);
            transactionSubTotal = transactionSubTotal.add(itemTotal); // Add to overall subtotal
 
           // Prepare data for SaleItem creation
@@ -641,6 +587,7 @@ export async function processSale(
       success: true,
       message: `Sale ${result.saleNumber} processed successfully.`,
       saleId: result.id,
+      data: result, // Include the full sale object for further processing if needed
       receiptUrl: receiptUrl, // Include the generated receipt URL
     };
 
@@ -653,6 +600,16 @@ export async function processSale(
     console.error('Error Details:', error);
     console.error('--- End Error Report ---');
 
+    await createAuditLog(db, {
+      // Use 'tx' if inside a transaction
+      memberId: memberId,
+      organizationId: organizationId,
+      action: AuditLogAction.CREATE,
+      entityType: AuditEntityType.SALE,
+      entityId: error instanceof Error ? error.message : String(error), // Capture error message or string representation
+      description: `Failed to process sale due to an internal error.`,
+      details: error instanceof Error ? error.message : String(error), // Capture error message or string representation
+    });
 
     let errorMessage = 'Failed to process sale due to an internal error.';
     let errorDetails: string | object | undefined; // Allow structured details

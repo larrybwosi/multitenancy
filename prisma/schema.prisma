@@ -127,7 +127,6 @@ model Organization {
   customers            Customer[]
   categories           Category[]
   products             Product[]
-  productVariants      ProductVariant[]
   suppliers            Supplier[]
   sales                Sale[]
   purchases            Purchase[]
@@ -200,10 +199,6 @@ model Product {
   barcode      String?  @unique
   categoryId   String
   category     Category @relation(fields: [categoryId], references: [id])
-  basePrice    Decimal  @db.Decimal(10, 2) // Suggested retail price
-  wholesalePrice Decimal? @db.Decimal(10, 2) // NEW: Price typically for bulk buyers or resellers
-  baseCost     Decimal? @db.Decimal(10, 2) // Last known/estimated cost
-  reorderPoint Int      @default(5)
   isActive     Boolean  @default(true)
   imageUrls    String[]
   createdAt    DateTime @default(now())
@@ -243,12 +238,13 @@ model Product {
 
 model ProductVariant {
   id            String  @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   productId     String
   product       Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   name          String // Name for the variant (e.g., "Red", "Large")
-  sku           String  @unique
+  sku           String
   barcode       String? @unique
-  priceModifier Decimal @default(0) @db.Decimal(10, 2) // Adjustment from base price
   attributes    Json // e.g., {"color": "Red", "size": "L"}
   isActive      Boolean @default(true)
 
@@ -256,9 +252,10 @@ model ProductVariant {
   reorderPoint  Int     @default(5) // Default reorder point, can be overridden in ProductVariantStock
   reorderQty    Int     @default(10) // Default reorder qty
   lowStockAlert Boolean @default(false) // Default low stock alert setting
+  buyingPrice    Decimal  @db.Decimal(10, 2) // Suggested retail price
+  wholesalePrice Decimal? @db.Decimal(10, 2) // NEW: Price typically for bulk buyers or resellers
+  retailPrice     Decimal? @db.Decimal(10, 2) // Retail Selling Price
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
   // Relations
   saleItems        SaleItem[]
@@ -268,17 +265,14 @@ model ProductVariant {
   stockMovements   StockMovement[]
   variantStocks    ProductVariantStock[] // One variant can have stock in multiple locations
 
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
-
   @@unique([productId, sku])
+  @@unique([productId, barcode])
   @@index([sku])
-  @@index([organizationId])
 }
 
 model Supplier {
   id           String   @id @default(cuid())
-  name         String   @unique // Unique within an organization context might be better
+  name         String  
   contactName  String?
   email        String?
   phone        String?

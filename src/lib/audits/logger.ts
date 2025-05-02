@@ -1,55 +1,6 @@
 // --- Audit Log Helper Function ---
 
-import { Prisma, PrismaClient } from "@prisma/client";
-
-// Mirror the enums from your Prisma schema
-// (Ensure these match exactly what's in schema.prisma)
-export enum AuditLogActionEnum {
-  CREATE = 'CREATE',
-  UPDATE = 'UPDATE',
-  DELETE = 'DELETE',
-  LOGIN = 'LOGIN',
-  LOGOUT = 'LOGOUT',
-  INVITE = 'INVITE',
-  // Add other actions from your schema...
-  APPROVE = 'APPROVE', // Example
-  REJECT = 'REJECT', // Example
-  COMPLETE = 'COMPLETE', // Example
-  CANCEL = 'CANCEL', // Example
-}
-
-export enum AuditEntityTypeEnum {
-  USER = 'USER',
-  MEMBER = 'MEMBER',
-  ORGANIZATION = 'ORGANIZATION',
-  PRODUCT = 'PRODUCT',
-  PRODUCT_VARIANT = 'PRODUCT_VARIANT', // Added based on common need
-  CATEGORY = 'CATEGORY',
-  SUPPLIER = 'SUPPLIER',
-  CUSTOMER = 'CUSTOMER',
-  SALE = 'SALE',
-  PURCHASE = 'PURCHASE',
-  RETURN = 'RETURN',
-  STOCK_BATCH = 'STOCK_BATCH',
-  STOCK_ADJUSTMENT = 'STOCK_ADJUSTMENT',
-  STOCK_MOVEMENT = 'STOCK_MOVEMENT',
-  INVENTORY_LOCATION = 'INVENTORY_LOCATION',
-  STORAGE_ZONE = 'STORAGE_ZONE', // Added based on schema
-  STORAGE_UNIT = 'STORAGE_UNIT', // Added based on schema
-  STORAGE_POSITION = 'STORAGE_POSITION', // Added based on schema
-  CASH_DRAWER = 'CASH_DRAWER',
-  LOYALTY = 'LOYALTY',
-  SETTINGS = 'SETTINGS',
-  ATTACHMENT = 'ATTACHMENT', // Added based on schema
-  EXPENSE = 'EXPENSE', // Added based on schema
-  EXPENSE_CATEGORY = 'EXPENSE_CATEGORY', // Added based on schema
-  RECURRING_EXPENSE = 'RECURRING_EXPENSE', // Added based on schema
-  BUDGET = 'BUDGET', // Added based on schema
-  ATTENDANCE = 'ATTENDANCE', // Added based on schema
-  INVITATION = 'INVITATION', // Added based on schema
-  NOTIFICATION = 'NOTIFICATION', // Added based on schema
-  OTHER = 'OTHER',
-}
+import { AuditEntityType, AuditLogAction, Prisma, PrismaClient } from "@prisma/client";
 
 /**
  * Parameters for creating an audit log entry.
@@ -57,8 +8,8 @@ export enum AuditEntityTypeEnum {
 export interface AuditLogParams {
   organizationId?: string; // Optional, but highly recommended [cite: 172]
   memberId: string; // ID of the member performing the action [cite: 173]
-  action: AuditLogActionEnum; // The type of action performed
-  entityType: AuditEntityTypeEnum; // The type of entity affected
+  action: AuditLogAction; // The type of action performed
+  entityType: AuditEntityType; // The type of entity affected
   entityId?: string; // Optional: ID of the specific entity affected [cite: 175]
   description: string; // Human-readable description of the event
   details?: Record<string, any> | Prisma.JsonValue; // Optional: JSON object with extra data (e.g., changes) [cite: 176]
@@ -94,8 +45,8 @@ export async function createAuditLog(
       data: {
         organizationId: organizationId, // Link to organization if available [cite: 172]
         memberId: memberId, // Link to the member [cite: 173, 174]
-        action: action, // Action type [cite: 171]
-        entityType: entityType, // Entity type [cite: 171]
+        action, // Action type [cite: 171]
+        entityType, // Entity type [cite: 171]
         entityId: entityId, // Specific entity ID [cite: 175]
         description: description, // Description of the event
         details: details || Prisma.JsonNull, // Store additional details as JSON [cite: 176]

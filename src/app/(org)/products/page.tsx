@@ -17,8 +17,11 @@ export default function ProductsPage() {
   const [pageSize, setPageSize] = useQueryState('pageSize', { defaultValue: '10' });
   const [search, setSearch] = useQueryState('search');
   const [categoryId, setCategoryId] = useQueryState('categoryId');
-  const [sortBy, setSortBy] = useQueryState<'name' | 'createdAt' | 'basePrice'>('sortBy', { defaultValue: 'name' });
-  const [sortOrder, setSortOrder] = useQueryState<'asc' | 'desc'>('sortOrder', { defaultValue: 'asc' });
+  const [sortBy, setSortBy] = useQueryState<'name' | 'createdAt' | 'basePrice'>('sortBy', {
+    defaultValue: 'name',
+    parse: (value) => value as 'name' | 'createdAt' | 'basePrice',
+  });
+  const [sortOrder, setSortOrder] = useQueryState<'asc' | 'desc'>('sortOrder', { defaultValue: 'asc', parse: (value) => value as 'asc' | 'desc' });
 
   // Convert query params to numbers
   const currentPage = parseInt(page || '1');
@@ -138,7 +141,7 @@ export default function ProductsPage() {
           onSortChange={(by, order) => {
             setSortBy(by);
             setSortOrder(order);
-            setPage('1'); // Reset to first page when changing sort
+            setPage('1'); 
           }}
           currentFilters={{
             search: search || '',

@@ -1,12 +1,19 @@
-'use server'; 
+'use server';
 
 import prisma from '@/lib/db';
 import { revalidatePath } from 'next/cache';
-import { MeasurementUnit, Prisma } from '@prisma/client';
+import { MeasurementUnit, Prisma, Product } from '@prisma/client';
 import { z } from 'zod';
 import crypto from 'crypto';
 import { getServerAuthContext } from './auth';
-import { AddProductSchema, EditProductSchema, ProductSupplierInput, ProductSupplierSchema, ProductVariantSchema } from '@/lib/validations/product';
+import {
+  AddProductSchema,
+  EditProductSchema,
+  ProductSupplierInput,
+  AddProductMinimalSchema,
+  ProductSupplierSchema,
+  ProductVariantSchema,
+} from '@/lib/validations/product';
 
 // --- Helper Functions ---
 
@@ -119,13 +126,13 @@ export async function addProduct(
   console.log('Raw form data received:', rawData);
 
   // 1. Parse Variants and Suppliers JSON strings and validate structure
-const parsedVariantsResult = parseJsonArrayField(formData, 'variants', ProductVariantSchema);
+  const parsedVariantsResult = parseJsonArrayField(formData, 'variants', ProductVariantSchema);
 
   if ('success' in parsedVariantsResult && !parsedVariantsResult.success) return parsedVariantsResult;
   const parsedVariants = parsedVariantsResult; // Type assertion after check
   console.log('Parsed & Structurally Validated Variants:', parsedVariants);
 
-const parsedSuppliersResult = parseJsonArrayField(formData, 'suppliers', ProductSupplierSchema);
+  const parsedSuppliersResult = parseJsonArrayField(formData, 'suppliers', ProductSupplierSchema);
   if ('success' in parsedSuppliersResult && !parsedSuppliersResult.success) return parsedSuppliersResult;
   const parsedSuppliers = parsedSuppliersResult; // Type assertion after check
   console.log('Parsed & Structurally Validated Suppliers:', parsedSuppliers);
@@ -165,9 +172,9 @@ const parsedSuppliersResult = parseJsonArrayField(formData, 'suppliers', Product
   const {
     categoryId, // string
     defaultLocationId, // string | null | undefined
-    basePrice, // number
-    baseCost, // number | null | undefined
-    reorderPoint, // number
+    buyingPrice,
+    retailPrice,
+    wholesalePrice,
     width,
     height,
     length, // number | null | undefined
@@ -183,7 +190,7 @@ const parsedSuppliersResult = parseJsonArrayField(formData, 'suppliers', Product
   let finalVariants = validatedVariants;
   if (!finalVariants || finalVariants.length === 0) {
     console.log('No variants provided, creating a default variant.');
-    
+
     finalVariants = [
       {
         name: `Default-${productData.name}`,
@@ -216,9 +223,6 @@ const parsedSuppliersResult = parseJsonArrayField(formData, 'suppliers', Product
         description: productData.description,
         sku: productSku, // Use generated or provided
         barcode: productData.barcode,
-        basePrice: new Prisma.Decimal(basePrice), // [cite: 31] Convert number to Decimal
-        baseCost: baseCost != null ? new Prisma.Decimal(baseCost) : null, // [cite: 32] Convert if provided
-        reorderPoint: reorderPoint, // [cite: 32] Int
         isActive: productData.isActive, // [cite: 32] Boolean
         imageUrls: productData.imageUrls ?? [], // [cite: 32] String[]
         customFields: validatedCustomFields ?? Prisma.JsonNull, // [cite: 33] Json | JsonNull
@@ -248,6 +252,7 @@ const parsedSuppliersResult = parseJsonArrayField(formData, 'suppliers', Product
             reorderPoint: v.reorderPoint || 10, // [cite: 40] Int | null
             reorderQty: v.reorderQty || 10, // [cite: 40] Int | null
             lowStockAlert: v.lowStockAlert, // [cite: 40] Boolean
+            buyingPrice: new Prisma.Decimal(buyingPrice), // [cite: 40] Decimal (assumed same as product base price)
           })),
         },
 
@@ -289,6 +294,120 @@ const parsedSuppliersResult = parseJsonArrayField(formData, 'suppliers', Product
   }
 }
 
+// --- addProductMinimal Function ---
+export async function addProductMinimal(
+  rawData: unknown
+  //eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Promise<{ success: boolean; data?: any; error?: string; fieldErrors?: any }> {
+  let organizationId: string;
+  try {
+    const context = await getServerAuthContext();
+    organizationId = context.organizationId;
+    if (!organizationId) throw new Error('Organization context not found.');
+    console.log(`addProductMinimal initiated for Organization: ${organizationId}`);
+  } catch (authError: unknown) {
+    console.error('Authentication context retrieval failed:', authError);
+    return { success: false, error: 'Failed to retrieve user authentication context.' };
+  }
+
+  console.log('Raw minimal form data received:', rawData);
+
+  // 2. Validate the extracted data using the minimal schema
+  const validatedFields = AddProductMinimalSchema.safeParse(rawData);
+
+  if (!validatedFields.success) {
+    const fieldErrors = validatedFields.error.flatten().fieldErrors;
+    console.error('Minimal Validation Errors:', fieldErrors);
+    const flatFieldErrors: Record<string, string> = {};
+    for (const key in fieldErrors) {
+      // @ts-expect-error fieldErrors structure might vary slightly
+      flatFieldErrors[key] = fieldErrors[key]?.join('; ');
+    }
+    return {
+      success: false,
+      error: 'Validation failed. Please check the required product details.',
+      fieldErrors: flatFieldErrors,
+    };
+  }
+
+  // 3. Extract validated minimal data
+  const { name, categoryId, buyingPrice, barcode, reorderPoint, isActive, retailPrice, wholesalePrice } =
+    validatedFields.data;
+
+  // 4. Prepare Product and Default Variant Data
+  const finalIsActive = isActive ?? true; // Use schema default if validation didn't set one
+  const finalReorderPoint = reorderPoint ?? 5; // Use schema default if validation didn't set one
+  const productSku = `PROD-${crypto.randomUUID().slice(3, 9).toUpperCase()}`;
+  const defaultVariantSku = `VAR-${productSku}-DEFAULT`; // Simple default SKU
+
+  // 5. Database Create Operation
+  try {
+    console.log('Attempting to create minimal product in database...');
+    const newProduct = await prisma.product.create({
+      data: {
+        // Core Product Data (Minimal Set + Defaults)
+        organizationId,
+        categoryId,
+        name: name,
+        description: null, // Explicitly set optional fields to null/default
+        sku: productSku,
+        barcode: barcode,
+        isActive: finalIsActive,
+        imageUrls: [],
+        customFields: Prisma.JsonNull, // Default JSON null
+        width: null,
+        height: null,
+        length: null,
+        dimensionUnit: MeasurementUnit.METER,
+        weight: null,
+        weightUnit: MeasurementUnit.WEIGHT_KG,
+        volumetricWeight: null,
+        defaultLocationId: null, // No default location provided
+
+        // Default Variant Creation
+        variants: {
+          create: [
+            {
+              name: `Default - ${name}`, // Use product name for default variant name
+              sku: defaultVariantSku, // Generate a default SKU
+              barcode: barcode, // Inherit product barcode if provided
+              attributes: Prisma.JsonNull, // Default attributes
+              isActive: finalIsActive, // Inherit product active status
+              reorderPoint: finalReorderPoint, // Inherit product reorder point
+              reorderQty: 10, // Default reorder quantity (from original ProductVariantSchema default)
+              lowStockAlert: false, // Default low stock alert (from original ProductVariantSchema default)
+              buyingPrice: new Prisma.Decimal(buyingPrice),
+              retailPrice,
+              wholesalePrice,
+            },
+          ],
+        },
+
+        // Suppliers - None provided in minimal version
+        // suppliers: undefined, // Prisma handles this if omitted
+      },
+      include: {
+        // Include relations in the response
+        variants: true,
+        category: true,
+        organization: true, // Include org for completeness
+      },
+    });
+
+    console.log('Minimal product created successfully:', newProduct);
+
+    // 6. Revalidate Cache
+    revalidatePath('/dashboard/inventory/products');
+    // Optional: Revalidate the specific product path if you have detailed view pages
+    // revalidatePath(`/dashboard/inventory/products/${newProduct.id}`);
+
+    return { success: true, data: newProduct };
+  } catch (error) {
+    // 7. Handle Prisma Errors (Ensure handlePrismaError is accessible)
+    return handlePrismaError(error);
+  }
+}
+
 // --- editProduct Function (Refactored and Aligned) ---
 export async function editProduct(
   formData: FormData
@@ -309,12 +428,12 @@ export async function editProduct(
   console.log('Raw form data received for edit:', rawData);
 
   // 1. Parse Variants and Suppliers JSON strings and validate structure
-const parsedVariantsResult = parseJsonArrayField(formData, 'variants', ProductVariantSchema);
+  const parsedVariantsResult = parseJsonArrayField(formData, 'variants', ProductVariantSchema);
   if ('success' in parsedVariantsResult && !parsedVariantsResult.success) return parsedVariantsResult;
   const parsedVariants = parsedVariantsResult;
   console.log('Parsed & Structurally Validated Variants for Edit:', parsedVariants);
 
-const parsedSuppliersResult = parseJsonArrayField(formData, 'suppliers', ProductSupplierSchema);
+  const parsedSuppliersResult = parseJsonArrayField(formData, 'suppliers', ProductSupplierSchema);
   if ('success' in parsedSuppliersResult && !parsedSuppliersResult.success) return parsedSuppliersResult;
   const parsedSuppliers = parsedSuppliersResult as ProductSupplierInput[];
   console.log('Parsed & Structurally Validated Suppliers for Edit:', parsedSuppliers);
@@ -352,8 +471,8 @@ const parsedSuppliersResult = parseJsonArrayField(formData, 'suppliers', Product
     productId, // string (validated as CUID)
     categoryId, // string | undefined (required by EditProductSchema override)
     defaultLocationId, // string | null | undefined
-    basePrice, // number | undefined
-    baseCost, // number | null | undefined
+    buyingPrice, // number | undefined
+    retailPrice, // number | null | undefined
     reorderPoint, // number | undefined
     width,
     height,
@@ -398,10 +517,11 @@ const parsedSuppliersResult = parseJsonArrayField(formData, 'suppliers', Product
         // Update core fields if they exist in validated data
         name: productData.name, // Always present due to schema override
         description: productData.description,
-        sku: productData.sku? productData.sku : undefined, // Update SKU if provided
+        sku: productData.sku ? productData.sku : undefined, // Update SKU if provided
         barcode: productData.barcode,
-        basePrice: basePrice !== undefined ? new Prisma.Decimal(basePrice) : undefined,
-        baseCost: baseCost !== undefined ? (baseCost !== null ? new Prisma.Decimal(baseCost) : null) : undefined,
+        buyingPrice: buyingPrice !== undefined ? new Prisma.Decimal(buyingPrice) : undefined,
+        retailPrice:
+          retailPrice !== undefined ? (retailPrice !== null ? new Prisma.Decimal(retailPrice) : null) : undefined,
         reorderPoint: reorderPoint,
         isActive: productData.isActive,
         imageUrls: productData.imageUrls,
@@ -415,7 +535,7 @@ const parsedSuppliersResult = parseJsonArrayField(formData, 'suppliers', Product
         volumetricWeight: volumetricWeight,
 
         // Relations (only connect/disconnect if ID is present in validated data)
-        category: categoryId ? { connect: { id: categoryId } } : undefined, 
+        category: categoryId ? { connect: { id: categoryId } } : undefined,
         defaultLocation:
           defaultLocationId === null
             ? { disconnect: true }
@@ -518,5 +638,59 @@ const parsedSuppliersResult = parseJsonArrayField(formData, 'suppliers', Product
   } catch (error) {
     // 7. Handle Prisma Errors
     return handlePrismaError(error);
+  }
+}
+
+
+
+/**
+ * Deletes a product and its associated variants for the current organization.
+ * Ensures the user belongs to the organization owning the product.
+ * Relies on the `onDelete: Cascade` setting in the Prisma schema for ProductVariant.product relation.
+ *
+ * @param productId - The ID of the product to delete.
+ * @returns The deleted product data.
+ * @throws Error if the user is not authenticated or doesn't belong to an organization.
+ * @throws Error if the product is not found or doesn't belong to the user's organization (Prisma P2025).
+ * @throws Error on other database or Prisma errors.
+ */
+
+export async function deleteProduct(productId: string): Promise<Product> {
+  // 1. Get the organization ID from the user's session
+  const { organizationId } = await getServerAuthContext();
+
+  if (!organizationId) {
+    throw new Error('Authentication required: User organization not found.');
+  }
+
+  // 2. Attempt to delete the product
+  try {
+    const deletedProduct = await prisma.product.delete({
+      where: {
+        // Specify the unique identifier for the product
+        id: productId,
+        // IMPORTANT: Ensure the product belongs to the user's organization
+        // This prevents users from deleting products outside their org scope.
+        organizationId: organizationId,
+      },
+    });
+
+    revalidatePath("/products");
+    return deletedProduct;
+  } catch (error) {
+    // 3. Handle potential errors
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      // Check for the specific error code when the record to delete is not found.
+      // See Prisma error codes: https://www.prisma.io/docs/reference/api-reference/error-reference#error-codes
+      if (error.code === 'P2025') {
+        // Throw a more user-friendly error
+        throw new Error(`Product with ID '${productId}' not found or you do not have permission to delete it.`);
+      }
+      // You might want to handle other specific Prisma errors here, e.g., P2003 for foreign key constraint failures
+      // if cascade delete wasn't set up correctly or if other relations prevent deletion.
+    }
+    // Re-throw unexpected errors
+    console.error('Failed to delete product:', error); // Log the original error for debugging
+    throw new Error('An unexpected error occurred while deleting the product.');
   }
 }

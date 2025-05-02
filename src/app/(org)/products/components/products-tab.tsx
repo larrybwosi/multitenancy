@@ -1,20 +1,26 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { Category, Product, ProductVariant } from "@prisma/client";
-import { Button } from "@/components/ui/button";
-import { Download, FileText, PlusCircle, Printer } from "lucide-react";
-import EditProductDialog from "./edit-product-dialog";
-import { toast } from "sonner";
-import { RestockDialog } from "./restock";
-import { ProductTable } from "./products-table";
-import { PaginationProps } from "@/components/pagination";
+import { Category, Product, ProductVariant } from '@prisma/client';
+import { Download, FileText, Printer } from 'lucide-react';
+import { EditProductDialog } from './edit-product-dialog';
+import { toast } from 'sonner';
+import { RestockDialog } from './restock';
+import { ProductTable } from './products-table';
+import { PaginationProps } from '@/components/pagination';
+import { CreateProductModal } from './add-modal';
+import { useQueryState } from 'nuqs';
 
 type ProductWithRelations = Product & {
   category: Category | null;
   variants?: ProductVariant[];
   _count?: { stockBatches?: number };
   totalStock: number;
+  retailPrice?: number | null;
+  wholesalePrice?: number | null;
+  buyingPrice?: number | null;
+  sellingPrice?: number | null;
+  defaultLocation?: { id: string; name: string } | null;
+  reorderPoint?: number | null;
 };
 
 interface ProductsTabProps {
@@ -39,107 +45,136 @@ export default function ProductsTab({
   onSearchChange,
   onCategoryChange,
   onSortChange,
-
+  currentFilters,
 }: ProductsTabProps) {
-  const [isRestockOpen, setIsRestockOpen] = useState(false);
-  const [isEditProductOpen, setIsEditProductOpen] = useState(false);
-  const [selectedProductForRestock, setSelectedProductForRestock] =
-    useState<ProductWithRelations | null>(null);
-  const [selectedProductForEdit, setSelectedProductForEdit] =
-    useState<ProductWithRelations | null>(null);
+  const [isRestockOpen, setIsRestockOpen] = useQueryState('restock', {
+    defaultValue: false,
+    parse: v => v === 'true',
+    serialize: v => (v ? 'true' : ''),
+  });
 
-  const handleRestockClick = (product: ProductWithRelations) => {
-    setSelectedProductForRestock(product);
-    setIsRestockOpen(true);
-  };
+  const [isEditProductOpen, setIsEditProductOpen] = useQueryState('edit', {
+    defaultValue: false,
+    parse: v => v === 'true',
+    serialize: v => (v ? 'true' : ''),
+  });
 
-  const handleEditClick = (product: ProductWithRelations) => {
-    setSelectedProductForEdit(product);
-    setIsEditProductOpen(true);
+  const [selectedProductForRestockId, setSelectedProductForRestockId] = useQueryState('restock-product');
+  const [selectedProductForEditId, setSelectedProductForEditId] = useQueryState('edit-product');
+
+  const selectedProductForRestock = selectedProductForRestockId
+    ? initialProducts.find(p => p.id === selectedProductForRestockId)
+    : null;
+
+  const selectedProductForEdit = selectedProductForEditId
+    ? initialProducts.find(p => p.id === selectedProductForEditId)
+    : null;
+
+  const handleRestockClick = (product: Product) => {
+    const productWithRelations = initialProducts.find(p => p.id === product.id);
+    if (productWithRelations) {
+      setSelectedProductForRestockId(product.id);
+      setIsRestockOpen(true);
+    }
   };
 
   const filterOptions = {
-    searchPlaceholder: "Search products...",
+    searchPlaceholder: 'Search products...',
     showSearch: true,
     onSearch: (value: string) => onSearchChange(value),
 
     showFilterButton: true,
-    onFilterButtonClick: () => console.log("Advanced filters clicked"),
+    onFilterButtonClick: () => console.log('Advanced filters clicked'),
 
     filters: [
       {
-        name: "status",
-        label: "Status",
+        name: 'status',
+        label: 'Status',
         options: [
-          { value: "all", label: "All Statuses" },
-          { value: "active", label: "Active" },
-          { value: "inactive", label: "Inactive" },
+          { value: 'all', label: 'All Statuses' },
+          { value: 'active', label: 'Active' },
+          { value: 'inactive', label: 'Inactive' },
         ],
-        defaultValue: "all",
-        onChange: (value: string) => console.log("Status filter:", value),
+        defaultValue: 'all',
+        onChange: (value: string) => console.log('Status filter:', value),
       },
       {
-        name: "category",
-        label: "Category",
+        name: 'category',
+        label: 'Category',
         options: [
-          { value: "all", label: "All Categories" },
-          ...initialCategories.map((cat) => ({
+          { value: 'all', label: 'All Categories' },
+          ...initialCategories.map(cat => ({
             value: cat.id,
             label: cat.name,
           })),
         ],
-        defaultValue: "all",
+        defaultValue: 'all',
         onChange: (value: string) => onCategoryChange(value),
       },
       {
-        name: "stockStatus",
-        label: "Stock Status",
+        name: 'stockStatus',
+        label: 'Stock Status',
         options: [
-          { value: "all", label: "All" },
-          { value: "inStock", label: "In Stock" },
-          { value: "lowStock", label: "Low Stock" },
-          { value: "outOfStock", label: "Out of Stock" },
+          { value: 'all', label: 'All' },
+          { value: 'inStock', label: 'In Stock' },
+          { value: 'lowStock', label: 'Low Stock' },
+          { value: 'outOfStock', label: 'Out of Stock' },
         ],
-        defaultValue: "all",
-        onChange: (value: string) => console.log("Stock status filter:", value),
+        defaultValue: 'all',
+        onChange: (value: string) => console.log('Stock status filter:', value),
       },
       {
-        name: "priceRange",
-        label: "Price Range",
+        name: 'priceRange',
+        label: 'Price Range',
         options: [
-          { value: "all", label: "All Prices" },
-          { value: "0-50", label: "Under $50" },
-          { value: "50-100", label: "$50 - $100" },
-          { value: "100-500", label: "$100 - $500" },
-          { value: "500+", label: "Over $500" },
+          { value: 'all', label: 'All Prices' },
+          { value: '0-50', label: 'Under $50' },
+          { value: '50-100', label: '$50 - $100' },
+          { value: '100-500', label: '$100 - $500' },
+          { value: '500+', label: 'Over $500' },
         ],
-        defaultValue: "all",
-        onChange: (value: string) => console.log("Price range filter:", value),
+        defaultValue: 'all',
+        onChange: (value: string) => console.log('Price range filter:', value),
       },
     ],
 
+    sortOptions: [
+      { label: 'Name (A-Z)', value: 'name', order: 'asc' },
+      { label: 'Name (Z-A)', value: 'name', order: 'desc' },
+      { label: 'Price (Low-High)', value: 'basePrice', order: 'asc' },
+      { label: 'Price (High-Low)', value: 'basePrice', order: 'desc' },
+      { label: 'Newest First', value: 'createdAt', order: 'desc' },
+      { label: 'Oldest First', value: 'createdAt', order: 'asc' },
+    ],
+    onSort: (sortOption: { value: 'name' | 'createdAt' | 'basePrice'; order: 'asc' | 'desc' }) => {
+      onSortChange(sortOption.value, sortOption.order);
+    },
+    currentSort: {
+      value: currentFilters.sortBy,
+      order: currentFilters.sortOrder,
+    },
+
     exportActions: [
       {
-        label: "Export as CSV",
+        label: 'Export as CSV',
         icon: <Download className="w-4 h-4 mr-2" />,
-        onClick: () => toast.info("Preparing CSV export..."),
+        onClick: () => toast.info('Preparing CSV export...'),
       },
       {
-        label: "Export as PDF",
+        label: 'Export as PDF',
         icon: <FileText className="w-4 h-4 mr-2" />,
-        onClick: () => toast.info("Generating PDF report..."),
+        onClick: () => toast.info('Generating PDF report...'),
       },
       {
-        label: "Print List",
+        label: 'Print List',
         icon: <Printer className="w-4 h-4 mr-2" />,
         onClick: () => {
-          toast.info("Preparing print layout...");
+          toast.info('Preparing print layout...');
           setTimeout(() => window.print(), 1000);
         },
       },
     ],
   };
-
 
   return (
     <div className="px-4 py-6 space-y-6">
@@ -149,26 +184,16 @@ export default function ProductsTab({
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your products and inventory</p>
         </div>
 
-        <Button
-          asChild
-          className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 
-                     text-white shadow-lg hover:shadow-xl transition-all duration-300 group"
-        >
-          <a href="/products/add" className="flex items-center">
-            <PlusCircle className="mr-2 h-4 w-4 group-hover:scale-110 transition-transform" />
-            Add Product
-          </a>
-        </Button>
+        <CreateProductModal categories={initialCategories ?? []} />
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <ProductTable
           products={initialProducts}
-          onDelete={() => {}}
           onRestock={handleRestockClick}
-          onEdit={handleEditClick}
           filterControlsProps={filterOptions}
           paginationProps={pagination}
+          categories={initialCategories}
         />
       </div>
 
@@ -182,6 +207,8 @@ export default function ProductsTab({
             toast.success('Restock successful', {
               description: `${selectedProductForRestock.name} has been restocked`,
             });
+            setIsRestockOpen(false);
+            setSelectedProductForRestockId(null);
           }}
         />
       )}
@@ -192,25 +219,23 @@ export default function ProductsTab({
           setIsOpen={setIsEditProductOpen}
           product={selectedProductForEdit}
           categories={initialCategories}
-          onSuccess={message =>
-            toast.success('Product Updated', {
-              description: message,
-              action: {
-                label: 'View Changes',
-                onClick: () => {},
-              },
-            })
-          }
-          onError={message =>
+          onSuccess={() => {
+            setIsEditProductOpen(false);
+            setSelectedProductForEditId(null);
+          }}
+          onError={message => {
             toast.error('Update Failed', {
               description: message,
               action: {
                 label: 'Retry',
                 onClick: () => setIsEditProductOpen(true),
               },
-            })
-          }
-          onClose={() => setSelectedProductForEdit(null)}
+            });
+          }}
+          onClose={() => {
+            setIsEditProductOpen(false);
+            setSelectedProductForEditId(null);
+          }}
         />
       )}
     </div>

@@ -37,14 +37,6 @@ export interface CartItem {
 }
 
 /**
- * Props for the PosClientWrapper component
- */
-export interface PosClientWrapperProps {
-  products: Product[];
-  customers: Customer[];
-}
-
-/**
  * Props for the Cart component
  */
 export interface CartProps {
@@ -81,6 +73,14 @@ export interface SaleData {
   taxAmount: string;
   totalAmount: string;
   phoneNumber?: string; // For MPESA payments
+}
+
+/**
+ * Props for the PosClientWrapper component
+ */
+export interface PosClientWrapperProps {
+  products: Product[];
+  customers: Customer[];
 }
 
 /**
