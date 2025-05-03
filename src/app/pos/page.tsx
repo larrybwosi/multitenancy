@@ -13,8 +13,9 @@ export default function PosPage() {
     page:1,
     sortBy: "createdAt",
   });
+
   const { data: customers, isLoading: isLoadingCustomers } = useCustomers();
-console.log(products)
+  
   if (isLoadingProducts || isLoadingCustomers) {
     return (
       <div className="flex items-center justify-center h-screen">

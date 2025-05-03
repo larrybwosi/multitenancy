@@ -26,7 +26,7 @@ export interface SupplierStockHistoryFilters {
 }
 
 export interface SupplierStockHistoryItem {
-  stockId: string;
+  stockId: string | null;
   productId: string;
   productName: string;
   productSku: string | null;

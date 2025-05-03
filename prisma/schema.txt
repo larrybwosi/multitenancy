@@ -219,12 +219,6 @@ model Product {
 
   // Relations
   variants         ProductVariant[]
-  suppliers        ProductSupplier[]
-  saleItems        SaleItem[]
-  purchaseItems    PurchaseItem[]
-  stockBatches     StockBatch[]
-  stockAdjustments StockAdjustment[]
-  stockMovements   StockMovement[]
   variantStock     ProductVariantStock[]
 
   organizationId String
@@ -243,7 +237,7 @@ model ProductVariant {
   productId     String
   product       Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   name          String // Name for the variant (e.g., "Red", "Large")
-  sku           String  @unique
+  sku           String
   barcode       String? @unique
   attributes    Json // e.g., {"color": "Red", "size": "L"}
   isActive      Boolean @default(true)
@@ -252,9 +246,9 @@ model ProductVariant {
   reorderPoint  Int     @default(5) // Default reorder point, can be overridden in ProductVariantStock
   reorderQty    Int     @default(10) // Default reorder qty
   lowStockAlert Boolean @default(false) // Default low stock alert setting
-  buyingPrice    Decimal  @db.Decimal(10, 2) // Suggested retail price
-  wholesalePrice Decimal? @db.Decimal(10, 2) // NEW: Price typically for bulk buyers or resellers
-  retailPrice     Decimal? @db.Decimal(10, 2) // Retail Selling Price
+  buyingPrice    Decimal  @db.Decimal(10, 2) 
+  wholesalePrice Decimal? @db.Decimal(10, 2) 
+  retailPrice     Decimal? @db.Decimal(10, 2) 
 
 
   // Relations
@@ -265,7 +259,9 @@ model ProductVariant {
   stockMovements   StockMovement[]
   variantStocks    ProductVariantStock[] // One variant can have stock in multiple locations
 
+  suppliers        ProductSupplier[]
   @@unique([productId, sku])
+  @@unique([productId, barcode])
   @@index([sku])
 }
 
@@ -303,7 +299,7 @@ model Supplier {
 model ProductSupplier {
   id                   String   @id @default(cuid())
   productId            String
-  product              Product  @relation(fields: [productId], references: [id], onDelete: Cascade) // Added onDelete
+  product              ProductVariant  @relation(fields: [productId], references: [id], onDelete: Cascade) // Added onDelete
   supplierId           String
   supplier             Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade) // Added onDelete
   supplierSku          String? // The SKU used by the supplier for this product
@@ -393,10 +389,8 @@ model SaleItem {
   id             String          @id @default(cuid())
   saleId         String
   sale           Sale            @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  productId      String
-  product        Product         @relation(fields: [productId], references: [id], onDelete: Restrict) // Prevent product deletion if sold
-  variantId      String?
-  variant        ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Restrict) // Prevent variant deletion if sold
+  variantId      String
+  variant        ProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict) // Prevent variant deletion if sold
   stockBatchId   String // Which specific batch was sold (important for FIFO/FEFO/Costing)
   stockBatch     StockBatch      @relation(fields: [stockBatchId], references: [id], onDelete: Restrict) // Prevent batch deletion if sold
   quantity       Int
@@ -413,7 +407,6 @@ model SaleItem {
   returns ReturnItem[] // Items returned referencing this sale item
 
   @@index([saleId])
-  @@index([productId])
   @@index([variantId])
   @@index([stockBatchId])
 }
@@ -455,9 +448,7 @@ model PurchaseItem {
   id               String          @id @default(cuid())
   purchaseId       String
   purchase         Purchase        @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
-  productId        String
-  product          Product         @relation(fields: [productId], references: [id], onDelete: Restrict) // Prevent product deletion
-  variantId        String?
+  variantId        String
   variant          ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Restrict) // Prevent variant deletion
   orderedQuantity  Int
   receivedQuantity Int             @default(0) // Quantity received so far for this item
@@ -471,7 +462,6 @@ model PurchaseItem {
   stockBatches StockBatch[]
 
   @@index([purchaseId])
-  @@index([productId])
   @@index([variantId])
 }
 
@@ -712,10 +702,8 @@ model StoragePosition {
 
 model StockBatch {
   id             String            @id @default(cuid())
-  productId      String
-  product        Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
-  variantId      String?
-  variant        ProductVariant?   @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  variantId      String
+  variant        ProductVariant   @relation(fields: [variantId], references: [id], onDelete: Cascade)
   batchNumber    String? // Manufacturer or internal batch number
   purchaseItemId String? // Link to the purchase item that created this batch
   purchaseItem   PurchaseItem?     @relation(fields: [purchaseItemId], references: [id], onDelete: SetNull)
@@ -752,7 +740,6 @@ model StockBatch {
   
   landedCost      Decimal? @db.Decimal(10, 2) // Total cost including shipping, duties, etc.
   batchSalePrice  Decimal? @db.Decimal(10, 2) // Optional batch-specific sale price
-  @@index([productId, variantId])
   @@index([expiryDate])
   @@index([receivedDate])
   @@index([currentQuantity])
@@ -789,10 +776,8 @@ model ProductVariantStock {
 
 model StockAdjustment {
   id             String                @id @default(cuid())
-  productId      String
-  product        Product               @relation(fields: [productId], references: [id], onDelete: Restrict)
-  variantId      String?
-  variant        ProductVariant?       @relation(fields: [variantId], references: [id], onDelete: Restrict)
+  variantId      String
+  variant        ProductVariant      @relation(fields: [variantId], references: [id], onDelete: Restrict)
   stockBatchId   String?
   stockBatch     StockBatch?           @relation(fields: [stockBatchId], references: [id], onDelete: SetNull)
   locationId     String
@@ -812,7 +797,6 @@ model StockAdjustment {
   organizationId String
   organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@index([productId, variantId])
   @@index([stockBatchId])
   @@index([adjustmentDate])
   @@index([locationId])
@@ -838,10 +822,8 @@ enum StockAdjustmentReason {
 
 model StockMovement {
   id             String             @id @default(cuid())
-  productId      String
-  product        Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
-  variantId      String?
-  variant        ProductVariant?    @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  variantId      String
+  variant        ProductVariant    @relation(fields: [variantId], references: [id], onDelete: Cascade)
   stockBatchId   String?
   stockBatch     StockBatch?        @relation(fields: [stockBatchId], references: [id], onDelete: SetNull)
   quantity       Int // Always positive: the quantity that moved
@@ -864,7 +846,6 @@ model StockMovement {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@index([productId, variantId])
   @@index([stockBatchId])
   @@index([fromLocationId])
   @@index([toLocationId])

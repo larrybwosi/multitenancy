@@ -26,8 +26,6 @@ const formSchema = z.object({
   locationId: z.string().min(1, 'Location is required'),
   supplierId: z.string().optional(),
   purchasePrice: z.number().min(0, 'Price cannot be negative').optional(),
-  costPrice: z.number().min(0, 'Cost cannot be negative').optional(),
-  retailPrice: z.number().min(0, 'Price cannot be negative').optional(),
   expiryDate: z.date().optional(),
   notes: z.string().optional(),
   actualDeliveryDate: z.date().optional(),
@@ -63,8 +61,6 @@ export function RestockDialog({
       unitQuantity: 1,
       locationId: defaultLocationId || '',
       purchasePrice: undefined,
-      costPrice: undefined,
-      retailPrice: undefined,
       expiryDate: undefined,
       notes: '',
       actualDeliveryDate: new Date(),
@@ -302,54 +298,6 @@ export function RestockDialog({
                       />
                     </FormControl>
                     <FormDescription>Price per unit paid to supplier</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="costPrice"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center gap-2">
-                      Cost Price
-                      <Badge variant="outline">Optional</Badge>
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={field.value ?? ''}
-                        onChange={e => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
-                      />
-                    </FormControl>
-                    <FormDescription>Your cost per unit including overhead</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="retailPrice"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center gap-2">
-                      Retail Price
-                      <Badge variant="outline">Optional</Badge>
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={field.value ?? ''}
-                        onChange={e => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
-                      />
-                    </FormControl>
-                    <FormDescription>Selling price to customers</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

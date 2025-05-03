@@ -338,7 +338,7 @@ export async function addProductMinimal(
   const finalIsActive = isActive ?? true; // Use schema default if validation didn't set one
   const finalReorderPoint = reorderPoint ?? 5; // Use schema default if validation didn't set one
   const productSku = `PROD-${crypto.randomUUID().slice(3, 9).toUpperCase()}`;
-  const defaultVariantSku = `VAR-${productSku}-DEFAULT`; // Simple default SKU
+  const defaultVariantSku = `VAR-${productSku}-DEFAULT`;
 
   // 5. Database Create Operation
   try {

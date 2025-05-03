@@ -1,4 +1,4 @@
-import { PaymentMethod } from "@prisma/client";
+import { PaymentMethod, ProductVariant } from "@prisma/client";
 
 /**
  * Product interface represents a product in the POS system
@@ -112,3 +112,12 @@ export enum OrderStatus {
   COMPLETED = 'COMPLETED',
   CANCELLED = 'CANCELLED',
 } 
+
+
+export type ExtendedProduct = {
+  sellingPrice: string | number;
+  wholesalePrice: string;
+  buyingPrice: string;
+  variants: ProductVariant[];
+  stock?: number;
+} & Product; 

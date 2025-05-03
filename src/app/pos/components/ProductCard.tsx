@@ -1,30 +1,23 @@
 import { useState } from 'react';
 import { ShoppingCart, ChevronLeft, ChevronRight, ImageIcon } from 'lucide-react';
 import Image from 'next/image';
+import { ExtendedProduct } from '../types';
 
-interface Product {
-  id: string;
-  name: string;
-  sku?: string;
-  retailPrice: number | string;
-  imageUrls?: string[];
-  stock?: number;
-}
-
-interface ProductCardProps {
-  product: Product;
+export interface ProductCardProps {
+  product: ExtendedProduct;
   onAddToCart: (productId: string) => void;
+  productUrl?: string;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
+export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, productUrl }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
 
-  const { id, name, sku, retailPrice, imageUrls = [], stock = 0 } = product;
+  const { id, name, sku, sellingPrice, imageUrls = [], stock = 0 } = product;
 
   const hasMultipleImages = imageUrls.length > 1;
   const isInStock = stock > 0;
-  const formattedPrice = typeof retailPrice === 'number' ? `$${retailPrice.toFixed(2)}` : `$${retailPrice}`;
+  const formattedPrice = typeof sellingPrice === 'number' ? `$${sellingPrice.toFixed(2)}` : `$${sellingPrice}`;
 
   const nextImage = () => {
     setCurrentImageIndex(prev => (prev + 1) % imageUrls.length);
@@ -102,7 +95,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }
       <div className="p-4">
         <h3 className="font-medium text-gray-900 text-lg truncate">{name}</h3>
 
-        {sku && <p className="text-gray-500 text-xs mt-1">SKU: {sku}</p>}
+        {sku && <p className="text-gray-500 text-xs mt-1">SKU: {productUrl || sku}</p>}
 
         <div className="mt-2 flex items-center justify-between">
           <span className="font-bold text-lg">{formattedPrice}</span>

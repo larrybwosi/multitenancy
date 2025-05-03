@@ -63,7 +63,6 @@ export async function searchProductsForPOS(
             id: true,
             name: true,
             sku: true,
-            priceModifier: true, // [cite: 40]
             // Fetch stock for this specific location
             variantStocks: {
               // [cite: 41]
@@ -115,6 +114,8 @@ export async function searchCustomersForPOS(
     return [];
   }
 }
+
+
 /**
  * Processes the entire sale transaction, including input validation,
  * stock checks, database operations within a transaction, receipt generation,
@@ -683,24 +684,20 @@ async function createMissingVariantStock(
     variantId: string, // Schema requires variantId to be non-null [cite: 133]
     locationId: string,
     initialQuantity: number
-): Promise<ProductVariantStock> { // Return the correct Prisma type
-
-    // Log the creation attempt with crucial identifiers
+): Promise<ProductVariantStock> {
+  
     console.log(
         `Attempting to create missing ProductVariantStock: Org=${organizationId}, Prod=${productId}, Var=${variantId}, Loc=${locationId}, InitialQty=${initialQuantity}`
     );
 
     try {
-        // Create the ProductVariantStock record
         const newVariantStock = await tx.productVariantStock.create({
             data: {
                 organizationId: organizationId,
-                productId: productId, // [cite: 133]
+                productId: productId,
                 variantId: variantId, // Use the provided non-null variantId [cite: 133]
-                locationId: locationId, // [cite: 133]
-                currentStock: initialQuantity, // Set initial stock (likely negative) [cite: 134]
-                // Defaults for other fields like reservedStock, reorderPoint, reorderQty will be applied by Prisma based on schema [cite: 134]
-                // availableStock is often calculated, not directly set - check your exact logic/schema needs
+                locationId: locationId,
+                currentStock: initialQuantity,
             },
         });
 
@@ -708,7 +705,6 @@ async function createMissingVariantStock(
         return newVariantStock;
     } catch (error: unknown) {
          console.error(`Failed to create missing ProductVariantStock: Org=${organizationId}, Var=${variantId}, Loc=${locationId}`, error);
-         // Re-throw the error to potentially roll back the transaction
          if (error instanceof Error) {
              throw new Error(`Failed to create missing stock record: ${error.message}`);
          }

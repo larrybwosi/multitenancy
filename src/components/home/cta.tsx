@@ -1,5 +1,4 @@
-
-import { motion } from "framer-motion";
+import { MotionA, MotionDiv } from "../motion";
 
 const CallToAction: React.FC = () => {
   return (
@@ -31,7 +30,7 @@ const CallToAction: React.FC = () => {
       </div>
 
       <div className="container mx-auto px-4 relative z-10">
-        <motion.div
+        <MotionDiv
           className="text-center max-w-2xl mx-auto"
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -43,24 +42,24 @@ const CallToAction: React.FC = () => {
           </h2>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
-            <motion.a
+            <MotionA
               href="#"
               className="bg-white text-orange-500 px-6 py-3 rounded-md font-medium hover:bg-gray-100 transition-colors"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
               Contact Us
-            </motion.a>
-            <motion.a
+            </MotionA>
+            <MotionA
               href="/signup"
               className="border border-white text-white px-6 py-3 rounded-md font-medium hover:bg-white/10 transition-colors"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
               Free Trial
-            </motion.a>
+            </MotionA>
           </div>
-        </motion.div>
+        </MotionDiv>
       </div>
     </section>
   );

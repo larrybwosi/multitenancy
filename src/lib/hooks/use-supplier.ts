@@ -1,4 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
+import { toast } from "sonner";
 
 const fetcher = async <T,>(url: string): Promise<T> => {
   const response = await fetch(url);
@@ -46,5 +48,30 @@ const useSuppliers = () => {
     retry: false,
   });
 }
+
+export const useCreateSupplier = () => {
+  const queryClient = useQueryClient();
+const createSupplier = async (data: unknown) => {
+  const response = await axios.post('/api/suppliers',data);
+
+  return response.data;
+};
+  return useMutation({
+    mutationFn: createSupplier,
+    onSuccess: () => {
+      toast.success('Supplier created successfully', {
+        description: 'Supplier created successfully',
+      });
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+    },
+    onError: error => {
+      toast.error('Error', {
+        description: error.message,
+      });
+    },
+  });
+}
+  
+
 
 export { useLocations, useSuppliers };

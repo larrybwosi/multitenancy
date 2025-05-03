@@ -42,7 +42,7 @@ export async function GET() {
           select: {
             currentQuantity: true,
             purchasePrice: true,
-            product: { select: { id: true } },
+            variant: { select: { product: { select: { id: true } } } },
           },
         },
         manager: {
@@ -69,7 +69,7 @@ export async function GET() {
 
       // Count unique products
       const productCount = new Set(
-        location.stockBatches.map((batch) => batch.product.id)
+        location.stockBatches.map((batch) => batch.variant.product.id)
       ).size;
 
       return {

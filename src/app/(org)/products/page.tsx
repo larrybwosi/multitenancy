@@ -122,7 +122,7 @@ export default function ProductsPage() {
   }
 
   return (
-    <Card className="border-none shadow-lg flex-1 overflow-hidden bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900">
+    <Card className="border-none flex-1 overflow-hidden bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900">
       <CardHeader>
         <SectionHeader
           title="Products"

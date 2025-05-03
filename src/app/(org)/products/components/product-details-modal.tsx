@@ -106,9 +106,9 @@ const ProductModal: React.FC<{
                 </h3>
                 <p className="mt-1 text-sm font-medium text-gray-900">
                   $
-                  {typeof product.basePrice === "string"
-                    ? parseFloat(product.basePrice).toFixed(2)
-                    : product.basePrice.toFixed(2)}
+                  {typeof product.retailProducts === "string"
+                    ? parseFloat(product.retailProducts).toFixed(2)
+                    : product.retailProducts.toFixed(2)}
                 </p>
               </div>
               <div className="bg-gray-50 p-3 rounded-lg">

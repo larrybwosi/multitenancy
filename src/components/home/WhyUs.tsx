@@ -1,5 +1,5 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import { MotionDiv } from "../motion";
+
 
 // Animation variants
 const containerVariants = {
@@ -40,22 +40,22 @@ const FinancialManagementUI = () => {
     <div className="bg-gray-50 min-h-screen w-full p-4 md:p-8">
       {/* Features Section */}
       <section className="max-w-7xl mx-auto mb-16">
-        <motion.div
+        <MotionDiv
           initial="hidden"
           animate="visible"
           variants={containerVariants}
         >
-          <motion.div variants={itemVariants}>
+          <MotionDiv variants={itemVariants}>
             <h2 className="text-orange-400 font-medium text-sm md:text-base mb-2">Our Features</h2>
             <h3 className="text-gray-700 text-xl md:text-2xl font-semibold mb-8 max-w-md">
               Powerful Features to Simplify Your Financial Management
             </h3>
-          </motion.div>
+          </MotionDiv>
 
           <div className="flex flex-col md:flex-row gap-8 md:gap-16">
             {/* Features List */}
             <div className="w-full md:w-2/5 space-y-6">
-              <motion.div 
+              <MotionDiv 
                 variants={itemVariants}
                 className="flex gap-3"
               >
@@ -70,9 +70,9 @@ const FinancialManagementUI = () => {
                     Create and send professional invoices in seconds. Get paid online, track expenses, and get paid faster. Design simplifies the invoicing process, so you can focus on running your business.
                   </p>
                 </div>
-              </motion.div>
+              </MotionDiv>
 
-              <motion.div 
+              <MotionDiv 
                 variants={itemVariants}
                 className="flex gap-3"
               >
@@ -87,9 +87,9 @@ const FinancialManagementUI = () => {
                     Powerful banking features like deposits, cards, and payouts.
                   </p>
                 </div>
-              </motion.div>
+              </MotionDiv>
 
-              <motion.div 
+              <MotionDiv 
                 variants={itemVariants}
                 className="flex gap-3"
               >
@@ -104,9 +104,9 @@ const FinancialManagementUI = () => {
                     Capture, analyze, and easily verify, approve, and process reimbursements.
                   </p>
                 </div>
-              </motion.div>
+              </MotionDiv>
 
-              <motion.div 
+              <MotionDiv 
                 variants={itemVariants}
                 className="flex gap-3"
               >
@@ -121,18 +121,18 @@ const FinancialManagementUI = () => {
                     Build custom workflows and automate accounting tasks.
                   </p>
                 </div>
-              </motion.div>
+              </MotionDiv>
             </div>
 
             {/* Invoice Preview */}
-            <motion.div 
+            <MotionDiv 
               variants={itemVariants}
               className="w-full md:w-3/5 mt-8 md:mt-0"
               whileHover={{ scale: 1.02 }}
               transition={{ type: "spring", stiffness: 400, damping: 10 }}
             >
               <div className="bg-orange-50 p-6 rounded-xl relative">
-                <motion.div 
+                <MotionDiv 
                   className="bg-white rounded-lg shadow-sm p-4 max-w-md mx-auto"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -143,7 +143,7 @@ const FinancialManagementUI = () => {
                       <div className="text-orange-500 font-semibold text-sm">Invoice #7</div>
                       <div className="text-gray-700 font-bold text-xl">$130.00</div>
                     </div>
-                    <motion.div 
+                    <MotionDiv 
                       className="bg-orange-500 text-white p-2 rounded-md"
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.95 }}
@@ -151,7 +151,7 @@ const FinancialManagementUI = () => {
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
                       </svg>
-                    </motion.div>
+                    </MotionDiv>
                   </div>
 
                   <hr className="my-4 border-gray-200" />
@@ -164,22 +164,22 @@ const FinancialManagementUI = () => {
                     </div>
                   </div>
 
-                  <motion.div 
+                  <MotionDiv 
                     className="flex justify-end"
                     whileHover={{ scale: 1.05 }}
                   >
                     <button className="bg-orange-500 text-white px-4 py-2 rounded text-sm">Send Invoice</button>
-                  </motion.div>
-                </motion.div>
+                  </MotionDiv>
+                </MotionDiv>
 
                 {/* UI Elements on the right */}
-                <motion.div 
+                <MotionDiv 
                   className="absolute right-2 top-6 hidden md:block"
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.6 }}
                 >
-                  <motion.div 
+                  <MotionDiv 
                     className="bg-white p-2 rounded-md shadow-sm mb-2 w-24"
                     animate={{
                       y: [0, -5, 0],
@@ -192,8 +192,8 @@ const FinancialManagementUI = () => {
                   >
                     <div className="h-4 w-full bg-orange-100 rounded mb-1"></div>
                     <div className="h-2 w-3/4 bg-gray-100 rounded"></div>
-                  </motion.div>
-                  <motion.div 
+                  </MotionDiv>
+                  <MotionDiv 
                     className="bg-white p-2 rounded-md shadow-sm w-24"
                     animate={{
                       y: [0, -5, 0],
@@ -207,32 +207,32 @@ const FinancialManagementUI = () => {
                   >
                     <div className="h-4 w-full bg-orange-100 rounded mb-1"></div>
                     <div className="h-2 w-1/2 bg-gray-100 rounded"></div>
-                  </motion.div>
-                </motion.div>
+                  </MotionDiv>
+                </MotionDiv>
               </div>
-            </motion.div>
+            </MotionDiv>
           </div>
-        </motion.div>
+        </MotionDiv>
       </section>
 
       {/* Why Choose Us Section */}
       <section className="max-w-7xl mx-auto">
-        <motion.div
+        <MotionDiv
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-100px" }}
           variants={containerVariants}
         >
-          <motion.div variants={itemVariants}>
+          <MotionDiv variants={itemVariants}>
             <h2 className="text-orange-400 font-medium text-sm md:text-base mb-2">Why Dealio?</h2>
             <h3 className="text-gray-700 text-xl md:text-2xl font-semibold mb-10 max-w-md">
               Pioneering the Future of Payments and Finance with Cutting-Edge Technology
             </h3>
-          </motion.div>
+          </MotionDiv>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Card 1 */}
-            <motion.div 
+            <MotionDiv 
               className="bg-white p-6 rounded-lg border border-gray-100 shadow-sm"
               whileHover="hover"
               variants={cardVariants}
@@ -246,10 +246,10 @@ const FinancialManagementUI = () => {
               <p className="text-gray-600 text-sm">
                 Gain an productivity with extensive features and capabilities to manage finances accurately, stay aligned with regulation.
               </p>
-            </motion.div>
+            </MotionDiv>
 
             {/* Card 2 */}
-            <motion.div 
+            <MotionDiv 
               className="bg-white p-6 rounded-lg border border-gray-100 shadow-sm"
               whileHover="hover"
               variants={cardVariants}
@@ -263,10 +263,10 @@ const FinancialManagementUI = () => {
               <p className="text-gray-600 text-sm">
                 Open banking, electronic registers, documents and OCR end AI all integrated right under our customer&apos;s control.
               </p>
-            </motion.div>
+            </MotionDiv>
 
             {/* Card 3 */}
-            <motion.div 
+            <MotionDiv 
               className="bg-white p-6 rounded-lg border border-gray-100 shadow-sm"
               whileHover="hover"
               variants={cardVariants}
@@ -280,9 +280,9 @@ const FinancialManagementUI = () => {
               <p className="text-gray-600 text-sm">
                 Constantly able to keep our product up to date with a clear attention to customers and the relevance of state-of-the-art technology.
               </p>
-            </motion.div>
+            </MotionDiv>
           </div>
-        </motion.div>
+        </MotionDiv>
       </section>
     </div>
   );

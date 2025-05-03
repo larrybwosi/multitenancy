@@ -1,13 +1,13 @@
-import React from "react";
-import { motion } from "framer-motion";
+
 import Image from "next/image";
+import { MotionDiv } from "../motion";
 
 const Testimonials: React.FC = () => {
   return (
     <section className="py-16 md:py-24 bg-gray-50">
       <div className="container mx-auto px-4">
         <div className="flex flex-col lg:flex-row gap-12 lg:gap-20">
-          <motion.div
+          <MotionDiv
             className="lg:w-1/2"
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -61,9 +61,9 @@ const Testimonials: React.FC = () => {
                 </div>
               </div>
             </div>
-          </motion.div>
+          </MotionDiv>
 
-          <motion.div
+          <MotionDiv
             className="lg:w-1/2 flex flex-col justify-center"
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -92,7 +92,7 @@ const Testimonials: React.FC = () => {
                 </div>
               </div>
             </div>
-          </motion.div>
+          </MotionDiv>
         </div>
       </div>
     </section>

@@ -1,4 +1,4 @@
-import { restockProduct } from "@/actions/stock.actions";
+import { restockProduct } from "@/actions/restock";
 import { handleApiError } from "@/lib/api-utils";
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";

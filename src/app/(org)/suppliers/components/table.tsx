@@ -50,7 +50,6 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import type { Supplier } from "@prisma/client";
-import { SupplierForm } from "./create"; // Import the form
 import { SupplierDetailsSheet } from "./details-sheet"; // Import the details sheet
 import { toast } from "sonner";
 import { toggleSupplierStatus } from "@/actions/supplier";
@@ -117,14 +116,14 @@ export function SupplierTable({ suppliers }: SupplierTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {suppliers.length === 0 ? (
+            {suppliers?.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="h-24 text-center">
                   No suppliers found.
                 </TableCell>
               </TableRow>
             ) : (
-              suppliers.map((supplier) => (
+              suppliers?.map((supplier) => (
                 <TableRow
                   key={supplier.id}
                   className="hover:bg-muted/50 transition-colors duration-150"
@@ -262,13 +261,13 @@ export function SupplierTable({ suppliers }: SupplierTableProps) {
               Update the details for &quot;{selectedSupplierForEdit?.name}&quot;.
             </SheetDescription>
           </SheetHeader>
-          {selectedSupplierForEdit && (
+          {/* {selectedSupplierForEdit && (
             <SupplierForm
               mode="edit"
               supplier={selectedSupplierForEdit}
               onSuccess={() => setIsEditSheetOpen(false)} // Close sheet on success
             />
-          )}
+          )} */}
         </SheetContent>
       </Sheet>
 

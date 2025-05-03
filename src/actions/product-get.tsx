@@ -22,6 +22,7 @@ export type ProductWithDetails = Product & {
   suppliers?: (ProductSupplier & { supplier: Supplier })[];
   defaultLocation?: InventoryLocation | null;
   reorderPoint?: number | null;
+  sellingPrice?: Prisma.Decimal | null;
 };
 
 // Updated main result structure
@@ -166,7 +167,7 @@ const data: ProductWithDetails[] = productsData.map(product => {
   // Construct the final product object
   const productDetail: ProductWithDetails = {
     ...product, // Spread the base product fields
-    // Add the extracted prices
+    sellingPrice: retailPrice,
     retailPrice,
     wholesalePrice,
     buyingPrice,

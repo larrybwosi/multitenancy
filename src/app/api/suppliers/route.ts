@@ -9,7 +9,9 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
+    
     const newSupplier = await createSupplier(body)
+    
     return NextResponse.json(newSupplier, { status: 201 });
 
   } catch (error) {
@@ -24,7 +26,12 @@ export async function GET(request: NextRequest) {
   const {searchParams} = request.nextUrl;
   
   try {
-    const suppliers = await getSuppliers()
+    const suppliers = await getSuppliers({
+      searchQuery: searchParams?.get("searchQuery") || '',
+      filter: searchParams.get("filter") ? JSON.parse(searchParams.get("filter")!) : undefined,
+      page: searchParams?.get("page") ? parseInt(searchParams.get("page")!) : 1,
+      pageSize: searchParams?.get("pageSize") ? parseInt(searchParams.get("pageSize")!) : 10,
+    });
     return NextResponse.json(suppliers);
   } catch (error) {
     return handleApiError(error)

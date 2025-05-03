@@ -2,7 +2,6 @@
 
 import { Category, Product, ProductVariant } from '@prisma/client';
 import { Download, FileText, Printer } from 'lucide-react';
-import { EditProductDialog } from './edit-product-dialog';
 import { toast } from 'sonner';
 import { RestockDialog } from './restock';
 import { ProductTable } from './products-table';
@@ -53,22 +52,12 @@ export default function ProductsTab({
     serialize: v => (v ? 'true' : ''),
   });
 
-  const [isEditProductOpen, setIsEditProductOpen] = useQueryState('edit', {
-    defaultValue: false,
-    parse: v => v === 'true',
-    serialize: v => (v ? 'true' : ''),
-  });
-
   const [selectedProductForRestockId, setSelectedProductForRestockId] = useQueryState('restock-product');
-  const [selectedProductForEditId, setSelectedProductForEditId] = useQueryState('edit-product');
 
   const selectedProductForRestock = selectedProductForRestockId
     ? initialProducts.find(p => p.id === selectedProductForRestockId)
     : null;
 
-  const selectedProductForEdit = selectedProductForEditId
-    ? initialProducts.find(p => p.id === selectedProductForEditId)
-    : null;
 
   const handleRestockClick = (product: Product) => {
     const productWithRelations = initialProducts.find(p => p.id === product.id);
@@ -77,6 +66,7 @@ export default function ProductsTab({
       setIsRestockOpen(true);
     }
   };
+
 
   const filterOptions = {
     searchPlaceholder: 'Search products...',
@@ -177,7 +167,7 @@ export default function ProductsTab({
   };
 
   return (
-    <div className="px-4 py-6 space-y-6">
+    <div className="px-4 py-6 space-y-6 border-none">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Product Inventory</h1>
@@ -187,7 +177,7 @@ export default function ProductsTab({
         <CreateProductModal categories={initialCategories ?? []} />
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 shadow-sm overflow-hidden">
         <ProductTable
           products={initialProducts}
           onRestock={handleRestockClick}
@@ -209,32 +199,6 @@ export default function ProductsTab({
             });
             setIsRestockOpen(false);
             setSelectedProductForRestockId(null);
-          }}
-        />
-      )}
-
-      {selectedProductForEdit && (
-        <EditProductDialog
-          isOpen={isEditProductOpen}
-          setIsOpen={setIsEditProductOpen}
-          product={selectedProductForEdit}
-          categories={initialCategories}
-          onSuccess={() => {
-            setIsEditProductOpen(false);
-            setSelectedProductForEditId(null);
-          }}
-          onError={message => {
-            toast.error('Update Failed', {
-              description: message,
-              action: {
-                label: 'Retry',
-                onClick: () => setIsEditProductOpen(true),
-              },
-            });
-          }}
-          onClose={() => {
-            setIsEditProductOpen(false);
-            setSelectedProductForEditId(null);
           }}
         />
       )}

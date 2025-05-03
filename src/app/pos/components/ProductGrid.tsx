@@ -5,17 +5,19 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ProductCard } from './ProductCard';
 import { Search, ShoppingBag, Plus, PackageOpen } from 'lucide-react';
-import { Product } from '../types';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { ExtendedProduct } from '../types';
+import { MotionDiv } from '@/components/motion';
 
 export function ProductGrid({
   products = [],
   onAddToCart,
+  getProductUrl,
 }: {
-  products: Product[];
+  products: ExtendedProduct[];
   onAddToCart: (productId: string) => void;
+  getProductUrl?: (product: ExtendedProduct) => string;
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const router = useRouter();
@@ -64,14 +66,18 @@ export function ProductGrid({
         ) : filteredProducts.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 p-6">
             {filteredProducts.map(product => (
-              <motion.div
+              <MotionDiv
                 key={product.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
               >
-                <ProductCard product={product} onAddToCart={onAddToCart} />
-              </motion.div>
+                <ProductCard 
+                  product={product} 
+                  onAddToCart={onAddToCart}
+                  productUrl={getProductUrl ? getProductUrl(product) : undefined}
+                />
+              </MotionDiv>
             ))}
           </div>
         ) : (

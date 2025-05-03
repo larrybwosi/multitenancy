@@ -267,7 +267,7 @@ export const ProductTable: React.FC<ProductTableProps> = ({
       <FilterControls {...enhancedFilterProps} />
 
       {viewMode === 'list' ? (
-        <div className="mt-4 rounded-lg shadow overflow-hidden border border-gray-200">
+        <div className="mt-4 rounded-lg shadow overflow-hidden ">
           <Table>
             <TableHeader className="bg-gray-50">
               <TableRow>
@@ -296,7 +296,7 @@ export const ProductTable: React.FC<ProductTableProps> = ({
         </div>
       )}
 
-      <div className="mt-6">
+      <div className="mt-auto pt-4">
         <Pagination
           currentPage={paginationProps.currentPage}
           totalPages={paginationProps.totalPages}
@@ -304,7 +304,6 @@ export const ProductTable: React.FC<ProductTableProps> = ({
           totalItems={paginationProps.totalItems}
           onPageChange={paginationProps.onPageChange}
           onPageSizeChange={paginationProps.onPageSizeChange}
-          className="border-t border-gray-200 pt-4"
         />
       </div>
 

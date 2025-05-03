@@ -3,23 +3,12 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQueryState, parseAsArrayOf, parseAsString } from "nuqs";
 import { ProductGrid } from "./ProductGrid";
-// import { Cart } from "./Cart";
 import { Customer, PaymentMethod } from "@prisma/client";
 import { CartItem as ProjectCartItem } from "@/app/point-of-sale/types";
-import { processSale } from "@/actions/pos.actions";
 import { useAppStore } from "@/store/app";
-import Cart from "./cart-test";
-
-// Update BaseProduct to include missing required fields with non-nullable SKU
-type BaseProduct = {
-  id: string;
-  name: string;
-  sku: string; // Make SKU non-nullable
-  basePrice: string;
-  image?: string | null;
-  barcode: string | null;
-  imageUrls?: string[] | null;
-};
+import Cart, { SaleData as CartSaleData, SaleResult } from "./cart-test";
+import { ExtendedProduct } from "../types";
+import { toast } from "sonner";
 
 // Use the project's CartItem interface with additional required fields
 type CartItem = Omit<ProjectCartItem, "sku"> & {
@@ -28,12 +17,9 @@ type CartItem = Omit<ProjectCartItem, "sku"> & {
   sku: string; // Make SKU non-nullable
 };
 
-// Use the shared PaymentMethod enum from lib/types
-interface SaleData {
-  customerId: string | null;
-  paymentMethod: PaymentMethod;
-  notes?: string;
-  items: CartItem[];
+// Our component's internal SaleData interface 
+interface SaleData extends CartSaleData {
+  items: CartItem[]; // Add items that our component needs internally
 }
 
 interface ProcessSaleInput {
@@ -47,10 +33,11 @@ interface ProcessSaleInput {
   paymentMethod: PaymentMethod;
   discountAmount?: number;
   notes?: string;
+  enableStockTracking: boolean;
 }
 
 interface PosClientWrapperProps {
-  products?: BaseProduct[];
+  products?: ExtendedProduct[];
   customers?: Customer[];
 }
 
@@ -65,6 +52,7 @@ export function PosClientWrapper({
   
   const warehouse = useAppStore((state) => state.currentWarehouse);
   const [cartQuantities, setCartQuantities] = useState<Record<string, number>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const cartItems = useMemo(() => {
     return cartProductIds
@@ -77,7 +65,7 @@ export function PosClientWrapper({
         
         const quantity = cartQuantities[productId] || 0;
         // Convert string price to number for display
-        const price = parseFloat(product.basePrice);
+        const price = parseFloat(product.sellingPrice.toString());
         if (isNaN(price)) return null;
 
         return {
@@ -90,7 +78,7 @@ export function PosClientWrapper({
           price,
           unitPrice: price, // Add unit price
           variantId: defaultVariantId,
-          imageUrls: product.image ? [product.image] : null,
+          imageUrls: product.imageUrls || null,
           totalPrice: price * quantity, // Add total price
         } as CartItem;
       })
@@ -182,36 +170,74 @@ export function PosClientWrapper({
   }, [setCartProductIds]);
 
   const handleSaleSubmit = useCallback(
-    async (saleData: SaleData) => {
-      const processData: ProcessSaleInput = {
-        cartItems: saleData.items.map(item => ({
-          productId: item.productId,
-          variantId: item.variantId,
-          quantity: item.quantity,
-        })),
-        locationId: warehouse?.id || "",
-        customerId: saleData.customerId || undefined,
-        paymentMethod: saleData.paymentMethod,
-        notes: saleData.notes,
-        discountAmount: 0,
-      };
-      
-      const result = await processSale(processData);
-
-      if (!result.success) {
-        throw new Error(result.error || result.message);
+    async (cartSaleData: CartSaleData): Promise<SaleResult> => {
+      if (!warehouse?.id) {
+        toast.error("No warehouse selected");
+        throw new Error("No warehouse selected");
       }
-
-      return result;
+      
+      setIsSubmitting(true);
+      try {
+        // Create our internal SaleData with items
+        const saleData: SaleData = {
+          ...cartSaleData,
+          items: cartItems,
+        };
+        
+        const processData: ProcessSaleInput = {
+          cartItems: cartItems.map(item => ({
+            productId: item.productId,
+            variantId: item.variantId,
+            quantity: item.quantity,
+          })),
+          locationId: warehouse?.id,
+          customerId: saleData.customerId || undefined,
+          paymentMethod: saleData.paymentMethod as PaymentMethod,
+          notes: saleData.notes,
+          discountAmount: 0,
+          enableStockTracking: false, // Set to false as requested
+        };
+        
+        const response = await fetch('/api/pos', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(processData),
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(errorText || 'Failed to process sale');
+        }
+        
+        const result = await response.json();
+        
+        // Clear cart on successful sale
+        clearCart();
+        toast.success("Sale completed successfully");
+        
+        return result;
+      } catch (error) {
+        console.error("Error processing sale:", error);
+        toast.error(error instanceof Error ? error.message : "Failed to process sale");
+        throw error;
+      } finally {
+        setIsSubmitting(false);
+      }
     },
-    []
+    [cartItems, warehouse?.id, clearCart]
   );
 
   return (
     <div className="flex h-screen overflow-hidden bg-muted/20 dark:bg-neutral-900/50">
       
       <div className="flex-grow h-full overflow-auto p-4 md:p-6">
-        <ProductGrid products={products} onAddToCart={addProductToCart} />
+        <ProductGrid 
+          products={products} 
+          onAddToCart={addProductToCart} 
+          getProductUrl={(product) => product.sku ? product.sku.toLowerCase() : ''}
+        />
       </div>
 
       <div className="w-full md:w-[400px] lg:w-[500px] h-full flex-shrink-0 bg-background border-l dark:bg-neutral-900 dark:border-neutral-800">
@@ -224,6 +250,7 @@ export function PosClientWrapper({
             onRemoveItem={removeProductFromCart}
             onClearCart={clearCart}
             onSubmitSale={handleSaleSubmit}
+            isSubmitting={isSubmitting}
           />
         </div>
       </div>

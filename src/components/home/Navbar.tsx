@@ -1,14 +1,14 @@
 // components/Navbar.tsx
 import { useState } from "react";
-import { motion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
+import { MotionDiv, MotionNav } from "../motion";
 
 const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <motion.nav
+    <MotionNav
       className="sticky top-0 z-50 bg-white shadow-sm"
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -85,7 +85,7 @@ const Navbar: React.FC = () => {
       </div>
 
       {isOpen && (
-        <motion.div
+        <MotionDiv
           className="md:hidden bg-white py-4 px-4"
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: "auto" }}
@@ -125,9 +125,9 @@ const Navbar: React.FC = () => {
               </Link>
             </div>
           </div>
-        </motion.div>
+        </MotionDiv>
       )}
-    </motion.nav>
+    </MotionNav>
   );
 };
 

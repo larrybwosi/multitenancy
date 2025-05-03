@@ -106,19 +106,25 @@ export async function getCategoriesWithStats({
             select: {
               id: true,
               name: true,
-              saleItems: {
+              variants: {
                 select: {
-                  quantity: true,
-                  totalAmount: true,
-                  unitPrice: true,
-                  unitCost: true,
-                  productId: true,
+                  id: true,
+                  name: true,
+                  sku: true,
+                  saleItems: {
+                    select: {
+                      quantity: true,
+                      totalAmount: true,
+                      unitPrice: true,
+                      unitCost: true,
+                    },
+                  },
                 },
               },
             },
           },
         },
-        orderBy: { name: "asc" },
+        orderBy: { name: 'asc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
@@ -134,7 +140,7 @@ export async function getCategoriesWithStats({
         {};
 
       category.products.forEach((product) => {
-        product.saleItems.forEach((item) => {
+        product.variants[0].saleItems.forEach((item) => {
           totalRevenue = totalRevenue.add(item.totalAmount);
           const itemProfit = item.unitPrice
             .sub(item.unitCost)

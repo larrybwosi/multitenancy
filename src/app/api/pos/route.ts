@@ -1,12 +1,12 @@
-import { processSale } from "@/actions/pos.actions";
+import { processSale } from "@/actions/sale";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
   try{
-    const result = await processSale(body);
-    if (result.error) {
-      return new NextResponse(result.error.toString(), { status: 400 });
+    const result = await processSale({ ...body, enableStockTracking:false });
+    if (result.message) {
+      return new NextResponse(result.message.toString(), { status: 400 });
     }
     return NextResponse.json(result);
 
