@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar, CreditCard, Package, Receipt, User } from "lucide-react";
 import useSWR from "swr";
 import { Customer, Sale } from "@prisma/client";
+import Image from "next/image";
 
 const formatDate = (dateString: string | Date) => {
   const date = new Date(dateString);
@@ -47,10 +48,14 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json());
 interface SaleWithCustomer extends Sale {
   customer?: Customer;
   items?: {
-    product: {
+    variant:{
       name: string;
-      price: number;
-      imageUrl?: string;
+      sku: string;
+      retailPrice: number;
+      product: {
+        imageUrls: string[] | null;
+        name: string;
+      };
     };
     quantity: number;
     price: number;
@@ -170,7 +175,7 @@ export function SaleDetailsSheet({
                     <h4>Payment Method</h4>
                   </div>
                   <p className="font-medium capitalize">
-                    {saleDetails.paymentMethod.toLowerCase().replace("_", " ")}
+                    {saleDetails?.paymentMethod?.toLowerCase()?.replace("_", " ")}
                   </p>
                 </div>
 
@@ -220,10 +225,10 @@ export function SaleDetailsSheet({
                       className="p-4 grid grid-cols-12 items-center hover:bg-indigo-100/50 dark:hover:bg-indigo-800/20 transition-colors"
                     >
                       <div className="col-span-1">
-                        {item.product.imageUrl ? (
-                          <img
-                            src={item.product.imageUrl}
-                            alt={item.product.name}
+                        {item.variant?.product.imageUrls ? (
+                          <Image
+                            src={item?.variant.product.imageUrls?.[0]}
+                            alt={item?.variant?.product.name}
                             className="h-10 w-10 rounded-md object-cover border border-indigo-200 dark:border-indigo-700"
                           />
                         ) : (
@@ -233,10 +238,10 @@ export function SaleDetailsSheet({
                         )}
                       </div>
                       <div className="col-span-5">
-                        <p className="font-medium">{item.product.name}</p>
+                        <p className="font-medium">{item?.variant?.product.name}</p>
                       </div>
                       <div className="col-span-2 text-center text-sm">
-                        {formatCurrency(item.product.price)}
+                        {formatCurrency(item?.variant?.retailPrice)}
                       </div>
                       <div className="col-span-2 text-center">
                         <span className="inline-flex items-center justify-center min-w-8 h-6 px-2 rounded-full bg-indigo-200 dark:bg-indigo-700 text-indigo-800 dark:text-indigo-200 text-sm font-medium">
@@ -258,7 +263,7 @@ export function SaleDetailsSheet({
                     <span className="text-pink-600 dark:text-pink-400">
                       Subtotal
                     </span>
-                    <span>{formatCurrency(saleDetails.subTotal)}</span>
+                    <span>{formatCurrency(saleDetails?.subTotal)}</span>
                   </div>
 
                   <div className="flex justify-between text-sm">

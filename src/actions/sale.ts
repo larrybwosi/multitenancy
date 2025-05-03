@@ -1,22 +1,18 @@
-import { PaymentMethod, Prisma, PrismaClient } from '@prisma/client'; // Assuming Prisma client import
-import { z } from 'zod'; // Assuming Zod for validation
+import { PaymentMethod, Prisma } from '@prisma/client';
+import { z } from 'zod';
 import { getServerAuthContext } from './auth';
-import { revalidatePath } from 'next/cache'; // Assuming Next.js cache revalidation
+import { revalidatePath } from 'next/cache';
 import { AuditLogAction, AuditEntityType, LoyaltyReason, PaymentStatus, ProductVariantStock } from '@prisma/client';
-import { generateAndSaveReceiptPdf } from '@/lib/receiptGenerator';
+// import { generateAndSaveReceiptPdf } from '@/lib/receiptGenerator';
 import { createAuditLog } from '@/lib/audits/logger';
-// Define db instance (replace with your actual Prisma instance)
-const db = new PrismaClient();
+import { db } from '@/lib/db';
 
-// --- Define Input Schema (Including the new flag) ---
-// NOTE: You'll need to adjust your frontend or calling code to provide this flag.
 const ProcessSaleInputSchema = z.object({
   cartItems: z.array(
     z.object({
       productId: z.string(),
       variantId: z.string().optional().nullable(), // Variant might be optional depending on product setup
       quantity: z.number().int().positive(),
-      // Add other potential item-specific fields if needed (e.g., item-level discount)
     })
   ),
   locationId: z.string(),
@@ -28,14 +24,20 @@ const ProcessSaleInputSchema = z.object({
   enableStockTracking: z.boolean(), // *** NEW FLAG ***
 });
 
-// --- Define Result Type ---
-// Define a more specific type for the successful result data including relations
 type SaleWithDetails = Prisma.SaleGetPayload<{
   include: {
     items: {
       include: {
-        product: { select: { id: true; name: true; category: { select: { name: true } } } };
-        variant: { select: { id: true; name: true; sku: true } };
+        // Use variant relation to get product details for consistency
+        variant: {
+          select: {
+            id: true;
+            name: true;
+            sku: true;
+            product: { select: { id: true; name: true; category: { select: { name: true } } } }; // Get product info via variant
+          };
+        };
+        // Removed direct product relation as variant includes it
       };
     };
     customer: true;
@@ -59,27 +61,7 @@ type ProcessSaleResult =
       error?: string | object; // More specific error type
     };
 
-/**
- * Processes the entire sale transaction based on input data.
- * Features include:
- * - Input validation against a defined schema.
- * - Optional stock level checking and adjustment based on the `enableStockTracking` flag.
- * - Database operations (Sale, SaleItem creation, optional Stock updates) within a transaction for atomicity.
- * - Calculation of totals, discounts, and taxes.
- * - Optional customer loyalty point updates.
- * - Receipt generation (best-effort after transaction).
- * - Cache revalidation for affected data.
- * - Comprehensive error handling and logging.
- *
- * @param inputData - Raw input data for the sale, expected to conform to `ProcessSaleInputSchema`.
- * @returns Promise<ProcessSaleResult> - An object indicating success or failure,
- * along with relevant data (saleId, detailed sale object, receiptUrl) or error details.
- */
-export async function processSale(
-  inputData: unknown // Receive unknown data for safe parsing
-): Promise<ProcessSaleResult> {
-  // --- 1. Validate Input Data ---
-  // Safely parse the input against the schema, including the new enableStockTracking flag.
+export async function processSale(inputData: unknown): Promise<ProcessSaleResult> {
   const validation = ProcessSaleInputSchema.safeParse(inputData);
   if (!validation.success) {
     const flatErrors = validation.error.flatten();
@@ -112,9 +94,8 @@ export async function processSale(
   let memberId: string;
   let organizationId: string;
 
-  // Retrieve essential user and organization context. Fails the process if unavailable.
   try {
-    const authContext = await getServerAuthContext(); 
+    const authContext = await getServerAuthContext();
     if (!authContext?.memberId || !authContext?.organizationId) {
       throw new Error('User authentication context (memberId, organizationId) not found.');
     }
@@ -132,52 +113,39 @@ export async function processSale(
     };
   }
 
-  // --- 3. Database Transaction ---
-  // All database writes occur within a transaction to ensure atomicity.
-  // If any step fails, the entire transaction is rolled back.
   try {
-    // Fetch organization-specific settings BEFORE the main transaction
-    // to avoid redundant queries inside the loop if possible.
     const orgSettings = await db.organizationSettings.findUnique({
       where: { organizationId },
       select: {
-        defaultTaxRate: true, // [cite: 184]
-        negativeStock: true, // [cite: 185]
-        inventoryPolicy: true, // [cite: 185]
+        defaultTaxRate: true, // [cite: 181]
+        negativeStock: true, // [cite: 182]
+        inventoryPolicy: true, // [cite: 182]
       },
     });
 
     // Determine tax rate and negative stock allowance from settings, providing defaults.
-    const taxRate = orgSettings?.defaultTaxRate ?? new Prisma.Decimal(0); // Use Decimal, default to 0 [cite: 184]
-    const allowNegativeStock = orgSettings?.negativeStock ?? false; // [cite: 185]
-    // Determine inventory policy (e.g., FIFO/FEFO) - Currently defaults to FIFO
-    // TODO: Implement different inventory policies based on orgSettings.inventoryPolicy [cite: 185]
-    const inventoryPolicy = orgSettings?.inventoryPolicy ?? 'FIFO'; 
+    const taxRate = orgSettings?.defaultTaxRate ?? new Prisma.Decimal(0); // Use Decimal, default to 0 [cite: 181]
+    const allowNegativeStock = orgSettings?.negativeStock ?? false; // [cite: 182]
+    const inventoryPolicy = orgSettings?.inventoryPolicy ?? 'FEFO'; // [cite: 182] Default to FEFO
     console.log(`Inventory Policy: ${inventoryPolicy}`);
 
     // Start the Prisma transaction
     const result = await db.$transaction(
       async tx => {
-        // tx is the Prisma TransactionClient, use it for all DB operations within the transaction.
-
         let transactionSubTotal = new Prisma.Decimal(0); // Sum of (unitPrice * quantity) for all items, before sale discount/tax
         const saleItemsCreateData: Omit<Prisma.SaleItemCreateManySaleInput, 'saleId'>[] = [];
 
-        // In-memory maps to aggregate stock updates for efficiency.
-        // These are only applied to the DB if enableStockTracking is true.
-        // Map: batchId -> quantity change (negative for sale)
+        // Maps for stock updates *only if* enableStockTracking is true
         const stockBatchUpdates: Map<string, number> = new Map();
-        // Map: composite key "variantId_locationId" -> { id: productVariantStockId, change: quantity change }
         const variantStockUpdates: Map<string, { id: string; change: number }> = new Map();
 
         // --- 3a. Item Processing Loop ---
-        // Process each item in the cart individually.
         for (const item of cartItems) {
           console.log(
             `Processing Item: Product ${item.productId}, Variant ${item.variantId ?? 'N/A'}, Qty ${item.quantity}`
           );
 
-          // Fetch the product and its specific variant (if applicable) ensuring they are active and belong to the org.
+          // Fetch the product and its specific variant (if applicable)
           const product = await tx.product.findUnique({
             where: {
               id: item.productId,
@@ -192,220 +160,210 @@ export async function processSale(
             },
           });
 
-          // Validate product existence
           if (!product) {
             throw new Error(
               `Product ID ${item.productId} not found, is inactive, or does not belong to organization ${organizationId}.`
             );
           }
 
-          // Validate variant existence if a variantId was provided
-          const variant = item.variantId ? product.variants?.[0] : null;
-          if (item.variantId && !variant) {
-            throw new Error(
-              `Variant ID ${item.variantId} for Product ${item.productId} not found or is inactive.` // Org check implicitly done via product
-            );
-          }
-
-          // Determine the Unit Price for the item (from the variant if applicable).
-          // Assumes variant.retailPrice holds the correct price. Adjust if base product price needs merging.
-          const unitPrice = variant?.retailPrice; // [cite: 41]
-          if (unitPrice === undefined || unitPrice === null) {
-            // Fallback or error if price is missing (adjust based on business rules)
-            console.error(`Price missing for Product ${item.productId}, Variant ${item.variantId ?? 'Base'}`);
-            throw new Error(`Retail price not set for ${product.name} ${variant ? `(${variant.name})` : ''}.`);
-          }
-          const itemTotal = new Prisma.Decimal(unitPrice).mul(item.quantity); // Calculate item total (qty * price) before tax/discount
-
-          // --- Stock Handling (Lookup is ALWAYS needed due to schema, Updates are conditional) ---
-          let unitCost = new Prisma.Decimal(0); // Default cost if tracking disabled or no batch found
-          let selectedStockBatchId: string | null = null;
-
-          // CRITICAL Schema Constraint: ProductVariantStock requires a non-null variantId[cite: 133].
-          // This means products without variants likely need a 'default' variant record in the DB
-          // for stock tracking purposes, even if not explicitly shown to the user.
-          if (!item.variantId) {
-            // If your system allows selling base products without explicit variants, you need a mechanism
-            // to find the corresponding ProductVariantStock record (e.g., querying by productId and a known 'default' variant indicator).
-            // For now, based on schema[cite: 133], we assume a variantId is *always* required for stock operations.
+          const variant = product.variants?.[0];
+          // Variant is required for stock tracking and price lookup in this logic
+          if (!item.variantId || !variant) {
             console.error(
-              `Missing variantId for product ${item.productId}. Stock lookup requires a variantId as per schema.`
+              `Missing or inactive variantId for product ${item.productId}. Price and stock lookup require an active variantId.`
             );
             throw new Error(
-              `Configuration Error: Cannot process product ${product.name} without a specific variantId for stock tracking.`
+              `Configuration Error: Cannot process product ${product.name}. An active variant selection is required.`
             );
           }
-          const stockLookupVariantId = item.variantId; // Use the validated, non-null variantId for lookups
+          const stockLookupVariantId = item.variantId; // Use the validated, non-null variant ID
 
-          // --- 3b. Find Available Stock Batch ---
-          // Attempt to find a suitable stock batch based on inventory policy (FIFO/FEFO).
-          // This lookup is necessary even if stock tracking is disabled, because SaleItem requires stockBatchId[cite: 65].
-          const availableBatch = await tx.stockBatch.findFirst({
-            where: {
-              organizationId,
-              locationId, // Filter by the specific POS location [cite: 123]
-              productId: item.productId,
-              variantId: stockLookupVariantId, // Use the explicit variantId for lookup [cite: 121]
-              // Only consider batches with quantity if tracking is enabled OR if we need to fulfill the requirement
-              currentQuantity: { gte: enableStockTracking ? item.quantity : 1 }, // Check if batch has enough quantity if tracking[cite: 128], or just exists if not tracking
-            },
-            // orderBy: {
-            //   // Select ordering based on inventory policy
-            //   ...(inventoryPolicy === 'FEFO' && { expiryDate: 'asc' }), // FEFO: oldest expiry date first [cite: 128]
-            //   receivedDate: 'asc', // FIFO or FEFO fallback: oldest received date first [cite: 128]
-            // },
-            select: { id: true, purchasePrice: true }, // Select only needed fields [cite: 128]
-          });
+          const unitPrice = variant.retailPrice; // [cite: 41]
+          if (unitPrice === undefined || unitPrice === null) {
+            console.error(`Price missing for Product ${item.productId}, Variant ${item.variantId}`);
+            throw new Error(`Retail price not set for ${product.name} (${variant.name}).`);
+          }
+          const itemTotal = new Prisma.Decimal(unitPrice).mul(item.quantity);
 
-          if (availableBatch) {
-            // If a suitable batch is found
-            selectedStockBatchId = availableBatch.id;
-            unitCost = new Prisma.Decimal(availableBatch.purchasePrice); // Use cost from the selected batch [cite: 66, 128]
-          } else {
-            // No single batch has enough quantity (or exists if not tracking quantity).
-            // Check total stock at location only if tracking is enabled and negative stock is disallowed.
-            const totalStock =
-              enableStockTracking && !allowNegativeStock
+          // --- 3b. Stock Batch Handling (Conditional) ---
+          let unitCost = new Prisma.Decimal(0); // Default cost if tracking disabled or no batch found
+          let selectedStockBatchId: string | null = null; // Initialize as null [cite: 64]
+
+          if (enableStockTracking) {
+            console.log(`Stock tracking enabled for item ${variant.name}. Looking up batch...`);
+            // Use FEFO by default, fallback to FIFO/LIFO if needed or based on inventoryPolicy
+            const batchOrderBy: Prisma.StockBatchOrderByWithRelationInput[] = [];
+            if (inventoryPolicy === 'FEFO') {
+              batchOrderBy.push({ expiryDate: 'asc' }, { receivedDate: 'asc' }); // Prioritize earliest expiry, then earliest received
+            } else if (inventoryPolicy === 'LIFO') {
+              batchOrderBy.push({ receivedDate: 'desc' }); // Prioritize latest received
+            } else {
+              // FIFO (Default or Explicit)
+              batchOrderBy.push({ receivedDate: 'asc' }); // Prioritize earliest received
+            }
+
+            const availableBatch = await tx.stockBatch.findFirst({
+              where: {
+                organizationId,
+                locationId, // Filter by the specific POS location [cite: 123]
+                variantId: stockLookupVariantId,
+                currentQuantity: { gte: item.quantity },
+                // Optionally filter out expired batches if FEFO and expiryDate is set
+                ...(inventoryPolicy === 'FEFO' && { expiryDate: { gte: new Date() } }),
+              },
+              orderBy: batchOrderBy,
+              select: { id: true, purchasePrice: true }, // [cite: 128]
+            });
+
+            if (availableBatch) {
+              // If a suitable batch is found
+              selectedStockBatchId = availableBatch.id;
+              unitCost = new Prisma.Decimal(availableBatch.purchasePrice); // [cite: 66, 128]
+              console.log(`Found suitable batch ${selectedStockBatchId} with cost ${unitCost}`);
+            } else {
+              // No single batch has enough quantity OR all are expired (if FEFO)
+              // Check total stock if negative stock is disallowed
+              const totalStock = !allowNegativeStock
                 ? await tx.productVariantStock.findUnique({
                     where: {
-                      variantId_locationId: { variantId: stockLookupVariantId, locationId: locationId }, // [cite: 134]
+                      variantId_locationId: { variantId: stockLookupVariantId, locationId: locationId }, // [cite: 133]
                       organizationId,
                     },
-                    select: { currentStock: true }, // [cite: 133]
+                    select: { currentStock: true }, // [cite: 132]
                   })
                 : null;
-            const currentStockCount = totalStock?.currentStock ?? 0;
+              const currentStockCount = totalStock?.currentStock ?? 0;
 
-            if (enableStockTracking && !allowNegativeStock) {
-              // If tracking is on AND negative stock is forbidden, throw error.
-              console.error(
-                `Insufficient stock: Prod=${item.productId}, Var=${stockLookupVariantId}, Loc=${locationId}. Required: ${item.quantity}, Available: ${currentStockCount}. Negative stock disabled.`
-              );
-              throw new Error(
-                `Insufficient stock for ${product.name} ${variant ? `(${variant.name})` : ''}. Required: ${item.quantity}, Available: ${currentStockCount} at location ${locationId}.`
-              );
-            } else {
-              // CASE 1: Stock Tracking Disabled OR Negative Stock Allowed
-              // We still need a batch ID for SaleItem [cite: 65] and a cost basis[cite: 66].
-              // Find the *most recent* batch (even if empty) to use its ID and cost.
-              const lastBatchForCost = await tx.stockBatch.findFirst({
-                where: {
-                  organizationId,
-                  locationId,
-                  productId: item.productId,
-                  variantId: stockLookupVariantId,
-                },
-                orderBy: { receivedDate: 'desc' }, // Get the most recent batch for cost reference
-                select: { id: true, purchasePrice: true }, // Select only needed fields [cite: 128]
-              });
-
-              if (!lastBatchForCost) {
-                // If absolutely NO batch exists for this product/variant/location ever, we cannot satisfy SaleItem.stockBatchId[cite: 65].
+              if (!allowNegativeStock && currentStockCount < item.quantity) {
                 console.error(
-                  `No batch found for costing/linking: Prod=${item.productId}, Var=${stockLookupVariantId}, Loc=${locationId}. Cannot create SaleItem.`
+                  `Insufficient stock: Prod=${item.productId}, Var=${stockLookupVariantId}, Loc=${locationId}. Required: ${item.quantity}, Available: ${currentStockCount}. Negative stock disabled.`
                 );
                 throw new Error(
-                  `System Error: Cannot record sale for ${product.name} ${variant ? `(${variant.name})` : ''}. No purchase batch found at location ${locationId} to determine cost or link to.`
-                );
-              }
-
-              // Use the last found batch's ID and cost.
-              selectedStockBatchId = lastBatchForCost.id;
-              unitCost = new Prisma.Decimal(lastBatchForCost.purchasePrice); // [cite: 66, 128]
-
-              if (enableStockTracking && allowNegativeStock) {
-                // Log warning only if we are actually proceeding with negative stock.
-                console.warn(
-                  `Proceeding with negative stock for Prod=${item.productId}, Var=${stockLookupVariantId}, Loc=${locationId}. Required: ${item.quantity}. Using cost/ID from last batch: ${selectedStockBatchId}`
+                  `Insufficient stock for ${product.name} (${variant.name}). Required: ${item.quantity}, Available: ${currentStockCount} at location ${locationId}.`
                 );
               } else {
-                // Log info if stock tracking is just disabled.
-                console.info(
-                  `Stock tracking disabled. Linking sale item to last known batch: Prod=${item.productId}, Var=${stockLookupVariantId}, Loc=${locationId}, Batch: ${selectedStockBatchId}`
-                );
+                // Need *a* batch for costing/linking, even if allowing negative stock or no specific batch found
+                const lastBatchForCost = await tx.stockBatch.findFirst({
+                  where: {
+                    organizationId,
+                    locationId,
+                    variantId: stockLookupVariantId,
+                  },
+                  orderBy: { receivedDate: 'desc' }, // Get the most recent batch for cost reference
+                  select: { id: true, purchasePrice: true }, // [cite: 128]
+                });
+
+                if (!lastBatchForCost) {
+                  // If absolutely NO batch exists for this product/variant/location ever.
+                  console.error(
+                    `No batch found for costing/linking: Prod=${item.productId}, Var=${stockLookupVariantId}, Loc=${locationId}. Cannot create SaleItem without a batch reference.`
+                  );
+                  // SaleItem.stockBatchId is non-nullable in the provided schema text, so we must error here if tracking is enabled.
+                  // If it were nullable, we could proceed with null. Re-check schema.txt...
+                  // CONFIRMED: saleItem.stockBatchId is optional (String?)[cite: 64]. Let's throw if tracking enabled but no historical batch exists.
+                  throw new Error(
+                    `System Error: Cannot record sale for ${product.name} (${variant.name}) with stock tracking enabled. No purchase batch history found at location ${locationId} to determine cost or link to.`
+                  );
+                }
+
+                selectedStockBatchId = lastBatchForCost.id; // Link to the most recent batch
+                unitCost = new Prisma.Decimal(lastBatchForCost.purchasePrice); // [cite: 66, 128]
+
+                if (allowNegativeStock) {
+                  console.warn(
+                    `Proceeding with negative stock (or selling from unavailable batch) for Prod=${item.productId}, Var=${stockLookupVariantId}, Loc=${locationId}. Required: ${item.quantity}. Using cost/ID from last batch: ${selectedStockBatchId}`
+                  );
+                }
               }
             }
-          }
-
-          // At this point, selectedStockBatchId should be non-null, or an error thrown.
-          if (!selectedStockBatchId) {
-            // Safeguard check - should not be reached if logic above is sound.
-            console.error(
-              `Critical error: selectedStockBatchId is null despite checks. Prod=${item.productId}, Var=${stockLookupVariantId}`
+            // This check is now only relevant if tracking is enabled
+            if (!selectedStockBatchId) {
+              console.error(
+                `Critical error: selectedStockBatchId is null despite checks AND stock tracking enabled. Prod=${item.productId}, Var=${stockLookupVariantId}`
+              );
+              throw new Error(
+                `Internal error processing item ${product.name}. Could not determine stock batch while tracking enabled.`
+              );
+            }
+          } else {
+            // Stock tracking is DISABLED for this sale
+            console.info(
+              `Stock tracking disabled. Skipping stock batch lookup for item: Prod=${item.productId}, Var=${stockLookupVariantId}. Using default cost.`
             );
-            throw new Error(`Internal error processing item ${product.name}. Could not determine stock batch.`);
+            selectedStockBatchId = null; // Explicitly set to null [cite: 64]
+            // unitCost remains the default (0) - could alternatively use ProductVariant.buyingPrice if available/desired
+            // unitCost = variant.buyingPrice ? new Prisma.Decimal(variant.buyingPrice) : new Prisma.Decimal(0);
           }
 
-          // Add item's contribution to the overall transaction subtotal.
+          // --- 3c. Prepare Sale Item Data ---
           transactionSubTotal = transactionSubTotal.add(itemTotal);
 
-          // Prepare data for SaleItem creation.
           saleItemsCreateData.push({
-            productId: product.id,
-            variantId: variant?.id, // Use the actual variant ID [cite: 64]
-            stockBatchId: selectedStockBatchId, // Link to the specific batch used [cite: 65] - MUST be non-null
+            variantId: stockLookupVariantId, // Use the non-null variant ID
+            stockBatchId: selectedStockBatchId, // Can be null if tracking disabled [cite: 64]
             quantity: item.quantity,
-            unitPrice: new Prisma.Decimal(unitPrice), // Price per unit at time of sale [cite: 66]
-            unitCost: unitCost, // Cost per unit from StockBatch at time of sale [cite: 66]
-            discountAmount: new Prisma.Decimal(0), // Placeholder for potential item-level discount logic
-            taxRate: new Prisma.Decimal(taxRate), // Apply org default tax rate [cite: 66] (can be item-specific later)
-            taxAmount: new Prisma.Decimal(0), // Calculated later if needed per item
-            totalAmount: itemTotal, // (unitPrice * quantity) before overall sale discount/tax [cite: 66]
+            unitPrice: new Prisma.Decimal(unitPrice),
+            unitCost: unitCost, // Use derived cost (if tracking) or default (if not tracking)
+            discountAmount: new Prisma.Decimal(0), // Item-level discount (can be added later)
+            taxRate: new Prisma.Decimal(taxRate), // Assuming sale-level tax rate applies to all items
+            taxAmount: new Prisma.Decimal(0), // Calculated later or if item-specific tax exists
+            totalAmount: itemTotal, // Initial total before item-specific discount/tax
           });
 
-          // --- 3c. Aggregate Stock Updates (In Memory, IF Tracking Enabled) ---
-          // Only aggregate updates if stock tracking is enabled for this sale.
-          if (enableStockTracking) {
-            // Aggregate decrement for the specific StockBatch quantity.
+          // --- 3d. Aggregate Stock Updates (In Memory, IF Tracking Enabled) ---
+          if (enableStockTracking && selectedStockBatchId) {
+            // Ensure we have a batch ID to update
+            // Aggregate update for the specific StockBatch
             const currentBatchUpdate = stockBatchUpdates.get(selectedStockBatchId) ?? 0;
             stockBatchUpdates.set(selectedStockBatchId, currentBatchUpdate - item.quantity);
 
-            // Find the corresponding ProductVariantStock record ID for aggregation.
+            // Find or potentially create the ProductVariantStock record for aggregation
             const variantStockRecord = await tx.productVariantStock.findUnique({
               where: {
-                variantId_locationId: { variantId: stockLookupVariantId, locationId: locationId }, // [cite: 134]
+                variantId_locationId: { variantId: stockLookupVariantId, locationId: locationId }, // [cite: 133]
                 organizationId,
               },
               select: { id: true },
             });
 
+            let variantStockId: string;
             if (!variantStockRecord) {
-              // This case implies data inconsistency if a StockBatch exists but ProductVariantStock doesn't.
-              // However, it's necessary if negative stock is allowed and this is the first sale bringing stock < 0.
+              // This case should ideally not happen if a StockBatch exists, but handle defensively
               console.warn(
-                `Consistency Warning: StockBatch ${selectedStockBatchId} link required, but no corresponding ProductVariantStock found for Var=${stockLookupVariantId}, Loc=${locationId}. Trying to create one for negative stock.`
+                `Consistency Warning: StockBatch ${selectedStockBatchId} exists, but no corresponding ProductVariantStock found for Var=${stockLookupVariantId}, Loc=${locationId}. Creating one.`
               );
-              // Attempt to create the missing ProductVariantStock record, starting with the negative quantity.
+              // Attempt to create the missing ProductVariantStock record
               const newVariantStock = await createMissingVariantStock(
                 tx,
-                product.id, // [cite: 132]
+                product.id, // [cite: 131]
                 organizationId,
-                stockLookupVariantId, // The non-null variant ID [cite: 133]
+                stockLookupVariantId, // [cite: 133]
                 locationId, // [cite: 133]
-                -item.quantity // Start with the negative quantity from this sale [cite: 133]
+                -item.quantity // Start with the negative quantity from this sale [cite: 132]
               );
-              // Track update for the newly created record.
+              variantStockId = newVariantStock.id;
+              // Set initial change directly for the new record
               variantStockUpdates.set(stockLookupVariantId + '_' + locationId, {
-                id: newVariantStock.id,
+                id: variantStockId,
                 change: -item.quantity,
               });
             } else {
+              variantStockId = variantStockRecord.id;
               // Aggregate update for the existing ProductVariantStock record.
               const key = stockLookupVariantId + '_' + locationId;
               const currentVariantStockUpdate = variantStockUpdates.get(key)?.change ?? 0;
               variantStockUpdates.set(key, {
-                id: variantStockRecord.id,
+                id: variantStockId,
                 change: currentVariantStockUpdate - item.quantity,
               });
             }
-          } // End if (enableStockTracking)
-        } // --- End Item Loop ---
+          }
+        } // --- End Item Processing Loop ---
 
-        // --- 3d. Calculate Final Sale Amounts ---
+        // --- 3e. Calculate Sale Totals ---
         const saleSubTotal = transactionSubTotal;
         const saleDiscount = new Prisma.Decimal(discountAmount); // Convert input number to Decimal
 
-        // Validate that the overall discount doesn't exceed the subtotal.
         if (saleDiscount.greaterThan(saleSubTotal)) {
           console.error(`Validation Error: Discount (${saleDiscount}) exceeds subtotal (${saleSubTotal}).`);
           throw new Error(
@@ -413,101 +371,100 @@ export async function processSale(
           );
         }
 
-        // Calculate taxable amount after discount.
         const taxableAmount = saleSubTotal.sub(saleDiscount);
-        // Calculate tax amount using Decimal precision and appropriate rounding.
         const calculatedTaxAmount = taxableAmount.mul(taxRate).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
-        // Calculate the final amount the customer pays.
         const finalAmount = taxableAmount.add(calculatedTaxAmount); // [cite: 59]
 
         console.log(
           `Sale Calculation: SubTotal=${saleSubTotal}, Discount=${saleDiscount}, Taxable=${taxableAmount}, TaxRate=${taxRate}, TaxAmount=${calculatedTaxAmount}, Final=${finalAmount}`
         );
 
-        // --- 3e. Create Sale Record ---
-        // Generate a unique sale number (consider a more robust method like DB sequence in production).
-        const saleNumber = `SALE-${Date.now().toString().slice(-6)}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`; // Example generator [cite: 58]
+        // --- 3f. Create Sale Record ---
+        const saleNumber = `SALE-${Date.now().toString().slice(-6)}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`; // [cite: 58]
         console.log(`Creating Sale record: ${saleNumber}`);
 
         const sale = await tx.sale.create({
           data: {
             saleNumber: saleNumber, // [cite: 58]
             organizationId: organizationId, // [cite: 21]
-            memberId: memberId, // Member processing the sale [cite: 58]
-            customerId: customerId, // Optional customer [cite: 58]
-            cashDrawerId: cashDrawerId, // Optional cash drawer [cite: 60]
-            locationId: locationId, // Record the location of the sale [cite: 59] (ensure schema has this)
+            memberId: memberId, // [cite: 58]
+            customerId: customerId, // [cite: 58]
+            cashDrawerId: cashDrawerId, // [cite: 60]
+            locationId: locationId, // [cite: 59]
             saleDate: new Date(), // [cite: 58]
-            totalAmount: saleSubTotal, // Sum of item totals BEFORE overall discount/tax [cite: 58]
-            discountAmount: saleDiscount, // Overall sale discount [cite: 59]
-            taxAmount: calculatedTaxAmount, // Calculated tax for the whole sale [cite: 59]
-            finalAmount: finalAmount, // Final amount charged [cite: 59]
+            totalAmount: saleSubTotal, // Pre-discount/tax total [cite: 58]
+            discountAmount: saleDiscount, // Overall discount [cite: 59]
+            taxAmount: calculatedTaxAmount, // Overall tax [cite: 59]
+            finalAmount: finalAmount, // Final charged amount [cite: 59]
             paymentMethod: paymentMethod, // [cite: 59]
-            paymentStatus: PaymentStatus.COMPLETED, // Assume payment is immediate and successful [cite: 59]
-            notes: notes ?? `POS Sale at location ${locationId} on ${new Date().toLocaleString()}`, // [cite: 60]
-            // Create SaleItems linked to this sale using the prepared data array.
+            paymentStatus: PaymentStatus.COMPLETED, // Assume immediate success [cite: 59]
+            notes: notes ?? `POS Sale at location ${locationId}`, // [cite: 60]
             items: {
               createMany: {
                 data: saleItemsCreateData,
-                skipDuplicates: false, // Should not have duplicates here
+                skipDuplicates: false,
               },
             },
           },
-          // Include relations needed for the return value, receipt generation, and cache revalidation.
+          // Include relations needed for the return value and receipt
           include: {
             items: {
               include: {
-                product: { select: { id: true, name: true, category: { select: { name: true } } } }, // Include necessary product fields
-                variant: { select: { id: true, name: true, sku: true } }, // Include necessary variant fields [cite: 41]
+                variant: {
+                  // Fetch variant details for receipt/response
+                  select: {
+                    id: true,
+                    name: true,
+                    sku: true,
+                    product: { select: { id: true, name: true, category: { select: { name: true } } } }, // Include product name/category via variant [cite: 38, 41]
+                  },
+                },
               },
             },
-            customer: true, // [cite: 58]
-            member: { select: { id: true, user: { select: { name: true } } } }, // Get member and user's name [cite: 11]
+            customer: true, // [cite: 57]
+            member: { select: { id: true, user: { select: { name: true } } } }, // [cite: 11]
             organization: { select: { id: true, name: true, logo: true } }, // [cite: 17]
-            location: { select: { id: true, name: true } }, // Include location details [cite: 59]
+            location: { select: { id: true, name: true } }, // [cite: 59]
           },
         });
         console.log(`Sale record ${sale.id} created successfully.`);
 
-        // --- 3f. Apply Aggregated Stock Updates (Conditional) ---
-        // Only apply the collected stock updates if tracking is enabled.
+        // --- 3g. Apply Aggregated Stock Updates (Conditional) ---
         if (enableStockTracking) {
           console.log('Stock tracking enabled, applying updates...');
 
-          // Update Stock Batches using the aggregated map.
+          // Update Stock Batches
           console.log(`Applying Stock Batch updates:`, stockBatchUpdates);
           for (const [batchId, quantityChange] of stockBatchUpdates.entries()) {
             if (quantityChange < 0) {
-              // Only apply decrements for sales
+              // Should always be negative for sales
               await tx.stockBatch.update({
                 where: { id: batchId },
                 data: {
                   currentQuantity: {
-                    decrement: Math.abs(quantityChange), // Use decrement for atomicity [cite: 128]
+                    decrement: Math.abs(quantityChange), // [cite: 128]
                   },
                 },
               });
             }
           }
 
-          // Update Product Variant Stock (overall stock count per location) using the aggregated map.
+          // Update Product Variant Stock (overall count)
           console.log(`Applying Product Variant Stock updates:`, variantStockUpdates);
-          // Note: variantStockUpdates keys are "variantId_locationId"
           for (const [_key, update] of variantStockUpdates.entries()) {
-            console.log(`Applying Product Variant Stock update:`, _key, update);
-            // Use _key as key is reconstructed
+            console.log(`Updating ProductVariantStock ID ${update.id} with change ${update.change} for variant ${_key}`);
             if (update.change < 0) {
-              // Only apply decrements for sales
+              // Should always be negative for sales
               await tx.productVariantStock.update({
-                where: { id: update.id }, // Use the stored ProductVariantStock ID
+                where: { id: update.id }, // Use the stored ID
                 data: {
                   currentStock: {
-                    // Update total stock [cite: 133]
+                    // [cite: 132]
                     decrement: Math.abs(update.change),
                   },
-                  // IMPORTANT: Also update availableStock if your logic uses it separately[cite: 133].
-                  // This depends on whether you implement a 'reservedStock' workflow.
-                  // availableStock: { decrement: Math.abs(update.change) }
+                  // Assuming availableStock = currentStock - reservedStock (no separate reservation step here)
+                  // If availableStock is tracked separately, decrement it too.
+                  // availableStock: { decrement: Math.abs(update.change) } // [cite: 132]
                 },
               });
             }
@@ -517,34 +474,26 @@ export async function processSale(
           console.log('Stock tracking disabled, skipping stock level updates.');
         }
 
-        // --- 3g. Update Customer Loyalty Points (Example) ---
-        // Award loyalty points if a customer is associated and the sale amount is positive.
+        // --- 3h. Update Customer Loyalty Points ---
         if (customerId && finalAmount.greaterThan(0)) {
-          // Example rule: 1 point per $10 spent (adjust as needed).
-          // Use Decimal division and floor for accuracy.
+          // Example: 1 point per $10
           const pointsEarned = finalAmount.dividedBy(10).floor().toNumber();
-
           if (pointsEarned > 0) {
             console.log(`Awarding ${pointsEarned} loyalty points to customer ${customerId} for sale ${sale.id}`);
-            // Update customer points atomically within the transaction.
             const updatedCustomer = await tx.customer.update({
-              where: { id: customerId, organizationId }, // Ensure customer belongs to the org
-              data: {
-                loyaltyPoints: { increment: pointsEarned }, // [cite: 54]
-              },
-              select: { loyaltyPoints: true }, // Select only needed field
+              where: { id: customerId, organizationId },
+              data: { loyaltyPoints: { increment: pointsEarned } }, // [cite: 54]
+              select: { loyaltyPoints: true },
             });
-
-            // Create a record of the loyalty transaction for history/auditing.
             await tx.loyaltyTransaction.create({
               data: {
                 organizationId: organizationId,
-                customerId: customerId, // [cite: 231]
-                memberId: memberId, // Member who processed the sale [cite: 232]
+                customerId: customerId, // [cite: 227]
+                memberId: memberId, // [cite: 228]
                 pointsChange: pointsEarned,
-                reason: LoyaltyReason.SALE_EARNED, // [cite: 235]
-                relatedSaleId: sale.id, // Link loyalty tx to the sale [cite: 232]
-                transactionDate: new Date(), // [cite: 234]
+                reason: LoyaltyReason.SALE_EARNED, // [cite: 231]
+                relatedSaleId: sale.id, // [cite: 228]
+                transactionDate: new Date(), // [cite: 230]
               },
             });
             console.log(
@@ -553,77 +502,62 @@ export async function processSale(
           }
         }
 
-        // --- 3h. Transaction Success ---
-        // If all steps within the transaction callback succeed, Prisma commits the transaction.
+        // --- 3i. Transaction Success ---
         console.log(`Transaction completed successfully for Sale ID: ${sale.id}`);
-        // Return the created sale object with included details.
-        // Cast to the specific type including relations for type safety downstream.
+        // Cast to the detailed type before returning
         return sale as SaleWithDetails;
-      }, // End transaction callback
+      },
       {
-        // Prisma transaction options (adjust timeouts as needed)
-        maxWait: 15000, // Max time Prisma waits to acquire a DB connection (ms)
-        timeout: 30000, // Max time the *entire transaction* can run (ms)
+        maxWait: 15000,
+        timeout: 30000,
       }
     ); // --- End Database Transaction ---
 
     // --- 4. Post-Transaction: Generate Receipt ---
-    // Receipt generation happens *after* the transaction commits successfully.
-    // It's considered a best-effort operation; failure here shouldn't roll back the sale.
-    let receiptUrl: string | null = null;
-    if (result) {
-      // Ensure the transaction returned the sale object
-      try {
-        console.log(`Attempting receipt generation for Sale ID: ${result.id}`);
-        // Pass the necessary data (the result object from the transaction) to the generation function.
-        // The `SaleWithDetails` type ensures all required relations (like member name) are present.
-        receiptUrl = await generateAndSaveReceiptPdf(result); // Pass the SaleWithDetails object [cite: 62]
-
-        // Update the Sale record with the receipt URL (outside transaction, best effort)
-        if (receiptUrl) {
-          await db.sale.update({
-            where: { id: result.id },
-            data: { receiptUrl: receiptUrl }, // [cite: 62]
-          });
-          console.log(`Sale record ${result.id} updated with receipt URL: ${receiptUrl}`);
-        } else {
-          console.warn(`Receipt generation did not return a URL for Sale ID ${result.id}.`);
-        }
-      } catch (receiptError: unknown) {
-        // Log receipt errors but don't fail the overall process.
-        console.error(`Receipt generation/upload failed critically for Sale ID ${result.id}:`, {
-          errorMessage: receiptError instanceof Error ? receiptError.message : 'Unknown receipt error',
-          errorDetails: receiptError,
-        });
-        // Optionally: Implement alerting (e.g., send to error monitoring service)
-      }
-    } else {
-      // This case should theoretically not happen if the transaction succeeded without error,
-      // but it's a defensive check.
-      console.error('Transaction seemed successful but returned no result object.');
-      throw new Error('Transaction completed without returning expected sale data.');
-    }
+    // let receiptUrl: string | null = null;
+    // if (result) {
+    //   try {
+    //     console.log(`Attempting receipt generation for Sale ID: ${result.id}`);
+    //     receiptUrl = await generateAndSaveReceiptPdf(result); // Pass the detailed Sale object [cite: 62]
+    //     if (receiptUrl) {
+    //       // Update Sale record (best effort)
+    //       await db.sale.update({
+    //         where: { id: result.id },
+    //         data: { receiptUrl: receiptUrl }, // [cite: 61]
+    //       });
+    //       console.log(`Sale record ${result.id} updated with receipt URL.`);
+    //     } else {
+    //       console.warn(`Receipt generation did not return a URL for Sale ID ${result.id}.`);
+    //     }
+    //   } catch (receiptError: unknown) {
+    //     console.error(`Receipt generation/upload failed for Sale ID ${result.id}:`, receiptError);
+    //     // Log but don't fail the overall process
+    //   }
+    // } else {
+    //   console.error('Transaction seemed successful but returned no result object.');
+    //   // This indicates a potential issue in the transaction logic or return type.
+    //   // Throw an error here as the subsequent steps depend on 'result'.
+    //   throw new Error('Transaction completed without returning expected sale data.');
+    // }
 
     // --- 5. Cache Revalidation ---
-    // Invalidate caches for pages potentially affected by this sale.
-    // (Assumes Next.js `revalidatePath` or similar mechanism)
     console.log('Revalidating relevant paths...');
     try {
-      revalidatePath('/dashboard/pos'); // General POS dashboard
-      revalidatePath('/dashboard/sales'); // Sales list
-      revalidatePath(`/dashboard/sales/${result.id}`); // Specific sale detail page
-      // Revalidate product/variant stock pages only if tracking was enabled
+      revalidatePath('/pos');
+      revalidatePath('/sales');
+      revalidatePath(`/sales/${result.id}`);
+      // Only revalidate inventory paths if tracking was enabled
       if (enableStockTracking) {
         cartItems.forEach(item => {
-          revalidatePath(`/dashboard/inventory/products/${item.productId}`); // Product stock page
           if (item.variantId) {
-            // Assuming a specific path for variant stock details exists
-            revalidatePath(`/dashboard/inventory/variants/${item.variantId}`);
+            // Check if variantId exists
+            revalidatePath(`/inventory/products/${item.productId}`); // Product stock page
+            revalidatePath(`/inventory/variants/${item.variantId}`); // Variant stock page
           }
         });
       }
       if (customerId) {
-        revalidatePath(`/dashboard/customers/${customerId}`); // Customer detail page (for loyalty points)
+        revalidatePath(`/customers/${customerId}`); // For loyalty points
       }
       console.log('Path revalidation triggers issued.');
     } catch (revalidationError) {
@@ -632,162 +566,134 @@ export async function processSale(
     }
 
     // --- 6. Success Response ---
-    // Return a success indicator, message, and the relevant data.
     return {
       success: true,
       message: `Sale ${result.saleNumber} processed successfully.`,
       saleId: result.id,
-      data: result, // Include the full sale object (SaleWithDetails)
-      receiptUrl: receiptUrl, // Include the generated receipt URL
+      data: result, // Return the full SaleWithDetails object
+      // receiptUrl: receiptUrl,
     };
   } catch (error: unknown) {
     // --- 7. Comprehensive Error Handling ---
-    // Catch any error that occurred during validation, transaction, or post-transaction steps.
+    // (Keep the existing comprehensive error handling block)
     console.error('--- POS Sale Processing CRITICAL ERROR ---');
     console.error(`Timestamp: ${new Date().toISOString()}`);
-    // Use || 'N/A' for context variables that might not be set if error occurred early
     console.error(
-      `Organization: ${organizationId || 'N/A'}, Member: ${memberId || 'N/A'}, Location: ${locationId || 'N/A'}`
+      `Context: Org=${organizationId || 'N/A'}, Member=${memberId || 'N/A'}, Location=${locationId || 'N/A'}, StockTracking=${enableStockTracking}`
     );
-    console.error(`Input Data (validated if available):`, validation.success ? validatedData : inputData);
+    console.error(`Input Data:`, validation.success ? validatedData : inputData);
     console.error('Error Details:', error);
     console.error('--- End Error Report ---');
 
-    // Attempt to create an audit log entry for the failure.
+    // Optional: Audit log for failure attempt
     try {
-      // Ensure context variables have fallback values for logging if they weren't set.
-      const logMemberId = memberId || 'system'; // Fallback if memberId not set
-      const logOrgId = organizationId || 'unknown'; // Fallback if orgId not set
-
       await createAuditLog(db, {
-        memberId: logMemberId,
-        organizationId: logOrgId,
-        action: AuditLogAction.CREATE, // Log as a failed CREATE attempt
+        memberId: memberId || 'system',
+        organizationId: organizationId || 'unknown',
+        action: AuditLogAction.CREATE,
         entityType: AuditEntityType.SALE, // [cite: 170]
-        entityId: 'N/A', // No sale ID was successfully created
-        description: `Failed to process sale. Error: ${error instanceof Error ? error.message : String(error)}`,
+        entityId: 'N/A', // Sale failed
+        description: `Failed to process POS sale. Error: ${error instanceof Error ? error.message : String(error)}`,
         details: {
           error: error instanceof Error ? error.stack : String(error),
-          input: validation.success ? validatedData : inputData, // Include input that caused failure
-        }, // [cite: 175]
+          input: validation.success ? validatedData : inputData,
+        }, // [cite: 172]
       });
     } catch (auditLogError) {
       console.error('Failed to write failure audit log:', auditLogError);
     }
 
-    // Determine user-friendly error message and details based on error type.
     let errorMessage = 'Failed to process sale due to an internal error.';
     let errorDetails: string | object | undefined;
 
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      // Specific known database errors (constraints, etc.)
-      errorMessage = `Database error processing sale. Please try again or contact support. (Code: ${error.code})`;
+      errorMessage = `Database error processing sale. (Code: ${error.code})`;
       errorDetails = { code: error.code, meta: error.meta, message: error.message };
-      if (error.code === 'P2002') {
-        // Unique constraint failed - provide more specific feedback if possible
-        errorMessage = `Error: A record with a conflicting unique identifier (e.g., sale number) already exists.`;
-      }
     } else if (error instanceof Prisma.PrismaClientValidationError) {
-      // Data shape error before DB operation
-      errorMessage = 'Data validation failed during database operation. Check input format.';
+      errorMessage = 'Data validation failed during database operation.';
       errorDetails = error.message;
     } else if (error instanceof z.ZodError) {
-      // Should be caught by initial validation, but as a fallback
-      errorMessage = 'Invalid input data format detected during processing.';
+      errorMessage = 'Invalid input data format detected.';
       errorDetails = error.flatten().fieldErrors;
     } else if (error instanceof Error) {
-      // Catch specific errors thrown within the transaction (like stock/validation) or other logic errors.
-      // Provide specific messages for known operational failures.
+      // Use specific user-friendly messages for common logical errors
       if (
         error.message.includes('Insufficient stock') ||
-        error.message.includes('not found') || // Covers product/variant/batch not found
-        error.message.includes('cannot exceed subtotal') || // Discount error
-        error.message.includes('requires a variantId') || // Configuration error
-        error.message.includes('price not set') || // Missing price error
-        error.message.includes('Could not determine stock batch') // Internal logic safeguard
+        error.message.includes('not found') ||
+        error.message.includes('cannot exceed subtotal') ||
+        error.message.includes('Configuration Error:') ||
+        error.message.includes('price not set') ||
+        error.message.includes('Could not determine stock batch') ||
+        error.message.includes('System Error:')
       ) {
-        errorMessage = error.message; // Use the specific, user-friendly error thrown in the logic
-        errorDetails = error.stack; // Provide stack trace for debugging
+        errorMessage = error.message;
       } else {
-        // General unexpected errors from logic
         errorMessage = 'An unexpected error occurred during sale processing.';
-        errorDetails = { message: error.message, stack: error.stack };
       }
+      errorDetails = { message: error.message, stack: error.stack }; // Keep stack trace for debugging
     } else {
-      // Fallback for non-standard errors
-      errorMessage = 'An unknown error occurred during sale processing.';
-      errorDetails = String(error); // Convert unknown error to string
+      errorMessage = 'An unknown error occurred.';
+      errorDetails = String(error);
     }
 
-    // Return standardized error response
     return {
       success: false,
-      message: errorMessage, // User-facing message
-      error: errorDetails ?? 'No further details available.', // Internal/debugging details
+      message: errorMessage,
+      error: errorDetails ?? 'No further details available.',
     };
   }
 }
 
-/**
- * Helper function to create a ProductVariantStock record if one is missing,
- * typically used when processing a sale that results in negative stock
- * for a variant/location combination that didn't previously exist.
- * Executed within the main transaction context (`tx`).
- *
- * @param tx - The Prisma TransactionClient.
- * @param productId - The ID of the product. [cite: 132]
- * @param organizationId - The ID of the organization.
- * @param variantId - The ID of the product variant (must be non-null). [cite: 133]
- * @param locationId - The ID of the inventory location. [cite: 133]
- * @param initialQuantity - The starting quantity (usually negative from the sale item). [cite: 133]
- * @returns Promise<ProductVariantStock> - The newly created stock record.
- * @throws Error if creation fails.
- */
+// Helper function remains the same
 async function createMissingVariantStock(
-  tx: Prisma.TransactionClient, // Use Prisma.TransactionClient type for transaction context
+  tx: Prisma.TransactionClient,
   productId: string,
   organizationId: string,
   variantId: string, // Schema requires variantId to be non-null [cite: 133]
   locationId: string,
-  initialQuantity: number
+  initialQuantity: number // Can be negative if starting due to a sale
 ): Promise<ProductVariantStock> {
   console.log(
     `Attempting to create missing ProductVariantStock: Org=${organizationId}, Prod=${productId}, Var=${variantId}, Loc=${locationId}, InitialQty=${initialQuantity}`
   );
+  // Ensure initialQuantity results in non-negative availableStock if reservedStock is 0
+  const currentStock = initialQuantity;
+  const availableStock = currentStock; // Assuming reservedStock starts at 0 [cite: 132]
 
   try {
-    // Create the ProductVariantStock record using the transaction client.
     const newVariantStock = await tx.productVariantStock.create({
       data: {
         organizationId: organizationId,
-        productId: productId, // [cite: 132]
-        variantId: variantId, // Use the provided non-null variantId [cite: 133]
+        productId: productId, // [cite: 131]
+        variantId: variantId, // [cite: 133]
         locationId: locationId, // [cite: 133]
-        currentStock: initialQuantity, // [cite: 133]
-        // availableStock will likely be calculated based on currentStock - reservedStock (default 0)
-        // Set defaults explicitly if needed, though Prisma might handle them.
-        reservedStock: 0, // [cite: 133]
-        availableStock: initialQuantity, // [cite: 133] Initial available = current if reserved is 0
-        // Default reorder points can be inherited or set here if necessary [cite: 134]
+        currentStock: currentStock, // [cite: 132]
+        availableStock: availableStock, // [cite: 132]
+        reservedStock: 0, // Default reserved stock [cite: 132]
+        // reorderPoint/reorderQty can use defaults or be fetched from variant/org settings
       },
     });
-
-    console.log(`Successfully created new ProductVariantStock record with ID: ${newVariantStock.id}`);
+    console.log(`Created new ProductVariantStock record ${newVariantStock.id}`);
     return newVariantStock;
-  } catch (error: unknown) {
-    console.error(
-      `Failed to create missing ProductVariantStock: Org=${organizationId}, Var=${variantId}, Loc=${locationId}`,
-      error
-    );
-    // Re-throw a more specific error to be caught by the main transaction handler.
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      // Handle potential race condition if another process created it simultaneously
-      throw new Error(
-        `Concurrency Error: Failed to create missing stock record for Variant ${variantId} at Location ${locationId} as it likely already exists now.`
+  } catch (creationError) {
+    console.error('Failed to create missing ProductVariantStock:', creationError);
+    // Depending on the error type, you might want to throw a more specific error.
+    // If it's a unique constraint violation (P2002), it might mean another process created it concurrently.
+    if (creationError instanceof Prisma.PrismaClientKnownRequestError && creationError.code === 'P2002') {
+      console.warn(
+        `ProductVariantStock for Var=${variantId}, Loc=${locationId} likely created concurrently. Attempting to fetch.`
       );
-    } else if (error instanceof Error) {
-      throw new Error(`Failed to create missing stock record: ${error.message}`);
+      // Attempt to fetch the record again, assuming it now exists.
+      const existingRecord = await tx.productVariantStock.findUnique({
+        where: { variantId_locationId: { variantId, locationId }, organizationId },
+      });
+      if (existingRecord) return existingRecord;
+      // If fetch fails again, throw the original error or a new one.
+      throw new Error(
+        `Failed to create or find ProductVariantStock for Var=${variantId}, Loc=${locationId} after concurrent creation attempt.`
+      );
     }
-    throw new Error('An unknown error occurred while creating the missing stock record.');
+    // Re-throw other errors
+    throw creationError;
   }
 }

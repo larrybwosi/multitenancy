@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
+import { useDebounceValue } from 'usehooks-ts';
 import { cn } from "@/lib/utils";
 import { Search, ChevronDown, Filter } from "lucide-react";
 
@@ -43,7 +44,6 @@ export interface FilterControlsProps {
   searchAreaClassName?: string;
   variant?: "default" | "minimal" | "bordered";
 }
-
 
 interface DropdownFilterProps {
   label: string;
@@ -184,8 +184,13 @@ export function FilterControls({
   searchAreaClassName,
   variant = "default",
 }: FilterControlsProps) {
-  // Get styling based on variant
   const variantClasses = getVariantClasses(variant);
+  const [searchValue, setSearchValue] = useState("");
+  const [debouncedValue] = useDebounceValue(searchValue, 300);
+
+  useEffect(() => {
+    onSearch?.(debouncedValue);
+  }, [debouncedValue, onSearch]);
 
   return (
     <div
@@ -238,7 +243,8 @@ export function FilterControls({
             <input
               type="text"
               placeholder={searchPlaceholder}
-              onChange={(e) => onSearch?.(e.target.value)}
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
               className={cn(
                 "pl-9 pr-3 py-1.5 w-full min-w-[180px] rounded-md border text-sm focus:outline-none",
                 variantClasses.input

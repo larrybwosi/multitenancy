@@ -16,7 +16,16 @@ export async function GET(
         customer: true,
         items: {
           include: {
-            product: true,
+            variant: {
+              include: {
+                product: {
+                  select: {
+                    imageUrls: true,
+                    name: true,
+                  },
+                }
+              },
+            },
           },
         },
       },

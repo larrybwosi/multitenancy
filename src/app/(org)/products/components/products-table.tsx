@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Edit, Package, Trash2, MoreHorizontal, Grid, List, Plus, Info, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import { FilterControls, FilterControlsProps } from '@/components/file-controls';
-import { Pagination, PaginationProps } from '@/components/pagination';
 import ProductModal from './product-details-modal';
 import { useDeleteProduct } from '@/lib/hooks/use-products';
 import { Product, ProductVariant, Supplier, Category } from '@prisma/client';
@@ -45,7 +44,6 @@ interface ProductWithDetails extends Product {
 
 interface ProductTableProps {
   products: ProductWithDetails[];
-  paginationProps: PaginationProps;
   onRestock: (product: Product) => void;
   filterControlsProps: FilterControlsProps;
   categories: Category[];
@@ -53,7 +51,6 @@ interface ProductTableProps {
 
 export const ProductTable: React.FC<ProductTableProps> = ({
   products,
-  paginationProps,
   onRestock,
   filterControlsProps,
   categories,
@@ -296,16 +293,6 @@ export const ProductTable: React.FC<ProductTableProps> = ({
         </div>
       )}
 
-      <div className="mt-auto pt-4">
-        <Pagination
-          currentPage={paginationProps.currentPage}
-          totalPages={paginationProps.totalPages}
-          pageSize={paginationProps.pageSize}
-          totalItems={paginationProps.totalItems}
-          onPageChange={paginationProps.onPageChange}
-          onPageSizeChange={paginationProps.onPageSizeChange}
-        />
-      </div>
 
       {selectedProduct && <ProductModal open product={selectedProduct} onClose={() => setSelectedProduct(null)} />}
 

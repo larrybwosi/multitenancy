@@ -10,6 +10,7 @@ import { useQueryState } from 'nuqs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
+import { Pagination } from '@/components/pagination';
 
 export default function ProductsPage() {
   // State management with nuqs for pagination and filters
@@ -122,7 +123,7 @@ export default function ProductsPage() {
   }
 
   return (
-    <Card className="border-none flex-1 overflow-hidden bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900">
+    <Card className="border-none flex-1 overflow-hidden bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 flex flex-col min-h-[calc(100vh-theme(spacing.32))]">
       <CardHeader>
         <SectionHeader
           title="Products"
@@ -131,11 +132,10 @@ export default function ProductsPage() {
         />
       </CardHeader>
 
-      <CardContent className="px-6">
+      <CardContent className="px-6 flex-1 flex flex-col">
         <ProductsTab
           initialProducts={productsData?.data ?? []}
           initialCategories={categoriesData?.data ?? []}
-          pagination={paginationProps}
           onSearchChange={value => setSearch(value || null)}
           onCategoryChange={value => setCategoryId(value || null)}
           onSortChange={(by, order) => {
@@ -150,6 +150,17 @@ export default function ProductsPage() {
             sortOrder,
           }}
         />
+        
+        <div className="mt-auto border-t pt-4">
+          <Pagination
+            currentPage={paginationProps.currentPage}
+            totalPages={paginationProps.totalPages}
+            pageSize={paginationProps.pageSize}
+            totalItems={paginationProps.totalItems}
+            onPageChange={paginationProps.onPageChange}
+            onPageSizeChange={paginationProps.onPageSizeChange}
+          />
+        </div>
       </CardContent>
     </Card>
   );

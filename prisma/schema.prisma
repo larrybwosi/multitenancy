@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client-js"
-  // output   = "src/generated/prisma/client"
+  output   = "src/generated/prisma/client"
 }
 
 datasource db {
@@ -35,7 +35,7 @@ model User {
   notifications        Notification[]
   expenseNotifications Notification[] @relation("UserExpenseNotifications")
 
-  @@unique([username]) // Ensure username is optional if field is optional
+  @@unique([username])
   @@map("user")
 }
 
@@ -346,11 +346,11 @@ model Customer {
 
 model Sale {
   id             String        @id @default(cuid())
-  saleNumber     String // Unique within an organization
+  saleNumber     String 
   customerId     String?
   customer       Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull) // Allow sale without customer, or if customer deleted
-  memberId       String // Changed from userId to memberId for clarity
-  member         Member        @relation(fields: [memberId], references: [id]) // Changed relation name
+  memberId       String 
+  member         Member        @relation(fields: [memberId], references: [id]) 
   saleDate       DateTime      @default(now())
   totalAmount    Decimal       @db.Decimal(10, 2) // Before discounts and taxes
   discountAmount Decimal       @default(0) @db.Decimal(10, 2)
@@ -377,7 +377,7 @@ model Sale {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
 
   @@unique([organizationId, saleNumber]) // Enforce uniqueness per organization
-  @@index([memberId]) // Changed from userId
+  @@index([memberId]) 
   @@index([saleDate])
   @@index([customerId])
   @@index([organizationId, saleDate])
@@ -391,8 +391,8 @@ model SaleItem {
   sale           Sale            @relation(fields: [saleId], references: [id], onDelete: Cascade)
   variantId      String
   variant        ProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict) // Prevent variant deletion if sold
-  stockBatchId   String // Which specific batch was sold (important for FIFO/FEFO/Costing)
-  stockBatch     StockBatch      @relation(fields: [stockBatchId], references: [id], onDelete: Restrict) // Prevent batch deletion if sold
+  stockBatchId   String? // Which specific batch was sold (important for FIFO/FEFO/Costing)
+  stockBatch     StockBatch?      @relation(fields: [stockBatchId], references: [id], onDelete: Restrict) // Prevent batch deletion if sold
   quantity       Int
   unitPrice      Decimal         @db.Decimal(10, 2) // Price per unit at time of sale
   unitCost       Decimal         @db.Decimal(10, 2) // Cost per unit from StockBatch at time of sale

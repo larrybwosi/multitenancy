@@ -5,7 +5,6 @@ import { Download, FileText, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import { RestockDialog } from './restock';
 import { ProductTable } from './products-table';
-import { PaginationProps } from '@/components/pagination';
 import { CreateProductModal } from './add-modal';
 import { useQueryState } from 'nuqs';
 
@@ -25,7 +24,6 @@ type ProductWithRelations = Product & {
 interface ProductsTabProps {
   initialProducts: ProductWithRelations[];
   initialCategories: Category[];
-  pagination: PaginationProps;
   onSearchChange: (value: string) => void;
   onCategoryChange: (value: string) => void;
   onSortChange: (by: 'name' | 'createdAt' | 'basePrice', order: 'asc' | 'desc') => void;
@@ -40,7 +38,6 @@ interface ProductsTabProps {
 export default function ProductsTab({
   initialProducts,
   initialCategories,
-  pagination,
   onSearchChange,
   onCategoryChange,
   onSortChange,
@@ -182,7 +179,6 @@ export default function ProductsTab({
           products={initialProducts}
           onRestock={handleRestockClick}
           filterControlsProps={filterOptions}
-          paginationProps={pagination}
           categories={initialCategories}
         />
       </div>
