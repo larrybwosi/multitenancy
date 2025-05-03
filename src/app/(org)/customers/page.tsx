@@ -66,7 +66,6 @@ export default async function CustomersPage(params: CustomersPageProps) {
           title="Customer Management"
           subtitle="Manage your customer data, track loyalty points, and monitor customer status."
           icon={<Users className="h-8 w-8 text-indigo-500" />}
-          autoUpdate="2 min"
         />
         <LoadingSkeleton />
       </div>
@@ -82,7 +81,6 @@ export default async function CustomersPage(params: CustomersPageProps) {
           subtitle="Manage your customer data, track loyalty points, and monitor customer
           status."
           icon={<Users className="h-8 w-8 text-indigo-500" />}
-          autoUpdate="2 min"
         />
       </div>
       

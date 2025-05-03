@@ -36,7 +36,7 @@ export function WarehousePage() {
   const { data, error, isLoading, mutate } = useSWR<{
     warehouses: InventoryLocation[];
   }>("/api/warehouse", fetcher, {
-    refreshInterval: 120000, // Auto-refresh every 2 minutes
+    refreshInterval: 180000, // Auto-refresh every 2 minutes
     revalidateOnFocus: false,
     onError: (err) => {
       toast.error("Error", {
@@ -57,8 +57,8 @@ export function WarehousePage() {
     <div className="space-y-6 container px-4 mt-4">
       <div className="flex justify-between items-center">
         <SectionHeader
-          title="Warehouse Management"
-          subtitle="Manage your organization's warehouses and storage facilities"
+          title="Branch Management"
+          subtitle="Manage your organization's branches and storage facilities"
           icon={<Boxes className="h-8 w-8 text-gray-600" />}
         />
         <div className="flex gap-2">

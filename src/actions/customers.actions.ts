@@ -1,11 +1,10 @@
 "use server";
 
-import { z } from "zod";
-import { Customer, LoyaltyReason, Prisma } from "@prisma/client";
+import { Customer, Prisma } from "@prisma/client";
 import { db, db as prisma } from "@/lib/db";
 import { revalidatePath, revalidateTag } from "next/cache";
-import { invalidatePosDataCache } from "@/app/pos/actions"; 
 import { checkUserAuthorization, getServerAuthContext } from "./auth";
+import { CustomerFormSchema, CustomerIdSchema, CustomerWithDetails, LoyaltyAdjustmentSchema } from "@/lib/validations/customers";
 
 // --- Helper Types ---
 
@@ -17,72 +16,6 @@ interface ActionResponse<TData = null> {
   errors?: Record<string, string[]> | null; // Field-specific validation errors
 }
 
-// Detailed customer type including relations
-export type CustomerWithDetails = Prisma.CustomerGetPayload<{
-  include: {
-    sales: {
-      select: {
-        id: true;
-        saleNumber: true;
-        saleDate: true;
-        finalAmount: true;
-        paymentStatus: true;
-      };
-      orderBy: { saleDate: "desc" };
-      take: 50; // Limit initial load
-    };
-    loyaltyTransactions: {
-      include: {
-        member: { select: { user: { select: { name: true; email: true } } } }; // User who processed
-      };
-      orderBy: { transactionDate: "desc" };
-      take: 50; // Limit initial load
-    };
-    createdBy: { select: { user: { select: { name: true; email: true } } } }; // User who created
-    updatedBy: { select: { user: { select: { name: true; email: true } } } }; // User who last updated
-  };
-}>;
-
-// --- Helper Functions ---
-
-
-// --- Zod Validation Schemas ---
-
-const CustomerIdSchema = z.object({
-  id: z.string().cuid("Invalid customer ID format."),
-});
-
-const CustomerFormSchema = z.object({
-  id: z.string().cuid("Invalid customer ID format.").optional(), // Optional for creation
-  name: z.string().min(1, "Customer name cannot be empty."),
-  email: z
-    .string()
-    .email("Please enter a valid email address.")
-    .optional()
-    .or(z.literal("")), // Allow empty string or valid email
-  phone: z.string().optional(),
-  address: z.string().optional(),
-  notes: z.string().optional(),
-  // isActive is managed by delete/status actions, not usually direct form input unless intended
-});
-
-const LoyaltyAdjustmentSchema = z.object({
-  customerId: z.string().cuid("Invalid customer ID."),
-  pointsChange: z.coerce // Coerce input string/number to number
-    .number({ invalid_type_error: "Points change must be a number." })
-    .int("Points must be a whole number.")
-    .refine((val) => val !== 0, "Points change cannot be zero."),
-  reason: z.nativeEnum(LoyaltyReason).refine(
-    (val) =>
-      val === "MANUAL_ADJUSTMENT" ||
-      val === "PROMOTION" ||
-      val === "SIGN_UP_BONUS" ||
-      val === "RETURN_ADJUSTMENT" || // Allow return adjustment here
-      val === "OTHER",
-    { message: "Invalid reason selected for manual adjustment." }
-  ),
-  notes: z.string().max(500, "Notes cannot exceed 500 characters.").optional(),
-});
 
 // --- Customer Server Actions ---
 
@@ -343,7 +276,6 @@ export async function saveCustomer(
     }
 
     revalidatePath("/customers"); // Revalidate customer list page
-    await invalidatePosDataCache(); // Invalidate POS cache if needed
 
     return {
       success: true,
@@ -448,8 +380,7 @@ export async function deleteCustomer(
     });
 
     revalidatePath("/dashboard/customers"); // Update list view
-    revalidateTag(`customer_${validatedId.data.id}`); // Update detail view cache
-    await invalidatePosDataCache();
+    revalidateTag(`customer_${validatedId.data.id}`); 
 
     return {
       success: true,
@@ -563,8 +494,7 @@ export async function addManualLoyaltyTransaction(
 
     // Revalidate caches
     revalidateTag(`customer_${customerId}`); // Detail page (shows points and history)
-    revalidatePath("/dashboard/customers"); // List page (if points are shown)
-    await invalidatePosDataCache();
+    revalidatePath("/dashboard/customers");
 
     return {
       success: true,

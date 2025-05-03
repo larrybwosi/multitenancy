@@ -18,7 +18,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Building2, User, Mail, Phone, MapPin, Calendar, Clock, Check, X, Loader2 } from 'lucide-react';
+import { Building2, User, Mail, Phone, MapPin, Calendar, Clock, Check, X, Loader2, TruckElectric } from 'lucide-react';
 import { useState } from 'react';
 import { useCreateSupplier } from '@/lib/hooks/use-supplier';
 
@@ -57,7 +57,7 @@ export function CreateSupplierDialog() {
       phone: '',
       address: '',
       paymentTerms: '',
-      leadTime: null,
+      leadTime: 1,
       isActive: true,
       customFields: null,
     },
@@ -75,7 +75,7 @@ export function CreateSupplierDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button className="flex items-center gap-2">
-          <Building2 className="w-4 h-4" />
+          <TruckElectric className="w-4 h-4" />
           Add Supplier
         </Button>
       </DialogTrigger>

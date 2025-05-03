@@ -43,8 +43,8 @@ import {
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
-import { CreateCustomerSheet } from "./CustomerForm";
 import { getCustomerDetails } from "@/actions/customers.actions";
+import { CustomerModal } from "./CustomerForm";
 
 interface CustomerDetailViewProps {
   customerId: string;
@@ -185,9 +185,7 @@ export function CustomerDetailView({
                   <User className="h-8 w-8" />
                 </div>
                 <div className="space-y-1">
-                  <CardTitle className="text-2xl font-bold text-card-foreground">
-                    {customer.name}
-                  </CardTitle>
+                  <CardTitle className="text-2xl font-bold text-card-foreground">{customer.name}</CardTitle>
                   <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                     {customer.email && (
                       <div className="flex items-center">
@@ -195,9 +193,7 @@ export function CustomerDetailView({
                         <span>{customer.email}</span>
                       </div>
                     )}
-                    {customer.email && customer.phone && (
-                      <span className="text-muted-foreground/50">•</span>
-                    )}
+                    {customer.email && customer.phone && <span className="text-muted-foreground/50">•</span>}
                     {customer.phone && (
                       <div className="flex items-center">
                         <Phone className="h-3.5 w-3.5 mr-1" />
@@ -209,19 +205,16 @@ export function CustomerDetailView({
               </div>
               <div className="flex items-center space-x-2">
                 <CustomBadge
-                  variant={customer.isActive ? "active" : "inactive"}
+                  variant={customer.isActive ? 'active' : 'inactive'}
                   className={`text-xs px-3 py-1 rounded-full ${
                     customer.isActive
-                      ? "bg-green-100 text-green-800 border border-green-200"
-                      : "bg-gray-100 text-gray-800 border border-gray-200"
+                      ? 'bg-green-100 text-green-800 border border-green-200'
+                      : 'bg-gray-100 text-gray-800 border border-gray-200'
                   }`}
                 >
-                  {customer.isActive ? "Active" : "Inactive"}
+                  {customer.isActive ? 'Active' : 'Inactive'}
                 </CustomBadge>
-                <Dialog
-                  open={isEditModalOpen}
-                  onOpenChange={setIsEditModalOpen}
-                >
+                <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
                   <DialogTrigger asChild>
                     <Button
                       variant="outline"
@@ -234,15 +227,10 @@ export function CustomerDetailView({
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-[625px]">
                     <DialogHeader>
-                      <DialogTitle className="text-primary">
-                        Edit Customer Details
-                      </DialogTitle>
+                      <DialogTitle className="text-primary">Edit Customer Details</DialogTitle>
                     </DialogHeader>
                     <div className="py-4">
-                      <CreateCustomerSheet
-                        customer={customer}
-                        onFormSubmit={handleEditModalClose}
-                      />
+                      <CustomerModal customer={customer} onFormSubmit={handleEditModalClose} />
                     </div>
                   </DialogContent>
                 </Dialog>
@@ -253,33 +241,25 @@ export function CustomerDetailView({
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center">
                     <Award className="h-5 w-5 mr-2 text-accent" />
-                    <span className="text-base font-medium">
-                      {loyaltyTier.name} Tier
-                    </span>
+                    <span className="text-base font-medium">{loyaltyTier.name} Tier</span>
                   </div>
-                  <span className="text-lg font-semibold text-accent">
-                    {customer.loyaltyPoints} pts
-                  </span>
+                  <span className="text-lg font-semibold text-accent">{customer.loyaltyPoints} pts</span>
                 </div>
-                <Progress
-                  value={loyaltyTier.progress}
-                  className="h-2 bg-accent/10"
-                />
+                <Progress value={loyaltyTier.progress} className="h-2 bg-accent/10" />
                 {loyaltyTier.nextTier && (
                   <div className="mt-1 text-xs text-right text-muted-foreground">
-                    {loyaltyTier.nextTier} tier:{" "}
-                    {loyaltyTier.progress.toFixed(0)}% progress
+                    {loyaltyTier.nextTier} tier: {loyaltyTier.progress.toFixed(0)}% progress
                   </div>
                 )}
               </div>
               <div className="flex items-center text-sm text-muted-foreground">
                 <Calendar className="h-3.5 w-3.5 mr-1.5" />
                 <span>
-                  Member since:{" "}
+                  Member since:{' '}
                   {formatDate(customer.createdAt, {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
                   })}
                 </span>
               </div>
@@ -328,10 +308,7 @@ export function CustomerDetailView({
             </TabsList>
 
             {/* Details Tab */}
-            <TabsContent
-              value="details"
-              className="mt-6 animate-in fade-in-50 duration-300"
-            >
+            <TabsContent value="details" className="mt-6 animate-in fade-in-50 duration-300">
               <Card className="border-border/40 shadow-sm bg-card/95">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg text-card-foreground flex items-center">
@@ -346,35 +323,25 @@ export function CustomerDetailView({
                         <MapPin className="h-3.5 w-3.5 mr-1.5" />
                         Address
                       </span>
-                      <span className="text-card-foreground">
-                        {customer.address || "Not provided"}
-                      </span>
+                      <span className="text-card-foreground">{customer.address || 'Not provided'}</span>
                     </div>
                     <div className="bg-muted/30 p-3 rounded-lg">
-                      <span className="font-medium text-primary block mb-1">
-                        Internal Notes
-                      </span>
-                      <span className="text-card-foreground">
-                        {customer.notes || "No notes available"}
-                      </span>
+                      <span className="font-medium text-primary block mb-1">Internal Notes</span>
+                      <span className="text-card-foreground">{customer.notes || 'No notes available'}</span>
                     </div>
                     <div className="bg-muted/30 p-3 rounded-lg flex flex-col">
                       <span className="font-medium text-primary block mb-1  items-center">
                         <Calendar className="h-3.5 w-3.5 mr-1.5" />
                         Last Updated
                       </span>
-                      <span className="text-card-foreground">
-                        {formatDate(customer.updatedAt)}
-                      </span>
+                      <span className="text-card-foreground">{formatDate(customer.updatedAt)}</span>
                     </div>
                     <div className="bg-muted/30 p-3 rounded-lg">
                       <span className="font-medium text-primary block mb-1 items-center">
                         <CreditCard className="h-3.5 w-3.5 mr-1.5" />
                         Purchase History
                       </span>
-                      <span className="text-card-foreground">
-                        {customer.sales.length} purchases
-                      </span>
+                      <span className="text-card-foreground">{customer.sales.length} purchases</span>
                     </div>
                   </div>
                 </CardContent>
@@ -382,19 +349,14 @@ export function CustomerDetailView({
             </TabsContent>
 
             {/* Sales History Tab */}
-            <TabsContent
-              value="sales"
-              className="mt-6 animate-in fade-in-50 duration-300"
-            >
+            <TabsContent value="sales" className="mt-6 animate-in fade-in-50 duration-300">
               <Card className="border-border/40 shadow-sm bg-card/95">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg text-card-foreground flex items-center">
                     <CreditCard className="h-5 w-5 mr-2 text-primary" />
                     Recent Sales
                   </CardTitle>
-                  <CardDescription>
-                    Showing last {customer.sales.length} sales.
-                  </CardDescription>
+                  <CardDescription>Showing last {customer.sales.length} sales.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <SalesHistoryTable sales={customer.sales} />
@@ -403,43 +365,30 @@ export function CustomerDetailView({
             </TabsContent>
 
             {/* Loyalty History Tab */}
-            <TabsContent
-              value="loyalty_history"
-              className="mt-6 animate-in fade-in-50 duration-300"
-            >
+            <TabsContent value="loyalty_history" className="mt-6 animate-in fade-in-50 duration-300">
               <Card className="border-border/40 shadow-sm bg-card/95">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg text-card-foreground flex items-center">
                     <History className="h-5 w-5 mr-2 text-primary" />
                     Loyalty Point Transactions
                   </CardTitle>
-                  <CardDescription>
-                    Showing last {customer.loyaltyTransactions.length}{" "}
-                    transactions.
-                  </CardDescription>
+                  <CardDescription>Showing last {customer.loyaltyTransactions.length} transactions.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <LoyaltyHistoryTable
-                    transactions={customer.loyaltyTransactions}
-                  />
+                  <LoyaltyHistoryTable transactions={customer.loyaltyTransactions} />
                 </CardContent>
               </Card>
             </TabsContent>
 
             {/* Loyalty Adjustment Tab */}
-            <TabsContent
-              value="loyalty_adjust"
-              className="mt-6 animate-in fade-in-50 duration-300"
-            >
+            <TabsContent value="loyalty_adjust" className="mt-6 animate-in fade-in-50 duration-300">
               <Card className="border-border/40 shadow-sm bg-card/95">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg text-card-foreground flex items-center">
                     <Sparkles className="h-5 w-5 mr-2 text-primary" />
                     Adjust Loyalty Points
                   </CardTitle>
-                  <CardDescription>
-                    Current balance: {customer.loyaltyPoints} points
-                  </CardDescription>
+                  <CardDescription>Current balance: {customer.loyaltyPoints} points</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <LoyaltyAdjustmentForm

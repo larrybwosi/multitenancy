@@ -5,7 +5,6 @@ import {
   MoreHorizontal,
   Pencil,
   Eye,
-  Trash2,
   ToggleLeft,
   ToggleRight,
 } from "lucide-react"; // Use Trash2 for deactivate visual
@@ -35,7 +34,6 @@ import {
   SheetHeader,
   SheetTitle,
   SheetDescription,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 import {
   AlertDialog,

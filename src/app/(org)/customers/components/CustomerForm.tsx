@@ -1,380 +1,302 @@
-"use client";
-import React, { useState, useTransition, useEffect } from "react";
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import {
-  UserPlus,
-  User,
-  Mail,
-  Phone,
-  MapPin,
-  FileText,
-  Tag,
-  Loader2,
-} from "lucide-react";
-import { toast } from "sonner";
-import { cn } from "@/lib/utils";
-import { Customer } from "@prisma/client";
-import { saveCustomer } from "@/actions/customers.actions";
-import { ScrollArea } from "@/components/ui/scroll-area";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Card } from '@/components/ui/card';
+import { User, Mail, Phone, MapPin, FileText, Loader2, UserPlus, CheckCircle2 } from 'lucide-react';
+import { CustomerFormSchema, CustomerFormValues } from '@/lib/validations/customers';
+import { useCreateCustomer } from '@/lib/hooks/use-customers';
 
-// Form Schema
-const CustomerFormSchema = z.object({
-  name: z.string().min(1, "Customer name is required."),
-  email: z
-    .string()
-    .email("Invalid email address.")
-    .optional()
-    .or(z.literal("")),
-  phone: z.string().optional(),
-  address: z.string().optional(),
-  notes: z.string().optional(),
-  isActive: z.boolean().default(true),
-});
 
-// Type inference for form values
-type CustomerFormValues = z.infer<typeof CustomerFormSchema>;
-
-// Default values for the form
-const defaultValues: Partial<CustomerFormValues> = {
-  name: "",
-  email: "",
-  phone: "",
-  address: "",
-  notes: "",
-  isActive: true,
-};
-
-interface CustomerFormProps {
-  customer?: Customer | null; // For editing
-  onFormSubmit?: () => void; // Callback to close dialog/modal
+interface CustomerModalProps {
+  isOpen?: boolean;
+  onClose: () => void;
+  customer?: CustomerFormValues; // For edit mode
+  title?: string;
 }
 
-export function CreateCustomerSheet({
+export function CustomerModal({
+  onClose,
   customer,
-  onFormSubmit,
-}: CustomerFormProps) {
-  const [open, setOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-  const isEditing = !!customer;
+  title = customer ? 'Edit Customer' : 'Create Customer',
+  isOpen: externalIsOpen,
+}: CustomerModalProps) {
+  const [isOpen, setIsOpen] = useState(externalIsOpen || false);
+  const { mutateAsync: createCustomer, isPending: creatingCustomer } = useCreateCustomer(customer)
 
-  const form = useForm({
+  // Initialize form with react-hook-form and zod validation
+  const form = useForm<CustomerFormValues>({
     resolver: zodResolver(CustomerFormSchema),
-    defaultValues,
+    defaultValues: {
+      id: customer?.id || undefined,
+      name: customer?.name || '',
+      email: customer?.email || '',
+      phone: customer?.phone || '',
+      address: customer?.address || '',
+      notes: customer?.notes || '',
+    },
   });
 
-  // Reset form when opening/closing or when customer changes
+  // Update form when customer data changes (for edit mode)
   useEffect(() => {
-    if (open) {
-      if (customer) {
-        form.reset({
-          name: customer.name,
-          email: customer.email || "",
-          phone: customer.phone || "",
-          address: customer.address || "",
-          notes: customer.notes || "",
-          isActive: customer.isActive,
-        });
-      } else {
-        form.reset(defaultValues);
-      }
+    if (customer) {
+      form.reset({
+        id: customer.id,
+        name: customer.name,
+        email: customer.email || '',
+        phone: customer.phone || '',
+        address: customer.address || '',
+        notes: customer.notes || '',
+      });
+    } else {
+      form.reset({
+        id: undefined,
+        name: '',
+        email: '',
+        phone: '',
+        address: '',
+        notes: '',
+      });
     }
-  }, [open, customer, form]);
+  }, [customer, form]);
 
-  async function onSubmit(data: CustomerFormValues) {
-    setError(null);
-    const formData = new FormData();
-
-    if (isEditing && customer?.id) {
-      formData.append("id", customer.id);
+  // Update internal state when external isOpen changes
+  useEffect(() => {
+    if (externalIsOpen !== undefined) {
+      setIsOpen(externalIsOpen);
     }
+  }, [externalIsOpen]);
 
-    formData.append("name", data.name);
-    formData.append("isActive", String(data.isActive));
-    if (data.email) formData.append("email", data.email);
-    if (data.phone) formData.append("phone", data.phone);
-    if (data.address) formData.append("address", data.address);
-    if (data.notes) formData.append("notes", data.notes);
+  // Handle form submission
+  const handleSubmit = async (data: CustomerFormValues) => {
+    await createCustomer(data);
+    // Close modal and reset form
+    handleClose();
+  };
 
-    startTransition(async () => {
-      try {
-        const result = await saveCustomer(formData);
-
-        if (result?.errors) {
-          setError("Validation failed on server.");
-          toast.error("Failed to save customer. Check fields.");
-        } else if (result?.message) {
-          setError(result.message);
-          toast.error("Failed to save customer", {
-            description: result.message,
-            duration: 5000,
-          });
-        } else {
-          toast.success(isEditing ? "Customer updated!" : "Customer created!");
-          form.reset();
-          setOpen(false);
-          onFormSubmit?.();
-        }
-      } catch (err) {
-        setError("An unexpected error occurred");
-        toast.error("Failed to save customer", {
-          description: "Please try again later",
-          duration: 5000,
-        });
-      }
-    });
-  }
+  // Handle modal close
+  const handleClose = () => {
+    setIsOpen(false);
+    form.reset();
+    onClose();
+  };
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-2 px-4 py-2">
-          <UserPlus className="h-4 w-4" />
-          <span>{isEditing ? "Edit Customer" : "New Customer"}</span>
+    <Dialog open={isOpen} onOpenChange={open => !open && handleClose()}>
+      <DialogTrigger asChild>
+        <Button
+          onClick={() => setIsOpen(true)}
+          className="bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 shadow-md transition-all duration-200"
+        >
+          {customer ? (
+            <span className="flex items-center gap-2">
+              <User className="h-4 w-4" /> Edit Customer
+            </span>
+          ) : (
+            <span className="flex items-center gap-2">
+              <UserPlus className="h-4 w-4" /> New Customer
+            </span>
+          )}
         </Button>
-      </SheetTrigger>
-      <SheetContent className="sm:max-w-2xl w-full border-l border-slate-200 bg-white overflow-y-auto">
-        <ScrollArea>
-          <SheetHeader className="mb-6">
-            <div className="flex items-center gap-3">
-              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-2 rounded-lg shadow-md">
-                <User className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <SheetTitle className="text-2xl font-bold text-slate-800">
-                  {isEditing ? "Edit Customer" : "Add New Customer"}
-                </SheetTitle>
-                <SheetDescription className="text-slate-500 mt-1">
-                  {isEditing
-                    ? "Update the customer details below."
-                    : "Create a new customer record in your system with the details below."}
-                </SheetDescription>
-              </div>
-            </div>
-          </SheetHeader>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-4xl">
+        <DialogHeader className="text-center pb-4 border-b">
+          <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+            {title}
+          </DialogTitle>
+          <DialogDescription className="max-w-md mx-auto text-gray-500">
+            {customer ? 'Update customer information in your database.' : 'Add a new customer to your database.'}
+          </DialogDescription>
+        </DialogHeader>
 
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <div className="grid grid-cols-1 gap-6">
-                {/* Name Field */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-0.5 rounded-xl shadow-sm">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left Column */}
+              <Card className="p-4 shadow-sm border border-gray-100 rounded-lg bg-white">
+                <div className="space-y-5">
+                  {/* Customer Name Field */}
                   <FormField
                     control={form.control}
                     name="name"
                     render={({ field }) => (
-                      <FormItem className="bg-white rounded-lg p-4">
-                        <FormLabel className="text-sm font-medium text-slate-700 flex items-center gap-2">
-                          <User className="h-4 w-4 text-blue-600" />
-                          <span>Full Name</span>
-                          <span className="text-red-500">*</span>
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-2 text-gray-700 font-medium">
+                          <User className="h-4 w-4 text-blue-500" />
+                          Customer Name
                         </FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="John Doe"
+                            placeholder="Enter customer name"
                             {...field}
-                            disabled={isPending}
-                            className="border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 h-10"
+                            className="w-full border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-md transition-all"
                           />
                         </FormControl>
-                        <FormMessage className="text-red-500 text-xs mt-1" />
+                        <FormDescription className="text-xs text-gray-500">
+                          Full name of the individual or company.
+                        </FormDescription>
+                        <FormMessage className="text-red-500 text-xs" />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Email Field */}
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-2 text-gray-700 font-medium">
+                          <Mail className="h-4 w-4 text-blue-500" />
+                          Email Address
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="customer@example.com"
+                            type="email"
+                            {...field}
+                            className="w-full border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-md transition-all"
+                            value={field.value || ''}
+                          />
+                        </FormControl>
+                        <FormDescription className="text-xs text-gray-500">
+                          Primary contact email for the customer.
+                        </FormDescription>
+                        <FormMessage className="text-red-500 text-xs" />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Phone Field */}
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-2 text-gray-700 font-medium">
+                          <Phone className="h-4 w-4 text-blue-500" />
+                          Phone Number
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="+1 (555) 123-4567"
+                            {...field}
+                            className="w-full border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-md transition-all"
+                            value={field.value || ''}
+                          />
+                        </FormControl>
+                        <FormDescription className="text-xs text-gray-500">
+                          Contact phone number with country code if applicable.
+                        </FormDescription>
+                        <FormMessage className="text-red-500 text-xs" />
                       </FormItem>
                     )}
                   />
                 </div>
+              </Card>
 
-                {/* Email and Phone Fields */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-0.5 rounded-xl shadow-sm">
-                    <FormField
-                      control={form.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem className="bg-white rounded-lg p-4 h-full">
-                          <FormLabel className="text-sm font-medium text-slate-700 flex items-center gap-2">
-                            <Mail className="h-4 w-4 text-blue-600" />
-                            Email Address
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              type="email"
-                              placeholder="john@example.com"
-                              {...field}
-                              disabled={isPending}
-                              className="border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 h-10"
-                            />
-                          </FormControl>
-                          <FormDescription className="text-xs text-slate-500 mt-1">
-                            Customer contact email address
-                          </FormDescription>
-                          <FormMessage className="text-red-500 text-xs mt-1" />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-0.5 rounded-xl shadow-sm">
-                    <FormField
-                      control={form.control}
-                      name="phone"
-                      render={({ field }) => (
-                        <FormItem className="bg-white rounded-lg p-4 h-full">
-                          <FormLabel className="text-sm font-medium text-slate-700 flex items-center gap-2">
-                            <Phone className="h-4 w-4 text-blue-600" />
-                            Phone Number
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="+1 (555) 123-4567"
-                              {...field}
-                              disabled={isPending}
-                              className="border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 h-10"
-                            />
-                          </FormControl>
-                          <FormMessage className="text-red-500 text-xs mt-1" />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
-
-                {/* Address Field */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-0.5 rounded-xl shadow-sm">
+              {/* Right Column */}
+              <Card className="p-4 shadow-sm border border-gray-100 rounded-lg bg-white">
+                <div className="space-y-5">
+                  {/* Address Field */}
                   <FormField
                     control={form.control}
                     name="address"
                     render={({ field }) => (
-                      <FormItem className="bg-white rounded-lg p-4">
-                        <FormLabel className="text-sm font-medium text-slate-700 flex items-center gap-2">
-                          <MapPin className="h-4 w-4 text-blue-600" />
-                          Physical Address
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-2 text-gray-700 font-medium">
+                          <MapPin className="h-4 w-4 text-blue-500" />
+                          Address
                         </FormLabel>
                         <FormControl>
-                          <Input
-                            placeholder="123 Main St, City, State, ZIP"
+                          <Textarea
+                            placeholder="123 Main St, City, Country"
                             {...field}
-                            disabled={isPending}
-                            className="border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 h-10"
+                            className="w-full resize-none border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-md transition-all"
+                            rows={2}
+                            value={field.value || ''}
                           />
                         </FormControl>
-                        <FormMessage className="text-red-500 text-xs mt-1" />
+                        <FormDescription className="text-xs text-gray-500">
+                          Physical or billing address for the customer.
+                        </FormDescription>
+                        <FormMessage className="text-red-500 text-xs" />
                       </FormItem>
                     )}
                   />
-                </div>
 
-                {/* Notes Field */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-0.5 rounded-xl shadow-sm">
+                  {/* Notes Field */}
                   <FormField
                     control={form.control}
                     name="notes"
                     render={({ field }) => (
-                      <FormItem className="bg-white rounded-lg p-4">
-                        <FormLabel className="text-sm font-medium text-slate-700 flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-blue-600" />
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-2 text-gray-700 font-medium">
+                          <FileText className="h-4 w-4 text-blue-500" />
                           Additional Notes
                         </FormLabel>
                         <FormControl>
                           <Textarea
-                            placeholder="Customer preferences, special requirements, or other relevant information..."
-                            className="resize-none min-h-[120px] border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
+                            placeholder="Add any additional information about this customer..."
                             {...field}
-                            disabled={isPending}
+                            className="w-full resize-vertical border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-md transition-all"
+                            rows={5}
+                            value={field.value || ''}
                           />
                         </FormControl>
-                        <FormMessage className="text-red-500 text-xs mt-1" />
+                        <FormDescription className="text-xs text-gray-500">
+                          Any additional details, preferences, or important information.
+                        </FormDescription>
+                        <FormMessage className="text-red-500 text-xs" />
                       </FormItem>
                     )}
                   />
                 </div>
+              </Card>
+            </div>
 
-                {/* Active Status */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-0.5 rounded-xl shadow-sm">
-                  <FormField
-                    control={form.control}
-                    name="isActive"
-                    render={({ field }) => (
-                      <FormItem className="bg-white rounded-lg p-4 flex flex-row items-center justify-between">
-                        <div className="space-y-1">
-                          <FormLabel className="text-slate-700 flex items-center gap-2">
-                            <Tag className="h-4 w-4 text-blue-600" />
-                            <span className="font-medium">Customer Status</span>
-                          </FormLabel>
-                          <FormDescription className="text-xs text-slate-500">
-                            Toggle to activate or deactivate this customer
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            disabled={isPending}
-                            className={cn(
-                              "data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-blue-600 data-[state=checked]:to-indigo-600",
-                              "data-[state=unchecked]:bg-slate-300"
-                            )}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
-
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md text-sm">
-                  {error}
-                </div>
-              )}
-
-              <SheetFooter className="pt-4 flex justify-end gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setOpen(false)}
-                  disabled={isPending}
-                  className="border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors h-10 px-6"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={isPending}
-                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium shadow-md hover:shadow-lg transition-all duration-300 h-10 px-6"
-                >
-                  {isPending && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  )}
-                  {isEditing ? "Update Customer" : "Create Customer"}
-                </Button>
-              </SheetFooter>
-            </form>
-          </Form>
-        </ScrollArea>
-      </SheetContent>
-    </Sheet>
+            <DialogFooter className="mt-8 flex justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClose}
+                className="border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={creatingCustomer}
+                className="bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 shadow-md transition-all duration-200"
+              >
+                {creatingCustomer ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {customer ? 'Updating...' : 'Creating...'}
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4" />
+                    {customer ? 'Update Customer' : 'Create Customer'}
+                  </span>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
   );
 }

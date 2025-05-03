@@ -11,7 +11,7 @@ const OptionalEmailSchema = z.string().email().max(255).optional().nullable();
 const OptionalNumberSchema = z.coerce.number().int().positive().optional().nullable();
 
 // Schema for creating a supplier. Only 'name' is strictly required for UX.
-// organizationId will be added from server context.
+
 export const CreateSupplierPayloadSchema = z.object({
   name: BaseStringSchema.min(2, { message: 'Supplier name must be at least 2 characters.' }).max(255, {
     message: 'Supplier name must be less than 255 characters.',

@@ -33,13 +33,13 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { CustomerActions } from "./CustomerActions";
-import { CreateCustomerSheet } from "./CustomerForm";
 import { formatDate } from "@/lib/utils";
 import { CustomerDetailView } from "./CustomerDetailView";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { FilterControls } from "@/components/file-controls";
 import { Pagination } from "@/components/pagination";
+import { CustomerModal } from "./CustomerForm";
 
 interface CustomerTableProps {
   initialCustomers: Customer[];
@@ -173,10 +173,7 @@ export function CustomerTable({
   return (
     <div className="w-full space-y-6">
       <div className="flex justify-end">
-          <CreateCustomerSheet
-            customer={editingCustomer}
-            onFormSubmit={handleCloseSheet}
-          />
+        <CustomerModal customer={editingCustomer}  />
       </div>
 
       <FilterControls
@@ -184,73 +181,71 @@ export function CustomerTable({
         searchPlaceholder="Search categories..."
         filters={[
           {
-            name: "status",
-            label: "Status",
+            name: 'status',
+            label: 'Status',
             defaultValue: statusFilter,
             options: [
-              { value: "all", label: "All Statuses" },
-              { value: "active", label: "Active" },
-              { value: "inactive", label: "Inactive" },
+              { value: 'all', label: 'All Statuses' },
+              { value: 'active', label: 'Active' },
+              { value: 'inactive', label: 'Inactive' },
             ],
-            onChange: (value) => handleStatusChange(value),
+            onChange: value => handleStatusChange(value),
           },
           {
-            name: "view",
-            label: "View",
+            name: 'view',
+            label: 'View',
             options: [
               {
-                value: "table",
-                label: "List",
+                value: 'table',
+                label: 'List',
                 icon: <List className="h-4 w-4" />,
               },
               {
-                value: "grid",
-                label: "Grid",
+                value: 'grid',
+                label: 'Grid',
                 icon: <Grid className="h-4 w-4" />,
               },
             ],
-            onChange: (value) => setViewMode(value as "table" | "cards"),
+            onChange: value => setViewMode(value as 'table' | 'cards'),
           },
           {
-            name: "sort",
-            label: "Sort",
+            name: 'sort',
+            label: 'Sort',
             options: [
               {
-                value: "name",
-                label: "Name",
+                value: 'name',
+                label: 'Name',
                 icon: <User className="mr-2 h-4 w-4" />,
               },
               {
-                value: "email",
-                label: "Email",
+                value: 'email',
+                label: 'Email',
                 icon: <Mail className="mr-2 h-4 w-4" />,
               },
               {
-                value: "created",
-                label: "Date Created",
+                value: 'created',
+                label: 'Date Created',
                 icon: <Calendar className="mr-2 h-4 w-4" />,
               },
               {
-                value: "loyaltyPoints",
-                label: "Loyalty Points",
+                value: 'loyaltyPoints',
+                label: 'Loyalty Points',
                 icon: <Award className="mr-2 h-4 w-4" />,
               },
             ],
-            onChange: (value) => handleSort(value, "asc"),
+            onChange: value => handleSort(value, 'asc'),
           },
         ]}
-        onSearch={(e) => handleSearch(e)}
-        onFilterButtonClick={() =>
-          console.log("Opening advanced filters modal...")
-        }
+        onSearch={e => handleSearch(e)}
+        onFilterButtonClick={() => console.log('Opening advanced filters modal...')}
         exportActions={[
           {
-            label: "PDF",
+            label: 'PDF',
             onClick: handleExportPdf,
             icon: <FileText className="mr-2 h-4 w-4" />,
           },
           {
-            label: "Exel",
+            label: 'Exel',
             onClick: handleExportExcel,
             icon: <Grid className="mr-2 h-4 w-4" />,
           },
@@ -263,28 +258,22 @@ export function CustomerTable({
         </div>
       ) : (
         <>
-          {viewMode === "table" ? (
+          {viewMode === 'table' ? (
             <Card className="border-none shadow-md overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-slate-50 dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800">
                     <TableHead className="font-bold">Customer</TableHead>
                     <TableHead className="font-bold">Contact</TableHead>
-                    <TableHead className="text-center font-bold">
-                      Status
-                    </TableHead>
-                    <TableHead className="text-right font-bold">
-                      Loyalty Points
-                    </TableHead>
+                    <TableHead className="text-center font-bold">Status</TableHead>
+                    <TableHead className="text-right font-bold">Loyalty Points</TableHead>
                     <TableHead className="font-bold">Created On</TableHead>
-                    <TableHead className="text-right font-bold">
-                      Actions
-                    </TableHead>
+                    <TableHead className="text-right font-bold">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {customers.length > 0 ? (
-                    customers.map((customer) => (
+                    customers.map(customer => (
                       <TableRow
                         key={customer.id}
                         className="hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors"
@@ -292,42 +281,30 @@ export function CustomerTable({
                       >
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-3">
-                            <Avatar
-                              className={`h-8 w-8 ${getAvatarColor(customer.name)}`}
-                            >
-                              <AvatarFallback>
-                                {getInitials(customer.name)}
-                              </AvatarFallback>
+                            <Avatar className={`h-8 w-8 ${getAvatarColor(customer.name)}`}>
+                              <AvatarFallback>{getInitials(customer.name)}</AvatarFallback>
                             </Avatar>
-                            <span className="font-semibold">
-                              {customer.name}
-                            </span>
+                            <span className="font-semibold">{customer.name}</span>
                           </div>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
-                          <div>{customer.email || "-"}</div>
-                          <div>{customer.phone || "-"}</div>
+                          <div>{customer.email || '-'}</div>
+                          <div>{customer.phone || '-'}</div>
                         </TableCell>
                         <TableCell className="text-center">
                           <CustomBadge
-                            variant={customer.isActive ? "active" : "inactive"}
-                            className={`${customer.isActive ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" : "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300"} text-xs font-medium px-2.5 py-1 rounded-full`}
+                            variant={customer.isActive ? 'active' : 'inactive'}
+                            className={`${customer.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300'} text-xs font-medium px-2.5 py-1 rounded-full`}
                           >
-                            {customer.isActive ? "Active" : "Inactive"}
+                            {customer.isActive ? 'Active' : 'Inactive'}
                           </CustomBadge>
                         </TableCell>
                         <TableCell className="text-right font-medium">
                           <div className="flex items-center justify-end">
                             <Award
-                              className={`h-4 w-4 mr-1 ${customer.loyaltyPoints > 50 ? "text-amber-500" : "text-slate-400"}`}
+                              className={`h-4 w-4 mr-1 ${customer.loyaltyPoints > 50 ? 'text-amber-500' : 'text-slate-400'}`}
                             />
-                            <span
-                              className={
-                                customer.loyaltyPoints > 50
-                                  ? "text-amber-500 font-bold"
-                                  : ""
-                              }
-                            >
+                            <span className={customer.loyaltyPoints > 50 ? 'text-amber-500 font-bold' : ''}>
                               {customer.loyaltyPoints}
                             </span>
                           </div>
@@ -336,17 +313,14 @@ export function CustomerTable({
                           <div className="flex items-center">
                             <Calendar className="h-3 w-3 mr-1.5 text-indigo-400" />
                             {formatDate(customer.createdAt, {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
                             })}
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
-                          <div
-                            className="flex justify-end"
-                            onClick={(e) => e.stopPropagation()}
-                          >
+                          <div className="flex justify-end" onClick={e => e.stopPropagation()}>
                             <CustomerActions
                               customer={customer}
                               onEdit={() => handleOpenSheet(customer)}
@@ -363,13 +337,9 @@ export function CustomerTable({
                           <Users className="h-12 w-12 mb-2 text-slate-200" />
                           <p>
                             No customers found
-                            {searchTerm ? " matching your search" : ""}.
+                            {searchTerm ? ' matching your search' : ''}.
                           </p>
-                          <Button
-                            variant="link"
-                            onClick={() => handleOpenSheet()}
-                            className="text-indigo-500 mt-2"
-                          >
+                          <Button variant="link" onClick={() => handleOpenSheet()} className="text-indigo-500 mt-2">
                             <PlusCircle className="mr-1 h-4 w-4" />
                             Add your first customer
                           </Button>
@@ -383,7 +353,7 @@ export function CustomerTable({
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {customers.length > 0 ? (
-                customers.map((customer) => (
+                customers.map(customer => (
                   <Card
                     key={customer.id}
                     className="border-none shadow-md hover:shadow-lg transition-shadow cursor-pointer"
@@ -392,48 +362,34 @@ export function CustomerTable({
                     <CardContent className="p-6">
                       <div className="flex justify-between items-start mb-4">
                         <div className="flex items-center gap-3">
-                          <Avatar
-                            className={`h-12 w-12 ${getAvatarColor(customer.name)}`}
-                          >
-                            <AvatarFallback className="text-white text-lg">
-                              {getInitials(customer.name)}
-                            </AvatarFallback>
+                          <Avatar className={`h-12 w-12 ${getAvatarColor(customer.name)}`}>
+                            <AvatarFallback className="text-white text-lg">{getInitials(customer.name)}</AvatarFallback>
                           </Avatar>
                           <div>
-                            <h3 className="font-bold text-lg">
-                              {customer.name}
-                            </h3>
-                            <p className="text-sm text-muted-foreground">
-                              {customer.email || "No email"}
-                            </p>
+                            <h3 className="font-bold text-lg">{customer.name}</h3>
+                            <p className="text-sm text-muted-foreground">{customer.email || 'No email'}</p>
                           </div>
                         </div>
                         <CustomBadge
-                          variant={customer.isActive ? "active" : "inactive"}
-                          className={`${customer.isActive ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" : "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300"} text-xs font-medium px-2.5 py-1 rounded-full`}
+                          variant={customer.isActive ? 'active' : 'inactive'}
+                          className={`${customer.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300'} text-xs font-medium px-2.5 py-1 rounded-full`}
                         >
-                          {customer.isActive ? "Active" : "Inactive"}
+                          {customer.isActive ? 'Active' : 'Inactive'}
                         </CustomBadge>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4 mb-4">
                         <div className="flex flex-col">
-                          <span className="text-xs text-muted-foreground mb-1">
-                            Phone
-                          </span>
-                          <span className="font-medium">
-                            {customer.phone || "-"}
-                          </span>
+                          <span className="text-xs text-muted-foreground mb-1">Phone</span>
+                          <span className="font-medium">{customer.phone || '-'}</span>
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-xs text-muted-foreground mb-1">
-                            Created
-                          </span>
+                          <span className="text-xs text-muted-foreground mb-1">Created</span>
                           <span className="font-medium">
                             {formatDate(customer.createdAt, {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
                             })}
                           </span>
                         </div>
@@ -442,21 +398,17 @@ export function CustomerTable({
                       <div className="flex justify-between items-center">
                         <div className="flex items-center">
                           <Award
-                            className={`h-5 w-5 mr-2 ${customer.loyaltyPoints > 50 ? "text-amber-500" : "text-slate-400"}`}
+                            className={`h-5 w-5 mr-2 ${customer.loyaltyPoints > 50 ? 'text-amber-500' : 'text-slate-400'}`}
                           />
                           <div>
-                            <span className="text-xs text-muted-foreground block">
-                              Loyalty Points
-                            </span>
-                            <span
-                              className={`font-bold ${customer.loyaltyPoints > 50 ? "text-amber-500" : ""}`}
-                            >
+                            <span className="text-xs text-muted-foreground block">Loyalty Points</span>
+                            <span className={`font-bold ${customer.loyaltyPoints > 50 ? 'text-amber-500' : ''}`}>
                               {customer.loyaltyPoints}
                             </span>
                           </div>
                         </div>
 
-                        <div onClick={(e) => e.stopPropagation()}>
+                        <div onClick={e => e.stopPropagation()}>
                           <CustomerActions
                             customer={customer}
                             onEdit={() => handleOpenSheet(customer)}
@@ -472,13 +424,9 @@ export function CustomerTable({
                   <Users className="h-16 w-16 mb-4 text-slate-200" />
                   <p className="text-lg">
                     No customers found
-                    {searchTerm ? " matching your search" : ""}.
+                    {searchTerm ? ' matching your search' : ''}.
                   </p>
-                  <Button
-                    variant="link"
-                    onClick={() => handleOpenSheet()}
-                    className="text-indigo-500 mt-2"
-                  >
+                  <Button variant="link" onClick={() => handleOpenSheet()} className="text-indigo-500 mt-2">
                     <PlusCircle className="mr-1 h-4 w-4" />
                     Add your first customer
                   </Button>
@@ -489,33 +437,28 @@ export function CustomerTable({
         </>
       )}
 
-      <div className="flex-1 flex-grow"/>
+      <div className="flex-1 flex-grow" />
       {/* Custom Pagination Component */}
-        <Pagination
-          currentPage={currentPage}
-          totalPages={initialTotalPages}
-          pageSize={pageSize}
-          totalItems={total}
-          onPageChange={handlePageChange}
-          onPageSizeChange={handlePageSizeChange}
-          className="mt-6"
-        />
+      <Pagination
+        currentPage={currentPage}
+        totalPages={initialTotalPages}
+        pageSize={pageSize}
+        totalItems={total}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+        className="mt-6"
+      />
 
       {/* View Customer Sheet */}
-      <Sheet
-        open={!!viewingCustomer}
-        onOpenChange={() => setViewingCustomer(null)}
-      >
+      <Sheet open={!!viewingCustomer} onOpenChange={() => setViewingCustomer(null)}>
         <SheetContent className="sm:max-w-[540px] overflow-y-auto">
           <SheetHeader>
             <SheetTitle className="text-2xl font-bold text-indigo-600 flex items-center gap-2">
               {viewingCustomer && (
                 <>
-                  <Avatar
-                    className={`h-8 w-8 ${viewingCustomer ? getAvatarColor(viewingCustomer.name) : ""}`}
-                  >
+                  <Avatar className={`h-8 w-8 ${viewingCustomer ? getAvatarColor(viewingCustomer.name) : ''}`}>
                     <AvatarFallback className="text-white">
-                      {viewingCustomer ? getInitials(viewingCustomer.name) : ""}
+                      {viewingCustomer ? getInitials(viewingCustomer.name) : ''}
                     </AvatarFallback>
                   </Avatar>
                   {viewingCustomer.name}
@@ -525,10 +468,7 @@ export function CustomerTable({
           </SheetHeader>
           <div className="py-6">
             {viewingCustomer && (
-              <CustomerDetailView
-                customerId={viewingCustomer.id}
-                onOpenChange={() => setViewingCustomer(null)}
-              />
+              <CustomerDetailView customerId={viewingCustomer.id} onOpenChange={() => setViewingCustomer(null)} />
             )}
           </div>
         </SheetContent>

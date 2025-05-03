@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { db } from '@/lib/db'; // Adjust path if needed
 import { Supplier, Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { ActionResponse, } from '@/lib/types/suppliers'; // Assuming these types exist
+import { ActionResponse, SupplierInfo, } from '@/lib/types/suppliers'; // Assuming these types exist
 import { getServerAuthContext } from './auth'; // Assuming auth context helper
 import {
   CreateSupplierPayload,
@@ -404,7 +404,7 @@ export async function getSupplier(supplierId: string): Promise<ActionResponse<Su
     const supplier = await db.supplier.findUnique({
       where: {
         id: supplierId,
-        organizationId: organizationId, // Ensure fetch is within the authorized org
+        organizationId,
       },
     });
 
@@ -510,14 +510,6 @@ interface SupplierStockHistorySummary {
   byCategory: { category: string; totalQuantity: number; totalValue: number; percentage: number }[];
 }
 
-interface SupplierInfo {
-  id: string;
-  name: string;
-  contactPerson: string | null;
-  totalSpent: number | null; // Requires aggregating all purchases, not just page
-  lastOrderDate: Date | null; // Most recent order date on this page
-}
-
 interface SupplierStockHistoryResponse {
   items: SupplierStockHistoryItem[];
   // Pagination
@@ -585,7 +577,6 @@ export async function getSupplierPurchaseHistory(
     // 1. Verify Supplier Existence within the organization
     const supplier = await db.supplier.findUnique({
       where: { id: supplierId, organizationId },
-      select: { id: true, name: true, contactName: true }, // Select only needed fields [cite: 42]
     });
     if (!supplier) {
       throw new Error('Supplier not found or access denied.');
@@ -839,7 +830,7 @@ export async function getSupplierPurchaseHistory(
       },
       // Supplier Info
       supplierInfo: {
-        id: supplier.id, // [cite: 42]
+        ...supplier,
         name: supplier.name, // [cite: 42]
         contactPerson: supplier.contactName ?? null, // [cite: 42]
         totalSpent: null, // Requires aggregating *all* purchases for the supplier, not just this page

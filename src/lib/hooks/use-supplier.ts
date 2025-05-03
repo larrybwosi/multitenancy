@@ -1,3 +1,4 @@
+import { Supplier } from "@prisma/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { toast } from "sonner";
@@ -16,17 +17,19 @@ interface Warehouse {
   isActive: boolean;
 }
 
-interface Supplier {
-  id: string;
-  name: string;
-}
 
 interface WarehouseResponse {
   warehouses: Warehouse[];
 }
 
 interface SupplierResponse {
-  data: Supplier[];
+  data: {
+    suppliers: Supplier[];
+    currentPage: number;
+    totalCount: number;
+    totalPages: number;
+  };
+  success: boolean;
 }
 
 const useLocations = () => {
@@ -40,7 +43,7 @@ const useLocations = () => {
 };
 
 const useSuppliers = () => {
-  return useQuery<SupplierResponse>({
+  return useQuery({
     queryKey: ["suppliers"],
     queryFn: () => fetcher<SupplierResponse>("/api/suppliers"),
     refetchOnWindowFocus: false,

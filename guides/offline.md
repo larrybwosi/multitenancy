@@ -77,7 +77,9 @@ function Root() {
 }
 
 export default Root;
-For Legend State, you might want to enable React tracking and set up the local storage persistence plugin in your application's entry point:TypeScriptimport { enableReactTracking } from '@legendapp/state/config/enableReactTracking';
+For Legend State, you might want to enable React tracking and set up the local storage persistence plugin in your application's entry point:TypeScript
+``` typescript
+import { enableReactTracking } from '@legendapp/state/config/enableReactTracking';
 import { configureObservablePersistence } from '@legendapp/state/persist';
 import { ObservablePersistLocalStorage } from '@legendapp/state/persist-plugins/local-storage';
 import React from 'react';
@@ -220,4 +222,5 @@ const AddTodoOffline = () => {
     </div>
   );
 };
+```
 These examples illustrate the basic steps for integrating TanStack Query and Legend State with TypeScript to fetch data, store it locally, and handle offline mutations. Remember to define clear interfaces for your API responses and leverage TypeScript's generics for type safety when working with both libraries.ConclusionIntegrating TanStack Query v5+ and Legend State v3 beta 30 offers a robust solution for building offline-first web applications using React and TypeScript. By leveraging TanStack Query's efficient data fetching and caching mechanisms alongside Legend State's powerful local persistence and synchronization capabilities, developers can create applications that provide a seamless user experience, even in the absence of a network connection. This approach leads to faster initial loads, continued functionality during network outages, and enhanced application resilience.While the combination of these libraries provides a strong foundation for offline-first development, it's important to acknowledge that more complex scenarios might require advanced strategies. These could include sophisticated conflict resolution techniques for handling concurrent data modifications, efficient management of large datasets in local storage, and ensuring data consistency across multiple devices or browser sessions. Understanding the nuances of both TanStack Query and Legend State, along with careful planning and implementation, will enable developers to build truly robust and user-friendly offline-first applications.
