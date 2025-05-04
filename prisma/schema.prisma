@@ -67,7 +67,6 @@ model Member {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  // Existing relations
   auditLogs            AuditLog[]
   sales                Sale[]
   purchases            Purchase[]
@@ -93,6 +92,10 @@ model Member {
   currentLocationId String?
   notifications     Notification[]
   currentLocation   InventoryLocation? @relation("MemberCurrentLocation", fields: [currentLocationId], references: [id], onDelete: SetNull)
+
+  // Fix relations for ApprovalStepCondition and ApprovalStepAction
+  approvalStepConditions ApprovalStepCondition[] @relation("LocationConditions")
+  approvalStepActions    ApprovalStepAction[]    @relation("ApprovalStepActionMember")
 
   // Expense relations
   submittedExpenses        Expense[]          @relation("ExpenseSubmitter")
@@ -160,14 +163,19 @@ model Organization {
   expenseApprovals  ExpenseApproval[]
   budgetAlerts      BudgetAlert[]
 
-  defaultExpenseCategories ExpenseCategory[] // Default categories for the org
+  expenseCategories ExpenseCategory[] 
   expenseApprovalRequired  Boolean           @default(false) // Whether expenses require approval
   expenseApprovalThreshold Decimal?          @db.Decimal(10, 2) // Amount above which approval is required
   expenseReceiptRequired   Boolean           @default(true) // Whether receipts are mandatory
   expenseReceiptThreshold  Decimal?          @db.Decimal(10, 2) // Amount above which receipt is required
 
+  activeExpenseWorkflowId String?
+  activeExpenseWorkflow   ApprovalWorkflow? @relation("ActiveOrgWorkflow", fields: [activeExpenseWorkflowId], references: [id], onDelete: SetNull)
+
+  // Relation to all workflows defined for this org
+  approvalWorkflows ApprovalWorkflow[] @relation("OrgWorkflows")
+  expenseApprovalWorkflows ApprovalWorkflow[] @relation("ExpenseApprovalWorkflows")
   defaultExpenseCurrency String   @default("USD")
-  expenseApprovalChain   Json? // JSON config for approval workflows
   expenseTagOptions      String[] // Predefined tags for expenses
 
   @@map("organization")
@@ -575,6 +583,8 @@ model InventoryLocation {
   parentLocation   InventoryLocation?  @relation("LocationHierarchy", fields: [parentLocationId], references: [id], onDelete: SetNull)
   childLocations   InventoryLocation[] @relation("LocationHierarchy")
   customFields     Json?
+  approvalConditions ApprovalStepCondition[] @relation("LocationCondition")
+  inventoryConditions ApprovalStepCondition[] @relation("InventoryLocationConditions")
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
   managerId        String?
@@ -1125,56 +1135,43 @@ model Expense {
   id             String          @id @default(cuid())
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
-  expenseNumber  String // Unique within organization
+  expenseNumber  String
   description    String
   amount         Decimal         @db.Decimal(10, 2)
   expenseDate    DateTime        @default(now())
   categoryId     String
-  category       ExpenseCategory @relation(fields: [categoryId], references: [id])
+  category       ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   paymentMethod  PaymentMethod
-  receiptUrl     String? // Link to uploaded receipt
+  receiptUrl     String?
   notes          String?
   isReimbursable Boolean         @default(false)
   status         ExpenseStatus   @default(PENDING)
-  approvedById   String?
-  approvedBy     Member?         @relation("ExpenseApprover", fields: [approvedById], references: [id], onDelete: SetNull)
   approvalDate   DateTime?
-
-  // Expense allocation
-  locationId String? // Which location this expense belongs to
-  location   InventoryLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
-
-  // Who incurred/recorded the expense
-  memberId   String
-  member     Member    @relation("ExpenseSubmitter", fields: [memberId], references: [id], onDelete: Restrict)
-  // Supplier if applicable
-  supplierId String?
-  supplier   Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-
-  // Relations
+  locationId     String?
+  location       InventoryLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  memberId       String
+  member         Member    @relation("ExpenseSubmitter", fields: [memberId], references: [id], onDelete: Restrict)
+  approverId     String?
+  approver       Member?   @relation("ExpenseApprover", fields: [approverId], references: [id], onDelete: SetNull)
+  supplierId     String?
+  supplier       Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   attachments    Attachment[]
   auditLogs      AuditLog[]
-
-  // Add link to purchase if this is a purchase-related expense
-  purchaseId String?
-  purchase   Purchase? @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
-
-  // Add link to budget if specifically allocated
-  budgetId           String?
-  budget             Budget?           @relation(fields: [budgetId], references: [id], onDelete: SetNull)
-  approval           ExpenseApproval?  @relation("ExpenseApproval")
+  purchaseId     String?
+  purchase       Purchase? @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
+  budgetId       String?
+  budget         Budget?   @relation(fields: [budgetId], references: [id], onDelete: SetNull)
+  approval       ExpenseApproval? @relation("ExpenseApproval")
   recurringExpenseId String?
   recurringExpense   RecurringExpense? @relation("RecurringExpenseExpenses", fields: [recurringExpenseId], references: [id], onDelete: SetNull)
-
-  tags       String[] // For categorization
-  taxAmount  Decimal? @db.Decimal(10, 2) // Tax portion of the expense
-  mileage    Float? // For travel expenses
-  isBillable Boolean  @default(false) // Whether this can be billed to clients
+  tags           String[]
+  taxAmount      Decimal? @db.Decimal(10, 2)
+  mileage        Float?
+  isBillable     Boolean  @default(false)
 
   @@unique([organizationId, expenseNumber])
-  // Add index
   @@index([isBillable])
   @@index([expenseDate])
   @@index([memberId])
@@ -1195,6 +1192,7 @@ model ExpenseCategory {
   // Add relations
   expenses          Expense[]
   recurringExpenses RecurringExpense[]
+  approvalConditions ApprovalStepCondition[]
 
   // Add index
   @@unique([organizationId, name])
@@ -1257,29 +1255,141 @@ enum RecurrenceFrequency {
 
 model ExpenseApproval {
   id             String         @id @default(cuid())
+  expenseId      String         @unique
+  expense        Expense        @relation("ExpenseApproval", fields: [expenseId], references: [id], onDelete: Cascade) // Cascade delete approval if expense is deleted
   approverId     String
-  approver       Member         @relation("ApproverMember", fields: [approverId], references: [id], onDelete: Restrict)
+  approver       Member         @relation("ApproverMember", fields: [approverId], references: [id], onDelete: Restrict) // Prevent approver deletion if they have pending approvals
   status         ApprovalStatus @default(PENDING)
+  // Comments provided by the approver during decision.
   comments       String?
-  decisionDate   DateTime?
+  decisionDate   DateTime    
+
+  // Standard fields
   organizationId String
   organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
-
-  expenseId String  @unique
-  expense   Expense @relation("ExpenseApproval", fields: [expenseId], references: [id])
 
   @@index([approverId])
   @@index([status])
   @@index([organizationId])
 }
 
+
+model ApprovalWorkflow {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation("OrgWorkflows", fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String       // e.g., "Standard Expense Approval", "High Value Purchase Approval"
+  description    String?
+  isActive       Boolean      @default(true) // Whether this workflow can be selected as the active one
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  steps ApprovalWorkflowStep[] // Ordered steps in the workflow
+
+  // Relation for tracking which orgs have this as active (optional, but useful)
+  activeForOrganizations Organization[] @relation("ActiveOrgWorkflow")
+  
+  // Add the missing relation for expense approval workflows
+  expenseApprovalOrganizations Organization[] @relation("ExpenseApprovalWorkflows")
+
+  @@unique([organizationId, name])
+  @@index([organizationId, isActive])
+}
+
+
+model ApprovalWorkflowStep {
+  id                 String            @id @default(cuid())
+  approvalWorkflowId String
+  workflow           ApprovalWorkflow  @relation(fields: [approvalWorkflowId], references: [id], onDelete: Cascade)
+  stepNumber         Int               // Order of the step (e.g., 1, 2, 3) - lower numbers first
+  name               String            // e.g., "Manager Approval", "Finance Review", "Director Sign-off"
+  description        String?
+  allConditionsMustMatch Boolean       @default(true) // If true, ALL conditions must match expense; if false, ANY condition match triggers step
+
+  conditions ApprovalStepCondition[] // Conditions that trigger this step
+  actions    ApprovalStepAction[]    // Actions required for this step (who approves)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([approvalWorkflowId, stepNumber])
+}
+
+model ApprovalStepCondition {
+  id         String                @id @default(cuid())
+  stepId     String
+  step       ApprovalWorkflowStep  @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  type       ConditionType         // Type of condition (Amount, Category, Location, etc.)
+  
+  // --- Condition Values (only relevant fields used based on 'type') ---
+  minAmount        Decimal? @db.Decimal(12, 2) // Minimum expense amount (exclusive)
+  locationId        String?                     // Link to specific location
+  location          InventoryLocation? @relation("LocationCondition", fields: [locationId], references: [id], onDelete: SetNull) // Changed relation name
+  expenseCategoryId String?                     // Link to specific expense category
+  expenseCategory   ExpenseCategory? @relation(fields: [expenseCategoryId], references: [id], onDelete: SetNull)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations for Member and InventoryLocation
+  members             Member[] @relation("LocationConditions")
+  inventoryLocations InventoryLocation[] @relation("InventoryLocationConditions")
+
+  @@index([stepId])
+  @@index([expenseCategoryId])
+  @@index([locationId])
+}
+
+
+enum ConditionType {
+  AMOUNT_RANGE      // Based on minAmount/maxAmount
+  EXPENSE_CATEGORY  // Based on expenseCategoryId
+  LOCATION          // Based on locationId
+  // Add others like: IS_REIMBURSABLE, PROJECT, HAS_RECEIPT etc.
+}
+
+// Defines the required action (who needs to approve) for a step
+model ApprovalStepAction {
+  id         String               @id @default(cuid())
+  stepId     String
+  step       ApprovalWorkflowStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  type       ApprovalActionType           // Type of approver required
+  
+  // --- Action Values (only relevant fields used based on 'type') ---
+  approverRole   MemberRole?        // Specific role required (e.g., MANAGER)
+  specificMemberId String?          // Specific member ID required
+  specificMember   Member?   @relation("ApprovalStepActionMember", fields: [specificMemberId], references: [id], onDelete: SetNull) // SetNull: Action becomes invalid if member deleted
+
+  // How multiple approvers (if any defined for the step) should act
+  approvalMode   ApprovalMode @default(ANY_ONE) // Requires ANY_ONE or ALL matching approvers
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stepId])
+  @@index([specificMemberId])
+}
+
+enum ApprovalActionType {
+  ROLE           // Requires a member with a specific role
+  SPECIFIC_MEMBER // Requires a specific member
+  // Add others like: SUBMITTER_MANAGER (requires the submitter's direct manager - needs hierarchy logic elsewhere)
+}
+
+enum ApprovalMode {
+  ANY_ONE // Only one of the required approvers (matching type/role/id) needs to approve
+  ALL     // All members matching the criteria for this step must approve (more complex to implement tracking)
+}
+
+// Consider refining ApprovalStatus if needed, e.g., adding REQUEST_INFO
 enum ApprovalStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  REQUEST_CHANGES
+  PENDING         // Awaiting approver action.
+  APPROVED        // Approver granted approval.
+  REJECTED        // Approver denied approval.
+  REQUEST_CHANGES // Approver requests modification before approving.
+  REQUEST_INFO    // Approver requests additional information before approving.
 }
 
 model Budget {

@@ -2,7 +2,7 @@
 
 import prisma from '@/lib/db';
 import { revalidatePath } from 'next/cache';
-import { MeasurementUnit, Prisma, Product } from '@prisma/client';
+import { MeasurementUnit, Prisma, Product } from '../../prisma/src/generated/prisma/client';
 import { z } from 'zod';
 import crypto from 'crypto';
 import { getServerAuthContext } from './auth';
@@ -354,7 +354,6 @@ export async function addProductMinimal(
         barcode: barcode,
         isActive: finalIsActive,
         imageUrls: [],
-        customFields: Prisma.JsonNull, // Default JSON null
         width: null,
         height: null,
         length: null,

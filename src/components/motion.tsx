@@ -15,6 +15,7 @@ export const MotionH6 = motion.h6;
 export const MotionUl = motion.ul;
 export const MotionLi = motion.li;
 export const MotionP = motion.p;
+export const MotionForm = motion.form;
 export const MotionImage = motion.img;
 export const MotionInput = motion.input;
 export const MotionPath = motion.path;

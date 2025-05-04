@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client-js"
-  // output   = "src/generated/prisma/client"
+  output   = "src/generated/prisma/client"
 }
 
 datasource db {
@@ -160,7 +160,7 @@ model Organization {
   expenseApprovals  ExpenseApproval[]
   budgetAlerts      BudgetAlert[]
 
-  defaultExpenseCategories ExpenseCategory[] // Default categories for the org
+  expenseCategories ExpenseCategory[] 
   expenseApprovalRequired  Boolean           @default(false) // Whether expenses require approval
   expenseApprovalThreshold Decimal?          @db.Decimal(10, 2) // Amount above which approval is required
   expenseReceiptRequired   Boolean           @default(true) // Whether receipts are mandatory
@@ -1254,32 +1254,35 @@ enum RecurrenceFrequency {
   QUARTERLY
   YEARLY
 }
-
 model ExpenseApproval {
   id             String         @id @default(cuid())
+  expenseId      String         @unique
+  expense        Expense        @relation("ExpenseApproval", fields: [expenseId], references: [id], onDelete: Cascade) // Cascade delete approval if expense is deleted
   approverId     String
-  approver       Member         @relation("ApproverMember", fields: [approverId], references: [id], onDelete: Restrict)
+  approver       Member         @relation("ApproverMember", fields: [approverId], references: [id], onDelete: Restrict) // Prevent approver deletion if they have pending approvals
   status         ApprovalStatus @default(PENDING)
+  // Comments provided by the approver during decision.
   comments       String?
-  decisionDate   DateTime?
+  decisionDate   DateTime    
+
+  // Standard fields
   organizationId String
   organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
-
-  expenseId String  @unique
-  expense   Expense @relation("ExpenseApproval", fields: [expenseId], references: [id])
 
   @@index([approverId])
   @@index([status])
   @@index([organizationId])
 }
 
+// Consider refining ApprovalStatus if needed, e.g., adding REQUEST_INFO
 enum ApprovalStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  REQUEST_CHANGES
+  PENDING         // Awaiting approver action.
+  APPROVED        // Approver granted approval.
+  REJECTED        // Approver denied approval.
+  REQUEST_CHANGES // Approver requests modification before approving.
+  REQUEST_INFO    // Approver requests additional information before approving.
 }
 
 model Budget {

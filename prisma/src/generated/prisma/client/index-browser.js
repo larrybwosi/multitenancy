@@ -166,8 +166,8 @@ exports.Prisma.OrganizationScalarFieldEnum = {
   expenseApprovalThreshold: 'expenseApprovalThreshold',
   expenseReceiptRequired: 'expenseReceiptRequired',
   expenseReceiptThreshold: 'expenseReceiptThreshold',
+  activeExpenseWorkflowId: 'activeExpenseWorkflowId',
   defaultExpenseCurrency: 'defaultExpenseCurrency',
-  expenseApprovalChain: 'expenseApprovalChain',
   expenseTagOptions: 'expenseTagOptions'
 };
 
@@ -604,10 +604,10 @@ exports.Prisma.ExpenseScalarFieldEnum = {
   notes: 'notes',
   isReimbursable: 'isReimbursable',
   status: 'status',
-  approvedById: 'approvedById',
   approvalDate: 'approvalDate',
   locationId: 'locationId',
   memberId: 'memberId',
+  approverId: 'approverId',
   supplierId: 'supplierId',
   organizationId: 'organizationId',
   purchaseId: 'purchaseId',
@@ -648,14 +648,57 @@ exports.Prisma.RecurringExpenseScalarFieldEnum = {
 
 exports.Prisma.ExpenseApprovalScalarFieldEnum = {
   id: 'id',
+  expenseId: 'expenseId',
   approverId: 'approverId',
   status: 'status',
   comments: 'comments',
   decisionDate: 'decisionDate',
   organizationId: 'organizationId',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt',
-  expenseId: 'expenseId'
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ApprovalWorkflowScalarFieldEnum = {
+  id: 'id',
+  organizationId: 'organizationId',
+  name: 'name',
+  description: 'description',
+  isActive: 'isActive',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ApprovalWorkflowStepScalarFieldEnum = {
+  id: 'id',
+  approvalWorkflowId: 'approvalWorkflowId',
+  stepNumber: 'stepNumber',
+  name: 'name',
+  description: 'description',
+  allConditionsMustMatch: 'allConditionsMustMatch',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ApprovalStepConditionScalarFieldEnum = {
+  id: 'id',
+  stepId: 'stepId',
+  type: 'type',
+  minAmount: 'minAmount',
+  locationId: 'locationId',
+  expenseCategoryId: 'expenseCategoryId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ApprovalStepActionScalarFieldEnum = {
+  id: 'id',
+  stepId: 'stepId',
+  type: 'type',
+  approverRole: 'approverRole',
+  specificMemberId: 'specificMemberId',
+  approvalMode: 'approvalMode',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
 };
 
 exports.Prisma.BudgetScalarFieldEnum = {
@@ -1069,7 +1112,24 @@ exports.ApprovalStatus = exports.$Enums.ApprovalStatus = {
   PENDING: 'PENDING',
   APPROVED: 'APPROVED',
   REJECTED: 'REJECTED',
-  REQUEST_CHANGES: 'REQUEST_CHANGES'
+  REQUEST_CHANGES: 'REQUEST_CHANGES',
+  REQUEST_INFO: 'REQUEST_INFO'
+};
+
+exports.ConditionType = exports.$Enums.ConditionType = {
+  AMOUNT_RANGE: 'AMOUNT_RANGE',
+  EXPENSE_CATEGORY: 'EXPENSE_CATEGORY',
+  LOCATION: 'LOCATION'
+};
+
+exports.ApprovalActionType = exports.$Enums.ApprovalActionType = {
+  ROLE: 'ROLE',
+  SPECIFIC_MEMBER: 'SPECIFIC_MEMBER'
+};
+
+exports.ApprovalMode = exports.$Enums.ApprovalMode = {
+  ANY_ONE: 'ANY_ONE',
+  ALL: 'ALL'
 };
 
 exports.InvitationStatus = exports.$Enums.InvitationStatus = {
@@ -1160,6 +1220,10 @@ exports.Prisma.ModelName = {
   ExpenseCategory: 'ExpenseCategory',
   RecurringExpense: 'RecurringExpense',
   ExpenseApproval: 'ExpenseApproval',
+  ApprovalWorkflow: 'ApprovalWorkflow',
+  ApprovalWorkflowStep: 'ApprovalWorkflowStep',
+  ApprovalStepCondition: 'ApprovalStepCondition',
+  ApprovalStepAction: 'ApprovalStepAction',
   Budget: 'Budget',
   BudgetReport: 'BudgetReport',
   BudgetAlert: 'BudgetAlert',

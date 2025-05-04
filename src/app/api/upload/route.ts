@@ -11,7 +11,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
     }
 
-    // Get file type and create a buffer
     const fileType = file.type
     const buffer = Buffer.from(await file.arrayBuffer())
 

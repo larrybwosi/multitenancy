@@ -148,12 +148,8 @@ export const sidebarSectionsData: SectionItem[] = [
       {
         
         title: "Expenses",
-        path: "/financials/expenses",
         icon: <DollarSign size={18} />,
         children:[
-          {
-            title: "Expense Categories",
-          },
           {
             title:"Analytics",
             path:"/finance/expenses/analytics",
@@ -164,6 +160,11 @@ export const sidebarSectionsData: SectionItem[] = [
             // path:"/finance/expenses/recurring",
             icon: <Repeat2 size={18} />,
           },
+          {
+            title: "Expense Settings",
+            path:"/finance/expenses/settings",
+            icon: <Settings size={18} />,
+          }
         ]
       },
       {
