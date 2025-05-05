@@ -5,7 +5,7 @@ import React from "react";
 import { formatCurrency } from "@/lib/utils";
 import { Customer } from "../types";
 import { CalendarDays, Phone, Mail, CheckCircle2 } from "lucide-react";
-import { PaymentMethod } from "@prisma/client";
+import { PaymentMethod } from "@/prisma/client";
 
 interface ReceiptProps {
   items: {

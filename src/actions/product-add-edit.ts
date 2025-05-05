@@ -2,7 +2,7 @@
 
 import prisma from '@/lib/db';
 import { revalidatePath } from 'next/cache';
-import { MeasurementUnit, Prisma, Product } from '../../prisma/src/generated/prisma/client';
+import { MeasurementUnit, Prisma, Product } from '@/prisma/client';
 import { z } from 'zod';
 import crypto from 'crypto';
 import { getServerAuthContext } from './auth';
@@ -14,6 +14,35 @@ import {
   ProductSupplierSchema,
   ProductVariantSchema,
 } from '@/lib/validations/product';
+
+// Extended ProductVariantSchema to match Prisma schema
+const ProductVariantCreateInput = {
+  name: true,
+  sku: true,
+  barcode: true,
+  buyingPrice: true,
+  retailPrice: true,
+  wholesalePrice: true,
+  attributes: true,
+  isActive: true,
+  reorderPoint: true,
+  reorderQty: true,
+  lowStockAlert: true,
+} as const;
+
+type ProductVariantCreate = {
+  name: string;
+  sku: string | null;
+  barcode: string | null;
+  buyingPrice: Prisma.Decimal;
+  retailPrice: Prisma.Decimal | null;
+  wholesalePrice: Prisma.Decimal | null;
+  attributes: Prisma.JsonValue;
+  isActive: boolean;
+  reorderPoint: number;
+  reorderQty: number;
+  lowStockAlert: boolean;
+};
 
 // --- Helper Functions ---
 
@@ -171,13 +200,13 @@ export async function addProduct(
   // 4. Extract validated data
   const {
     categoryId, // string
-    defaultLocationId, // string | null | undefined
+    defaultLocationId,
     buyingPrice,
     retailPrice,
     wholesalePrice,
     width,
     height,
-    length, // number | null | undefined
+    length,
     weight,
     volumetricWeight,
     variants: validatedVariants, // ProductVariantInput[]
@@ -196,12 +225,14 @@ export async function addProduct(
         name: `Default-${productData.name}`,
         sku: null, // Signal generation
         barcode: productData.barcode || null,
-        priceModifier: 0,
+        buyingPrice: new Prisma.Decimal(buyingPrice || 0),
+        retailPrice: retailPrice ? new Prisma.Decimal(retailPrice) : null,
+        wholesalePrice: wholesalePrice ? new Prisma.Decimal(wholesalePrice) : null,
         attributes: Prisma.JsonNull,
         isActive: productData.isActive,
-        reorderPoint: reorderPoint, // Inherit from product (which has default 5)
-        reorderQty: 10, // Default from schema [cite: 40]
-        lowStockAlert: false, // Default from schema [cite: 40]
+        reorderPoint: 5, // Default from schema
+        reorderQty: 10, // Default from schema
+        lowStockAlert: false, // Default from schema
       },
     ];
   }
@@ -228,7 +259,7 @@ export async function addProduct(
         customFields: validatedCustomFields ?? Prisma.JsonNull, // [cite: 33] Json | JsonNull
         width: width, // [cite: 34] Float | null
         height: height, // [cite: 35] Float | null
-        length: length, // [cite: 34] Float | null (corrected typo length->depth if applicable, schema says length)
+        length: length, // [cite: 34] Float | null
         dimensionUnit: MeasurementUnit.METER, // [cite: 36] MeasurementUnit | null
         weight: weight, // [cite: 37] Float | null
         weightUnit: MeasurementUnit.WEIGHT_KG, // [cite: 37] MeasurementUnit | null
@@ -242,42 +273,45 @@ export async function addProduct(
         // --- Variants Creation --- [cite: 38]
         variants: {
           create: variantsWithSku.map(v => ({
-            organization: { connect: { id: organizationId } }, // [cite: 40] Ensure org connection
             name: v.name, // [cite: 40] String
             sku: v.sku, // [cite: 40] String (now guaranteed)
             barcode: v.barcode, // [cite: 40] String | null
-            priceModifier: new Prisma.Decimal(v.priceModifier), // [cite: 40] Decimal
+            buyingPrice: new Prisma.Decimal(v.buyingPrice || 0), // [cite: 40] Decimal
+            retailPrice: v.retailPrice ? new Prisma.Decimal(v.retailPrice) : null, // [cite: 40] Decimal
+            wholesalePrice: v.wholesalePrice ? new Prisma.Decimal(v.wholesalePrice) : null, // [cite: 40] Decimal
             attributes: v.attributes ?? Prisma.JsonNull, // [cite: 40] Json | JsonNull
             isActive: v.isActive, // [cite: 40] Boolean
             reorderPoint: v.reorderPoint || 10, // [cite: 40] Int | null
             reorderQty: v.reorderQty || 10, // [cite: 40] Int | null
             lowStockAlert: v.lowStockAlert, // [cite: 40] Boolean
-            buyingPrice: new Prisma.Decimal(buyingPrice), // [cite: 40] Decimal (assumed same as product base price)
+            suppliers: validatedSuppliers && validatedSuppliers.length > 0
+              ? {
+                  create: validatedSuppliers.map(s => ({
+                    supplier: { connect: { id: s.supplierId } },
+                    supplierSku: s.supplierSku,
+                    costPrice: new Prisma.Decimal(s.costPrice),
+                    minimumOrderQuantity: s.minimumOrderQuantity,
+                    packagingUnit: s.packagingUnit,
+                    isPreferred: s.isPreferred,
+                  })),
+                }
+              : undefined,
           })),
         },
-
-        // --- Suppliers Creation (ProductSupplier model) --- [cite: 38]
-        suppliers:
-          validatedSuppliers && validatedSuppliers.length > 0
-            ? {
-                create: validatedSuppliers.map(s => ({
-                  supplier: { connect: { id: s.supplierId } }, // [cite: 47] Connect to Supplier
-                  supplierSku: s.supplierSku, // [cite: 48] String | null
-                  costPrice: new Prisma.Decimal(s.costPrice), // [cite: 48] Decimal
-                  minimumOrderQuantity: s.minimumOrderQuantity, // [cite: 49] Int | null
-                  packagingUnit: s.packagingUnit, // [cite: 50] String | null
-                  isPreferred: s.isPreferred, // [cite: 51] Boolean
-                  // productId is implicitly connected by Prisma
-                })),
-              }
-            : undefined,
       },
       include: {
         // Include relations in the response
-        variants: true,
-        suppliers: { include: { supplier: true } }, // Include supplier details [cite: 47]
-        category: true, // [cite: 31]
-        defaultLocation: true, // [cite: 38]
+        variants: {
+          include: {
+            suppliers: {
+              include: {
+                supplier: true,
+              },
+            },
+          },
+        },
+        category: true,
+        defaultLocation: true,
       },
     });
 
@@ -557,7 +591,6 @@ export async function editProduct(
               name: v.name, // Required
               sku: v.sku!, // Required, generated if missing for new variants
               barcode: v.barcode,
-              priceModifier: new Prisma.Decimal(v.priceModifier ?? 0), // Use default if undefined
               attributes: v.attributes ?? Prisma.JsonNull,
               isActive: v.isActive ?? true, // Use default if undefined
               reorderPoint: v.reorderPoint ?? 5, // Use default if undefined
@@ -569,7 +602,6 @@ export async function editProduct(
               name: v.name, // Assume name is always provided for update
               sku: v.sku, // Update SKU only if provided in input
               barcode: v.barcode,
-              priceModifier: v.priceModifier !== undefined ? new Prisma.Decimal(v.priceModifier) : undefined,
               attributes: v.attributes, // Send null or JSON object
               isActive: v.isActive,
               reorderPoint: v.reorderPoint || 10,
@@ -639,8 +671,6 @@ export async function editProduct(
     return handlePrismaError(error);
   }
 }
-
-
 
 /**
  * Deletes a product and its associated variants for the current organization.

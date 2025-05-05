@@ -52,7 +52,7 @@ import { toast } from "sonner";
 import { CartProps, Customer, SaleData } from "../types";
 import { Receipt } from "./Receipt";
 import SelectedCustomer from "./selected-customer";
-import { PaymentMethod } from "@prisma/client";
+import { PaymentMethod } from "@/prisma/client";
 
 const TAX_RATE = 0.16; // 16% tax rate
 const POINTS_TO_CURRENCY_RATIO = 10; // 10 points = $1

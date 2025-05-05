@@ -1,4 +1,4 @@
-import { ExpenseCategory, MemberRole, Organization, Prisma } from '../../prisma/src/generated/prisma/client'; 
+import { ExpenseCategory, MemberRole, Organization, Prisma } from '@/prisma/client'; 
 import prisma from '@/lib/db';
 
 // --- Expense Category Management ---

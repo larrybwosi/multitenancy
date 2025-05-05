@@ -11,7 +11,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar, CreditCard, Package, Receipt, User } from "lucide-react";
 import useSWR from "swr";
-import { Customer, Sale } from "@prisma/client";
+import { Customer, Sale } from "@/prisma/client";
 import Image from "next/image";
 
 const formatDate = (dateString: string | Date) => {

@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Product } from "@prisma/client";
+import { Product } from "@/prisma/client";
 
 
 const ProductModal: React.FC<{

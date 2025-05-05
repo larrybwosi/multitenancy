@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { InventoryLocation } from "@prisma/client";
+import { InventoryLocation } from "@/prisma/client";
 
 interface LocationSelectProps {
   locations: InventoryLocation[];

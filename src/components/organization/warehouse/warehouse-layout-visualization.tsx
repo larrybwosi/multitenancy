@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { StorageZone, StorageUnit } from "@prisma/client"
+import { StorageZone, StorageUnit } from "@/prisma/client"
 import { useTheme } from "next-themes"
 import { 
   Layers, 

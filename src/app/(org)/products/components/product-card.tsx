@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Image from "next/image";
-import { Category } from "@prisma/client";
+import { Category } from "@/prisma/client";
 import { ProductWithCategory } from "../schema";
 import { deleteProduct } from "../actions";
 

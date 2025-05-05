@@ -22,7 +22,7 @@ import {
   XCircle,
   AlertTriangle,
 } from "lucide-react";
-import { MemberRole } from "@prisma/client";
+import { MemberRole } from "@/prisma/client";
 import { formatDistanceToNow } from "date-fns";
 
 interface InvitationData {

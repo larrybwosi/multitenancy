@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { UserPlus, Users, RefreshCw } from "lucide-react"
 import Link from "next/link"
 import { SectionHeader } from "@/components/ui/SectionHeader"
-import { Member } from "@prisma/client"
+import { Member } from "@/prisma/client"
 import { toast } from "sonner"
 
 export default function MembersPage() {

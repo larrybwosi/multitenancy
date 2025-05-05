@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
-import { MemberRole } from "@prisma/client";
+import { MemberRole } from "@/prisma/client";
 import EmailPreview from "./email-template";
 import { createInvitation } from "@/actions/invitations";
 

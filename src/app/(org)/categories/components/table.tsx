@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { FileText, Grid, PlusCircle } from "lucide-react";
-import { Category, Prisma } from "@prisma/client";
+import { Category, Prisma } from "@/prisma/client";
 import { CategoryForm } from "./category-form";
 import { CategoryActions } from "./category-actions";
 import { CategoryWithStats } from "@/actions/category.actions";

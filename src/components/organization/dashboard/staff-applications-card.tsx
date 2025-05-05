@@ -1,7 +1,7 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { InvitationStatus } from "@prisma/client"
+import { InvitationStatus } from "@/prisma/client"
 import {
   LineChart,
   Line,

@@ -19,7 +19,7 @@ import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/c
 import {Switch} from '@/components/ui/switch';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import {Badge} from '@/components/ui/badge';
-import {InventoryPolicy, MeasurementUnit} from '@prisma/client';
+import {InventoryPolicy, MeasurementUnit} from '@/prisma/client';
 import {toast} from 'sonner';
 import {useOrganization} from '@/hooks/use-organization';
 import {useUpdateOrganization} from '@/lib/hooks/use-org';

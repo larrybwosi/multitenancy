@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "src/generated/prisma/client"
+  output   = "./src/generated/client"
 }
 
 datasource db {
@@ -11,20 +11,20 @@ datasource db {
 // --- Core Models ---
 
 model User {
-  id        String   @id @default(cuid())
-  name      String?
-  email     String   @unique
-  password  String?
-  role      UserRole @default(MEMBER)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  emailVerified        Boolean?
-  image                String?
-  banned               Boolean?
-  banReason            String?
-  banExpires           DateTime?
-  username             String?
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  password      String?
+  role          UserRole  @default(MEMBER)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  emailVerified Boolean?
+  image         String?
+  banned        Boolean?
+  banReason     String?
+  banExpires    DateTime?
+  username      String?
 
   // Relations
   accounts             Account[]
@@ -67,7 +67,6 @@ model Member {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  // Existing relations
   auditLogs            AuditLog[]
   sales                Sale[]
   purchases            Purchase[]
@@ -93,6 +92,10 @@ model Member {
   currentLocationId String?
   notifications     Notification[]
   currentLocation   InventoryLocation? @relation("MemberCurrentLocation", fields: [currentLocationId], references: [id], onDelete: SetNull)
+
+  // Fix relations for ApprovalStepCondition and ApprovalStepAction
+  approvalStepConditions ApprovalStepCondition[] @relation("LocationConditions")
+  approvalStepActions    ApprovalStepAction[]    @relation("ApprovalStepActionMember")
 
   // Expense relations
   submittedExpenses        Expense[]          @relation("ExpenseSubmitter")
@@ -160,15 +163,20 @@ model Organization {
   expenseApprovals  ExpenseApproval[]
   budgetAlerts      BudgetAlert[]
 
-  expenseCategories ExpenseCategory[] 
+  expenseCategories        ExpenseCategory[]
   expenseApprovalRequired  Boolean           @default(false) // Whether expenses require approval
   expenseApprovalThreshold Decimal?          @db.Decimal(10, 2) // Amount above which approval is required
   expenseReceiptRequired   Boolean           @default(true) // Whether receipts are mandatory
   expenseReceiptThreshold  Decimal?          @db.Decimal(10, 2) // Amount above which receipt is required
 
-  defaultExpenseCurrency String   @default("USD")
-  expenseApprovalChain   Json? // JSON config for approval workflows
-  expenseTagOptions      String[] // Predefined tags for expenses
+  activeExpenseWorkflowId String?
+  activeExpenseWorkflow   ApprovalWorkflow? @relation("ActiveOrgWorkflow", fields: [activeExpenseWorkflowId], references: [id], onDelete: SetNull)
+
+  // Relation to all workflows defined for this org
+  approvalWorkflows        ApprovalWorkflow[] @relation("OrgWorkflows")
+  expenseApprovalWorkflows ApprovalWorkflow[] @relation("ExpenseApprovalWorkflows")
+  defaultExpenseCurrency   String             @default("USD")
+  expenseTagOptions        String[] // Predefined tags for expenses
 
   @@map("organization")
 }
@@ -206,20 +214,20 @@ model Product {
   customFields Json? // For customization
 
   // Physical dimensions for space calculation
-  width             Float?
-  height            Float?
-  length             Float?
-  dimensionUnit     MeasurementUnit?
-  weight            Float?
-  weightUnit        MeasurementUnit?
-  volumetricWeight  Float? // Calculated dimensional weight
+  width            Float?
+  height           Float?
+  length           Float?
+  dimensionUnit    MeasurementUnit?
+  weight           Float?
+  weightUnit       MeasurementUnit?
+  volumetricWeight Float? // Calculated dimensional weight
 
   defaultLocationId String? // Default stocking location
   defaultLocation   InventoryLocation? @relation("ProductDefaultLocation", fields: [defaultLocationId], references: [id], onDelete: SetNull)
 
   // Relations
-  variants         ProductVariant[]
-  variantStock     ProductVariantStock[]
+  variants     ProductVariant[]
+  variantStock ProductVariantStock[]
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
@@ -231,25 +239,24 @@ model Product {
 }
 
 model ProductVariant {
-  id            String  @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  productId     String
-  product       Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  name          String // Name for the variant (e.g., "Red", "Large")
-  sku           String
-  barcode       String? @unique
-  attributes    Json // e.g., {"color": "Red", "size": "L"}
-  isActive      Boolean @default(true)
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name       String // Name for the variant (e.g., "Red", "Large")
+  sku        String
+  barcode    String?  @unique
+  attributes Json // e.g., {"color": "Red", "size": "L"}
+  isActive   Boolean  @default(true)
 
   // Stock related fields moved to ProductVariantStock for location-specific stock
-  reorderPoint  Int     @default(5) // Default reorder point, can be overridden in ProductVariantStock
-  reorderQty    Int     @default(10) // Default reorder qty
-  lowStockAlert Boolean @default(false) // Default low stock alert setting
-  buyingPrice    Decimal  @db.Decimal(10, 2) 
-  wholesalePrice Decimal? @db.Decimal(10, 2) 
-  retailPrice     Decimal? @db.Decimal(10, 2) 
-
+  reorderPoint   Int      @default(5) // Default reorder point, can be overridden in ProductVariantStock
+  reorderQty     Int      @default(10) // Default reorder qty
+  lowStockAlert  Boolean  @default(false) // Default low stock alert setting
+  buyingPrice    Decimal  @db.Decimal(10, 2)
+  wholesalePrice Decimal? @db.Decimal(10, 2)
+  retailPrice    Decimal? @db.Decimal(10, 2)
 
   // Relations
   saleItems        SaleItem[]
@@ -259,7 +266,8 @@ model ProductVariant {
   stockMovements   StockMovement[]
   variantStocks    ProductVariantStock[] // One variant can have stock in multiple locations
 
-  suppliers        ProductSupplier[]
+  suppliers ProductSupplier[]
+
   @@unique([productId, sku])
   @@unique([productId, barcode])
   @@index([sku])
@@ -267,7 +275,7 @@ model ProductVariant {
 
 model Supplier {
   id           String   @id @default(cuid())
-  name         String  
+  name         String
   contactName  String?
   email        String?
   phone        String?
@@ -289,7 +297,7 @@ model Supplier {
   // Expense relations
   expenses          Expense[]
   recurringExpenses RecurringExpense[]
-  stockBatches       StockBatch[]
+  stockBatches      StockBatch[]
 
   @@unique([organizationId, name]) // Enforce uniqueness per organization
   @@index([name]) // Keep general index if needed, maybe remove if @@unique above is sufficient
@@ -297,18 +305,18 @@ model Supplier {
 }
 
 model ProductSupplier {
-  id                   String   @id @default(cuid())
+  id                   String         @id @default(cuid())
   productId            String
-  product              ProductVariant  @relation(fields: [productId], references: [id], onDelete: Cascade) // Added onDelete
+  product              ProductVariant @relation(fields: [productId], references: [id], onDelete: Cascade) // Added onDelete
   supplierId           String
-  supplier             Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade) // Added onDelete
+  supplier             Supplier       @relation(fields: [supplierId], references: [id], onDelete: Cascade) // Added onDelete
   supplierSku          String? // The SKU used by the supplier for this product
-  costPrice            Decimal  @db.Decimal(10, 2)
+  costPrice            Decimal        @db.Decimal(10, 2)
   minimumOrderQuantity Int? // Added: Minimum quantity required by supplier
   packagingUnit        String? // Added: e.g., "Case of 12", "Pallet", "Each"
-  isPreferred          Boolean  @default(false) // Is this the preferred supplier for this product?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  isPreferred          Boolean        @default(false) // Is this the preferred supplier for this product?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
 
   @@unique([productId, supplierId])
   @@index([supplierId])
@@ -345,27 +353,27 @@ model Customer {
 // --- Transactional Models ---
 
 model Sale {
-  id             String        @id @default(cuid())
-  saleNumber     String 
+  id             String            @id @default(cuid())
+  saleNumber     String
   customerId     String?
-  customer       Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull) // Allow sale without customer, or if customer deleted
-  memberId       String 
-  member         Member        @relation(fields: [memberId], references: [id]) 
-  saleDate       DateTime      @default(now())
-  totalAmount    Decimal       @db.Decimal(10, 2) // Before discounts and taxes
-  discountAmount Decimal       @default(0) @db.Decimal(10, 2)
-  taxAmount      Decimal       @default(0) @db.Decimal(10, 2)
-  finalAmount    Decimal       @db.Decimal(10, 2) // After discounts and taxes
+  customer       Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull) // Allow sale without customer, or if customer deleted
+  memberId       String
+  member         Member            @relation(fields: [memberId], references: [id])
+  saleDate       DateTime          @default(now())
+  totalAmount    Decimal           @db.Decimal(10, 2) // Before discounts and taxes
+  discountAmount Decimal           @default(0) @db.Decimal(10, 2)
+  taxAmount      Decimal           @default(0) @db.Decimal(10, 2)
+  finalAmount    Decimal           @db.Decimal(10, 2) // After discounts and taxes
   paymentMethod  PaymentMethod
-  paymentStatus  PaymentStatus @default(PENDING)
+  paymentStatus  PaymentStatus     @default(PENDING)
   locationId     String // Location where the sale was made
   location       InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Cascade) // Prevent deletion if sales exist
   notes          String?
   cashDrawerId   String?
-  cashDrawer     CashDrawer?   @relation(fields: [cashDrawerId], references: [id], onDelete: SetNull) // Allow sale if drawer deleted
+  cashDrawer     CashDrawer?       @relation(fields: [cashDrawerId], references: [id], onDelete: SetNull) // Allow sale if drawer deleted
   receiptUrl     String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
   // Relations
   items              SaleItem[]
@@ -377,7 +385,7 @@ model Sale {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
 
   @@unique([organizationId, saleNumber]) // Enforce uniqueness per organization
-  @@index([memberId]) 
+  @@index([memberId])
   @@index([saleDate])
   @@index([customerId])
   @@index([organizationId, saleDate])
@@ -386,22 +394,22 @@ model Sale {
 }
 
 model SaleItem {
-  id             String          @id @default(cuid())
+  id             String         @id @default(cuid())
   saleId         String
-  sale           Sale            @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  sale           Sale           @relation(fields: [saleId], references: [id], onDelete: Cascade)
   variantId      String
   variant        ProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict) // Prevent variant deletion if sold
   stockBatchId   String? // Which specific batch was sold (important for FIFO/FEFO/Costing)
-  stockBatch     StockBatch?      @relation(fields: [stockBatchId], references: [id], onDelete: Restrict) // Prevent batch deletion if sold
+  stockBatch     StockBatch?    @relation(fields: [stockBatchId], references: [id], onDelete: Restrict) // Prevent batch deletion if sold
   quantity       Int
-  unitPrice      Decimal         @db.Decimal(10, 2) // Price per unit at time of sale
-  unitCost       Decimal         @db.Decimal(10, 2) // Cost per unit from StockBatch at time of sale
-  discountAmount Decimal         @default(0) @db.Decimal(10, 2) // Discount on this item
-  taxRate        Decimal         @default(0) @db.Decimal(5, 4) // Tax rate applied to this item
-  taxAmount      Decimal         @db.Decimal(10, 2) // Calculated tax for this item line
-  totalAmount    Decimal         @db.Decimal(10, 2) // (unitPrice * quantity) - discountAmount + taxAmount
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  unitPrice      Decimal        @db.Decimal(10, 2) // Price per unit at time of sale
+  unitCost       Decimal        @db.Decimal(10, 2) // Cost per unit from StockBatch at time of sale
+  discountAmount Decimal        @default(0) @db.Decimal(10, 2) // Discount on this item
+  taxRate        Decimal        @default(0) @db.Decimal(5, 4) // Tax rate applied to this item
+  taxAmount      Decimal        @db.Decimal(10, 2) // Calculated tax for this item line
+  totalAmount    Decimal        @db.Decimal(10, 2) // (unitPrice * quantity) - discountAmount + taxAmount
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   // Relations
   returns ReturnItem[] // Items returned referencing this sale item
@@ -445,17 +453,17 @@ model Purchase {
 }
 
 model PurchaseItem {
-  id               String          @id @default(cuid())
+  id               String         @id @default(cuid())
   purchaseId       String
-  purchase         Purchase        @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  purchase         Purchase       @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
   variantId        String
   variant          ProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict) // Prevent variant deletion
   orderedQuantity  Int
-  receivedQuantity Int             @default(0) // Quantity received so far for this item
-  unitCost         Decimal         @db.Decimal(10, 2) // Cost per unit for this purchase
-  totalCost        Decimal         @db.Decimal(10, 2) // unitCost * orderedQuantity
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  receivedQuantity Int            @default(0) // Quantity received so far for this item
+  unitCost         Decimal        @db.Decimal(10, 2) // Cost per unit for this purchase
+  totalCost        Decimal        @db.Decimal(10, 2) // unitCost * orderedQuantity
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
   // Relations
   // When items are received, they create StockBatch records
@@ -560,34 +568,36 @@ enum ReturnReason {
 
 // --- Inventory & Stock Models ---
 model InventoryLocation {
-  id               String              @id @default(cuid())
-  name             String
-  description      String?
-  isActive         Boolean             @default(true)
-  isDefault        Boolean             @default(false) // Is this the default location for new products?
-  locationType     LocationType        @default(RETAIL_SHOP)
-  address          String? // Physical address for warehouses/stores
-  totalCapacity    Float? // Total capacity number
-  capacityUnit     MeasurementUnit? // Unit of measurement
-  capacityUsed     Float?              @default(0) // Calculated usage
-  capacityTracking Boolean             @default(false) // Whether to enforce capacity limits
-  parentLocationId String? // For hierarchical locations - e.g., a zone within a warehouse
-  parentLocation   InventoryLocation?  @relation("LocationHierarchy", fields: [parentLocationId], references: [id], onDelete: SetNull)
-  childLocations   InventoryLocation[] @relation("LocationHierarchy")
-  customFields     Json?
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
-  managerId        String?
-  manager          Member?             @relation("LocationManager", fields: [managerId], references: [id], onDelete: SetNull)
-  sales            Sale[] // Sales made from this location
+  id                  String                  @id @default(cuid())
+  name                String
+  description         String?
+  isActive            Boolean                 @default(true)
+  isDefault           Boolean                 @default(false) // Is this the default location for new products?
+  locationType        LocationType            @default(RETAIL_SHOP)
+  address             String? // Physical address for warehouses/stores
+  totalCapacity       Float? // Total capacity number
+  capacityUnit        MeasurementUnit? // Unit of measurement
+  capacityUsed        Float?                  @default(0) // Calculated usage
+  capacityTracking    Boolean                 @default(false) // Whether to enforce capacity limits
+  parentLocationId    String? // For hierarchical locations - e.g., a zone within a warehouse
+  parentLocation      InventoryLocation?      @relation("LocationHierarchy", fields: [parentLocationId], references: [id], onDelete: SetNull)
+  childLocations      InventoryLocation[]     @relation("LocationHierarchy")
+  customFields        Json?
+  approvalConditions  ApprovalStepCondition[] @relation("LocationCondition")
+  inventoryConditions ApprovalStepCondition[] @relation("InventoryLocationConditions")
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  managerId           String?
+  manager             Member?                 @relation("LocationManager", fields: [managerId], references: [id], onDelete: SetNull)
+  sales               Sale[] // Sales made from this location
   // Existing relations
-  organizationId    String
-  organization      Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  stockBatches      StockBatch[]
-  stockAdjustments  StockAdjustment[]
-  variantStocks     ProductVariantStock[]
-  outgoingMovements StockMovement[]       @relation("FromLocationMovements")
-  incomingMovements StockMovement[]       @relation("ToLocationMovements")
+  organizationId      String
+  organization        Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  stockBatches        StockBatch[]
+  stockAdjustments    StockAdjustment[]
+  variantStocks       ProductVariantStock[]
+  outgoingMovements   StockMovement[]         @relation("FromLocationMovements")
+  incomingMovements   StockMovement[]         @relation("ToLocationMovements")
 
   // New storage management relations
   zones        StorageZone[]
@@ -703,7 +713,7 @@ model StoragePosition {
 model StockBatch {
   id             String            @id @default(cuid())
   variantId      String
-  variant        ProductVariant   @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  variant        ProductVariant    @relation(fields: [variantId], references: [id], onDelete: Cascade)
   batchNumber    String? // Manufacturer or internal batch number
   purchaseItemId String? // Link to the purchase item that created this batch
   purchaseItem   PurchaseItem?     @relation(fields: [purchaseItemId], references: [id], onDelete: SetNull)
@@ -735,11 +745,12 @@ model StockBatch {
   adjustments    StockAdjustment[] // Adjustments specifically affecting this batch
   movements      StockMovement[] // Track movements involving this batch
 
-  supplierId     String?
-  supplier       Supplier?      @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  
-  landedCost      Decimal? @db.Decimal(10, 2) // Total cost including shipping, duties, etc.
-  batchSalePrice  Decimal? @db.Decimal(10, 2) // Optional batch-specific sale price
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+
+  landedCost     Decimal? @db.Decimal(10, 2) // Total cost including shipping, duties, etc.
+  batchSalePrice Decimal? @db.Decimal(10, 2) // Optional batch-specific sale price
+
   @@index([expiryDate])
   @@index([receivedDate])
   @@index([currentQuantity])
@@ -775,21 +786,21 @@ model ProductVariantStock {
 }
 
 model StockAdjustment {
-  id             String                @id @default(cuid())
-  variantId      String
-  variant        ProductVariant      @relation(fields: [variantId], references: [id], onDelete: Restrict)
-  stockBatchId   String?
-  stockBatch     StockBatch?           @relation(fields: [stockBatchId], references: [id], onDelete: SetNull)
-  locationId     String
-  location       InventoryLocation     @relation(fields: [locationId], references: [id], onDelete: Restrict)
-  memberId       String
-  member         Member                @relation(fields: [memberId], references: [id])
-  quantity       Int // Positive for increase, negative for decrease
-  reason         StockAdjustmentReason
-  notes          String?
-  adjustmentDate DateTime              @default(now())
-  createdAt      DateTime              @default(now())
-  updatedAt      DateTime              @updatedAt
+  id              String                @id @default(cuid())
+  variantId       String
+  variant         ProductVariant        @relation(fields: [variantId], references: [id], onDelete: Restrict)
+  stockBatchId    String?
+  stockBatch      StockBatch?           @relation(fields: [stockBatchId], references: [id], onDelete: SetNull)
+  locationId      String
+  location        InventoryLocation     @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  memberId        String
+  member          Member                @relation(fields: [memberId], references: [id])
+  quantity        Int // Positive for increase, negative for decrease
+  reason          StockAdjustmentReason
+  notes           String?
+  adjustmentDate  DateTime              @default(now())
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
   referenceNumber String? // Optional reference number for tracking
 
   // Relations
@@ -823,7 +834,7 @@ enum StockAdjustmentReason {
 model StockMovement {
   id             String             @id @default(cuid())
   variantId      String
-  variant        ProductVariant    @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  variant        ProductVariant     @relation(fields: [variantId], references: [id], onDelete: Cascade)
   stockBatchId   String?
   stockBatch     StockBatch?        @relation(fields: [stockBatchId], references: [id], onDelete: SetNull)
   quantity       Int // Always positive: the quantity that moved
@@ -1122,59 +1133,46 @@ enum InventoryPolicy {
 }
 
 model Expense {
-  id             String          @id @default(cuid())
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  expenseNumber  String // Unique within organization
-  description    String
-  amount         Decimal         @db.Decimal(10, 2)
-  expenseDate    DateTime        @default(now())
-  categoryId     String
-  category       ExpenseCategory @relation(fields: [categoryId], references: [id])
-  paymentMethod  PaymentMethod
-  receiptUrl     String? // Link to uploaded receipt
-  notes          String?
-  isReimbursable Boolean         @default(false)
-  status         ExpenseStatus   @default(PENDING)
-  approvedById   String?
-  approvedBy     Member?         @relation("ExpenseApprover", fields: [approvedById], references: [id], onDelete: SetNull)
-  approvalDate   DateTime?
-
-  // Expense allocation
-  locationId String? // Which location this expense belongs to
-  location   InventoryLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
-
-  // Who incurred/recorded the expense
-  memberId   String
-  member     Member    @relation("ExpenseSubmitter", fields: [memberId], references: [id], onDelete: Restrict)
-  // Supplier if applicable
-  supplierId String?
-  supplier   Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-
-  // Relations
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  attachments    Attachment[]
-  auditLogs      AuditLog[]
-
-  // Add link to purchase if this is a purchase-related expense
-  purchaseId String?
-  purchase   Purchase? @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
-
-  // Add link to budget if specifically allocated
+  id                 String             @id @default(cuid())
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  expenseNumber      String
+  description        String
+  amount             Decimal            @db.Decimal(10, 2)
+  expenseDate        DateTime           @default(now())
+  categoryId         String
+  category           ExpenseCategory    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  paymentMethod      PaymentMethod
+  receiptUrl         String?
+  notes              String?
+  isReimbursable     Boolean            @default(false)
+  status             ExpenseStatus      @default(PENDING)
+  approvalDate       DateTime?
+  locationId         String?
+  location           InventoryLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  memberId           String
+  member             Member             @relation("ExpenseSubmitter", fields: [memberId], references: [id], onDelete: Restrict)
+  approverId         String?
+  approver           Member?            @relation("ExpenseApprover", fields: [approverId], references: [id], onDelete: SetNull)
+  supplierId         String?
+  supplier           Supplier?          @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  organizationId     String
+  organization       Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  attachments        Attachment[]
+  auditLogs          AuditLog[]
+  purchaseId         String?
+  purchase           Purchase?          @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
   budgetId           String?
-  budget             Budget?           @relation(fields: [budgetId], references: [id], onDelete: SetNull)
-  approval           ExpenseApproval?  @relation("ExpenseApproval")
+  budget             Budget?            @relation(fields: [budgetId], references: [id], onDelete: SetNull)
+  approval           ExpenseApproval?   @relation("ExpenseApproval")
   recurringExpenseId String?
-  recurringExpense   RecurringExpense? @relation("RecurringExpenseExpenses", fields: [recurringExpenseId], references: [id], onDelete: SetNull)
-
-  tags       String[] // For categorization
-  taxAmount  Decimal? @db.Decimal(10, 2) // Tax portion of the expense
-  mileage    Float? // For travel expenses
-  isBillable Boolean  @default(false) // Whether this can be billed to clients
+  recurringExpense   RecurringExpense?  @relation("RecurringExpenseExpenses", fields: [recurringExpenseId], references: [id], onDelete: SetNull)
+  tags               String[]
+  taxAmount          Decimal?           @db.Decimal(10, 2)
+  mileage            Float?
+  isBillable         Boolean            @default(false)
 
   @@unique([organizationId, expenseNumber])
-  // Add index
   @@index([isBillable])
   @@index([expenseDate])
   @@index([memberId])
@@ -1193,8 +1191,9 @@ model ExpenseCategory {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   // Add relations
-  expenses          Expense[]
-  recurringExpenses RecurringExpense[]
+  expenses           Expense[]
+  recurringExpenses  RecurringExpense[]
+  approvalConditions ApprovalStepCondition[]
 
   // Add index
   @@unique([organizationId, name])
@@ -1254,35 +1253,142 @@ enum RecurrenceFrequency {
   QUARTERLY
   YEARLY
 }
+
 model ExpenseApproval {
-  id             String         @id @default(cuid())
-  expenseId      String         @unique
-  expense        Expense        @relation("ExpenseApproval", fields: [expenseId], references: [id], onDelete: Cascade) // Cascade delete approval if expense is deleted
-  approverId     String
-  approver       Member         @relation("ApproverMember", fields: [approverId], references: [id], onDelete: Restrict) // Prevent approver deletion if they have pending approvals
-  status         ApprovalStatus @default(PENDING)
+  id           String         @id @default(cuid())
+  expenseId    String         @unique
+  expense      Expense        @relation("ExpenseApproval", fields: [expenseId], references: [id], onDelete: Cascade) // Cascade delete approval if expense is deleted
+  approverId   String
+  approver     Member         @relation("ApproverMember", fields: [approverId], references: [id], onDelete: Restrict) // Prevent approver deletion if they have pending approvals
+  status       ApprovalStatus @default(PENDING)
   // Comments provided by the approver during decision.
-  comments       String?
-  decisionDate   DateTime    
+  comments     String?
+  decisionDate DateTime
 
   // Standard fields
   organizationId String
-  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   @@index([approverId])
   @@index([status])
   @@index([organizationId])
 }
 
+model ApprovalWorkflow {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation("OrgWorkflows", fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String // e.g., "Standard Expense Approval", "High Value Purchase Approval"
+  description    String?
+  isActive       Boolean      @default(true) // Whether this workflow can be selected as the active one
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  steps ApprovalWorkflowStep[] // Ordered steps in the workflow
+
+  // Relation for tracking which orgs have this as active (optional, but useful)
+  activeForOrganizations Organization[] @relation("ActiveOrgWorkflow")
+
+  // Add the missing relation for expense approval workflows
+  expenseApprovalOrganizations Organization[] @relation("ExpenseApprovalWorkflows")
+
+  @@unique([organizationId, name])
+  @@index([organizationId, isActive])
+}
+
+model ApprovalWorkflowStep {
+  id                     String           @id @default(cuid())
+  approvalWorkflowId     String
+  workflow               ApprovalWorkflow @relation(fields: [approvalWorkflowId], references: [id], onDelete: Cascade)
+  stepNumber             Int // Order of the step (e.g., 1, 2, 3) - lower numbers first
+  name                   String // e.g., "Manager Approval", "Finance Review", "Director Sign-off"
+  description            String?
+  allConditionsMustMatch Boolean          @default(true) // If true, ALL conditions must match expense; if false, ANY condition match triggers step
+
+  conditions ApprovalStepCondition[] // Conditions that trigger this step
+  actions    ApprovalStepAction[] // Actions required for this step (who approves) min
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([approvalWorkflowId, stepNumber])
+}
+
+model ApprovalStepCondition {
+  id     String               @id @default(cuid())
+  stepId String
+  step   ApprovalWorkflowStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  type   ConditionType // Type of condition (Amount, Category, Location, etc.)
+
+  // --- Condition Values (only relevant fields used based on 'type') ---
+  minAmount         Decimal?           @db.Decimal(12, 2) // Minimum expense amount (exclusive)
+  maxAmount         Decimal?           @db.Decimal(12, 2) // Maximum expense amount (inclusive)
+  locationId        String? // Link to specific location
+  location          InventoryLocation? @relation("LocationCondition", fields: [locationId], references: [id], onDelete: SetNull) // Changed relation name
+  expenseCategoryId String? // Link to specific expense category
+  expenseCategory   ExpenseCategory?   @relation(fields: [expenseCategoryId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations for Member and InventoryLocation
+  members            Member[]            @relation("LocationConditions")
+  inventoryLocations InventoryLocation[] @relation("InventoryLocationConditions")
+
+  @@index([stepId])
+  @@index([expenseCategoryId])
+  @@index([locationId])
+}
+
+enum ConditionType {
+  AMOUNT_RANGE // Based on minAmount/maxAmount
+  EXPENSE_CATEGORY // Based on expenseCategoryId
+  LOCATION // Based on locationId
+  // Add others like: IS_REIMBURSABLE, PROJECT, HAS_RECEIPT etc.
+}
+
+// Defines the required action (who needs to approve) for a step
+model ApprovalStepAction {
+  id     String               @id @default(cuid())
+  stepId String
+  step   ApprovalWorkflowStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  type   ApprovalActionType // Type of approver required
+
+  // --- Action Values (only relevant fields used based on 'type') ---
+  approverRole     MemberRole? // Specific role required (e.g., MANAGER)
+  specificMemberId String? // Specific member ID required
+  specificMember   Member?     @relation("ApprovalStepActionMember", fields: [specificMemberId], references: [id], onDelete: SetNull) // SetNull: Action becomes invalid if member deleted
+
+  // How multiple approvers (if any defined for the step) should act
+  approvalMode ApprovalMode @default(ANY_ONE) // Requires ANY_ONE or ALL matching approvers
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stepId])
+  @@index([specificMemberId])
+}
+
+enum ApprovalActionType {
+  ROLE // Requires a member with a specific role
+  SPECIFIC_MEMBER // Requires a specific member
+  // Add others like: SUBMITTER_MANAGER (requires the submitter's direct manager - needs hierarchy logic elsewhere)
+}
+
+enum ApprovalMode {
+  ANY_ONE // Only one of the required approvers (matching type/role/id) needs to approve
+  ALL // All members matching the criteria for this step must approve (more complex to implement tracking)
+}
+
 // Consider refining ApprovalStatus if needed, e.g., adding REQUEST_INFO
 enum ApprovalStatus {
-  PENDING         // Awaiting approver action.
-  APPROVED        // Approver granted approval.
-  REJECTED        // Approver denied approval.
+  PENDING // Awaiting approver action.
+  APPROVED // Approver granted approval.
+  REJECTED // Approver denied approval.
   REQUEST_CHANGES // Approver requests modification before approving.
-  REQUEST_INFO    // Approver requests additional information before approving.
+  REQUEST_INFO // Approver requests additional information before approving.
 }
 
 model Budget {

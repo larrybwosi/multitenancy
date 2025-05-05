@@ -1,5 +1,5 @@
 import prisma from "@/lib/db";
-import { MeasurementUnit, StorageUnitType } from "@prisma/client";
+import { MeasurementUnit, StorageUnitType } from "@/prisma/client";
 
 async function assignProductStorageDefaults(
   productId: string,

@@ -25,7 +25,7 @@ import type {
     CustomerSearchResult,
 } from '../types'; // Adjust path
 import { processSale, searchCustomersForPOS } from '@/actions/pos.actions';
-import { PaymentMethod } from '@prisma/client';
+import { PaymentMethod } from '@/prisma/client';
 
 
 interface PosClientPageProps {

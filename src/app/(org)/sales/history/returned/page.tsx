@@ -6,7 +6,7 @@ import { useQueryState } from "nuqs";
 import { format } from "date-fns";
 import { Download, Eye, PackageCheck, PackageX } from "lucide-react";
 
-import { Return, ReturnStatus, ReturnReason } from "@prisma/client";
+import { Return, ReturnStatus, ReturnReason } from "@/prisma/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {

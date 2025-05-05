@@ -2,7 +2,7 @@
 
 import prisma from '@/lib/db';
 import { revalidatePath } from 'next/cache';
-import { Prisma, StockAdjustmentReason } from '@prisma/client';
+import { Prisma, StockAdjustmentReason } from '@/prisma/client';
 import { getServerAuthContext } from './auth';
 import { handleApiError } from '@/lib/api-utils';
 import { CreateStockAdjustmentSchema } from '@/lib/validations/schemas';

@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo } from "react";
 import { Column, SortColumn, DataGrid } from "react-data-grid";
-import { StockBatch, Product, ProductVariant, SaleItem } from "@prisma/client";
+import { StockBatch, Product, ProductVariant, SaleItem } from "@/prisma/client";
 import { format } from "date-fns";
 
 // Import the necessary CSS. Ensure this path is correct for your setup.

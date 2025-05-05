@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { RecurringExpensesList } from "./recurring-expenses-list"
-import { CreateExpenseSheet } from "./create-expense-sheet"
 import { ExpensesNavigation } from "./expenses-navigation"
 
 export function RecurringExpensesPage() {
@@ -360,14 +359,14 @@ export function RecurringExpensesPage() {
         </>
       )}
 
-      <CreateExpenseSheet
+      {/* <CreateExpenseSheet
         open={isCreateSheetOpen}
         onOpenChange={setIsCreateSheetOpen}
         categories={categories}
         departments={departments}
         vendors={vendors}
         onExpenseCreated={handleExpenseCreated}
-      />
+      /> */}
     </div>
   )
 }

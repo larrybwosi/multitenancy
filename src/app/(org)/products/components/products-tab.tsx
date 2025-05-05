@@ -1,6 +1,6 @@
 'use client';
 
-import { Category, Product, ProductVariant } from '@prisma/client';
+import { Category, Product, ProductVariant } from '@/prisma/client';
 import { Download, FileText, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import { RestockDialog } from './restock';

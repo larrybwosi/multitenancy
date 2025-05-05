@@ -47,7 +47,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-import type { Supplier } from "@prisma/client";
+import type { Supplier } from "@/prisma/client";
 import { SupplierDetailsSheet } from "./details-sheet"; // Import the details sheet
 import { toast } from "sonner";
 import { toggleSupplierStatus } from "@/actions/supplier";

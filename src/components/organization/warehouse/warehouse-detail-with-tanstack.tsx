@@ -37,7 +37,7 @@ import { WarehouseEditSheet } from "./warehouse-edit-sheet";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { InventoryLocation } from "@prisma/client";
+import { InventoryLocation } from "@/prisma/client";
 import useSWR from "swr";
 import {
   Tabs,

@@ -23,7 +23,7 @@ import {
   Dialog,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import {InventoryPolicy, MeasurementUnit} from '@prisma/client';
+import {InventoryPolicy, MeasurementUnit} from '@/prisma/client';
 import {toast} from 'sonner';
 import {useOrganization} from '@/hooks/use-organization';
 import {useUpdateOrganization} from '@/lib/hooks/use-org';

@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ExpenseStatus } from "@prisma/client"
+import { ExpenseStatus } from "@/prisma/client"
 import { Badge } from "@/components/ui/badge"
 
 type PaymentVoucher = {

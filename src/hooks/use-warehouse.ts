@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { InventoryLocation, StorageZone, StorageUnit, MovementType } from '@prisma/client';
+import { InventoryLocation, StorageZone, StorageUnit, MovementType } from '@/prisma/client';
 
 // Type definitions
 // Extended interfaces for better type safety

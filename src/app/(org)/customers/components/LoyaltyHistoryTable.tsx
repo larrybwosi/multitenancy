@@ -1,6 +1,6 @@
 "use client";
 
-import { LoyaltyReason, Prisma } from "@prisma/client";
+import { LoyaltyReason, Prisma } from "@/prisma/client";
 import {
   Table,
   TableBody,

@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { Loader2, Boxes, Save } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { MeasurementUnit, StorageUnitType } from "@prisma/client"
+import { MeasurementUnit, StorageUnitType } from "@/prisma/client"
 
 // Define schema for form validation
 const unitFormSchema = z.object({

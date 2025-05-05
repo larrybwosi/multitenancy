@@ -1,6 +1,6 @@
 "use server";
 
-import { Prisma, type Organization, MemberRole, LocationType, InventoryLocation } from "@prisma/client";
+import { Prisma, type Organization, MemberRole, LocationType, InventoryLocation } from '@/prisma/client';
 import slugify from "slugify";
 
 import { db as prisma } from "@/lib/db";

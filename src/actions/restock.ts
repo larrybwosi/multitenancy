@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { Prisma, ProductVariant } from '@prisma/client'; 
+import { Prisma, ProductVariant } from '@/prisma/client'; 
 import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/db';
 import { getServerAuthContext } from './auth';

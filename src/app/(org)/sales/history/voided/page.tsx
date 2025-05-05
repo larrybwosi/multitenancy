@@ -6,7 +6,7 @@ import { useQueryState } from "nuqs";
 import { format } from "date-fns";
 import { RotateCw, Trash2, Eye, Download } from "lucide-react";
 
-import { Sale, PaymentMethod } from "@prisma/client";
+import { Sale, PaymentMethod } from "@/prisma/client";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,

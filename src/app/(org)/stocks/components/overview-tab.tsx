@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Product, Category, StockBatch, ProductVariant } from "@prisma/client";
+import { Product, Category, StockBatch, ProductVariant } from "@/prisma/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PieChart } from "./charts/pie";

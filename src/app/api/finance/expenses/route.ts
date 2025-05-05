@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { ExpenseStatus } from '../../../../../prisma/src/generated/prisma/client';
+import { ExpenseStatus } from '@/prisma/client';
 import { createExpense, listExpenses } from '@/actions/expenses';
 
 export async function GET(request: Request) {
@@ -50,6 +50,7 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const result = await createExpense(body);
+    console.log(result)
 
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: result.errorCode || 400 });

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { MoreHorizontal, Pencil, Trash2, Eye } from "lucide-react";
-import { Customer } from "@prisma/client";
+import { Customer } from "@/prisma/client";
 
 import { Button } from "@/components/ui/button";
 import {

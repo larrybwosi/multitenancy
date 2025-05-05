@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { LocationType } from "@prisma/client";
+import { LocationType } from "@/prisma/client";
 import { getServerAuthContext } from "./auth";
 
 export async function getLocationsByType(locationType?: LocationType) {

@@ -1,92 +1,82 @@
 import { z } from 'zod';
-import { MemberRole, Prisma } from '../../../prisma/src/generated/prisma/client';
-
-// --- Enums for Zod ---
-// Re-define enums for Zod validation if not directly importing from Prisma types
-const ConditionTypeEnum = z.enum([
-  'AMOUNT_RANGE',
-  'EXPENSE_CATEGORY',
-  'LOCATION',
-  // Add others from schema
-]);
-
-const ActionTypeEnum = z.enum([
-  'ROLE',
-  'SPECIFIC_MEMBER',
-  // Add others from schema
-]);
-
-const ApprovalModeEnum = z.enum(['ANY_ONE', 'ALL']);
+import { ApprovalActionType, ApprovalMode, ConditionType, MemberRole } from '@/prisma/client';
 
 // --- Schemas ---
+const ZodDecimal = z.number().nullable().optional();
 
-// For ApprovalStepCondition
-const ApprovalStepConditionSchema = z
+// Schema for ApprovalStepAction Input
+export const ApprovalStepActionSchema = z
   .object({
-    type: ConditionTypeEnum,
-    minAmount: z
-      .union([z.number(), z.instanceof(Prisma.Decimal), z.string()])
-      .optional()
-      .nullable()
-      .transform(val => (val ? new Prisma.Decimal(val.toString()) : null)),
-    maxAmount: z
-      .union([z.number(), z.instanceof(Prisma.Decimal), z.string()])
-      .optional()
-      .nullable()
-      .transform(val => (val ? new Prisma.Decimal(val.toString()) : null)),
-    expenseCategoryId: z.string().cuid().optional().nullable(),
-    locationId: z.string().cuid().optional().nullable(),
-    // Add other condition fields here
+    type: z.nativeEnum(ApprovalActionType),
+    approverRole: z.nativeEnum(MemberRole).nullable().optional(),
+    specificMemberId: z.string().cuid().nullable().optional(), // Assuming CUID for IDs
+    approvalMode: z.nativeEnum(ApprovalMode).default(ApprovalMode.ANY_ONE),
   })
   .refine(
     data => {
-      // Add cross-field validation if needed, e.g., minAmount < maxAmount
-      if (data.type === 'AMOUNT_RANGE' && data.minAmount === null && data.maxAmount === null) {
-        return false; // Amount range type needs at least one amount
+      // Ensure either approverRole or specificMemberId is set based on type
+      if (data.type === ApprovalActionType.ROLE && !data.approverRole) {
+        return false;
       }
-      if (data.type === 'EXPENSE_CATEGORY' && !data.expenseCategoryId) {
-        return false; // Category type needs category ID
+      if (data.type === ApprovalActionType.SPECIFIC_MEMBER && !data.specificMemberId) {
+        return false;
       }
-      // Add more specific validation logic per type
       return true;
     },
     {
-      message: 'Invalid condition configuration for the selected type.',
+      message: "Either 'approverRole' or 'specificMemberId' must be provided based on the 'type'",
+      path: ['approverRole', 'specificMemberId'], // Path to the fields involved
     }
   );
 
-// For ApprovalStepAction
-const ApprovalStepActionSchema = z
+// Schema for ApprovalStepCondition Input
+export const ApprovalStepConditionSchema = z
   .object({
-    type: ActionTypeEnum,
-    approverRole: z.nativeEnum(MemberRole).optional().nullable(), 
-    specificMemberId: z.string().cuid().optional().nullable(),
-    approvalMode: ApprovalModeEnum.default('ANY_ONE'),
+    type: z.nativeEnum(ConditionType),
+    minAmount: ZodDecimal,
+    maxAmount: ZodDecimal,
+    locationId: z.string().cuid().nullable().optional(),
+    expenseCategoryId: z.string().cuid().nullable().optional(),
   })
   .refine(
     data => {
-      if (data.type === 'ROLE' && !data.approverRole) {
-        return false; // Role type needs a role
+      // Add specific validation based on type if needed
+      if (data.type === ConditionType.AMOUNT_RANGE && data.minAmount === undefined && data.maxAmount === undefined) {
+        return false; // Must provide at least min or max for amount range
       }
-      if (data.type === 'SPECIFIC_MEMBER' && !data.specificMemberId) {
-        return false; // Specific member type needs an ID
+      if (data.type === ConditionType.LOCATION && !data.locationId) {
+        return false;
       }
-      // Add more specific validation
+      if (data.type === ConditionType.EXPENSE_CATEGORY && !data.expenseCategoryId) {
+        return false;
+      }
+      // Ensure minAmount is less than maxAmount if both are provided
+      if (
+        data.minAmount !== null &&
+        data.maxAmount !== null &&
+        data.minAmount !== undefined &&
+        data.maxAmount !== undefined &&
+        data.minAmount >= data.maxAmount
+      ) {
+        return false;
+      }
       return true;
     },
     {
-      message: 'Invalid action configuration for the selected type.',
+      message: 'Invalid condition properties for the selected type or amount range.',
+      // Adjust path based on specific refinement failure
+      path: ['minAmount', 'maxAmount', 'locationId', 'expenseCategoryId'],
     }
   );
 
-// For ApprovalWorkflowStep
-const ApprovalWorkflowStepSchema = z.object({
-  stepNumber: z.number().int().positive(),
-  name: z.string().min(1, 'Step name cannot be empty.'),
-  description: z.string().optional().nullable(),
-  allConditionsMustMatch: z.boolean().default(true),
-  conditions: z.array(ApprovalStepConditionSchema).min(1, 'Each step must have at least one condition.'),
-  actions: z.array(ApprovalStepActionSchema).min(1, 'Each step must have at least one action.'),
+// Schema for ApprovalWorkflowStep Input
+export const ApprovalWorkflowStepSchema = z.object({
+    stepNumber: z.number().int().positive(),
+    name: z.string().min(1, "Step name cannot be empty"),
+    description: z.string().nullable().optional(),
+    allConditionsMustMatch: z.boolean().default(true),
+    conditions: z.array(ApprovalStepConditionSchema).min(1, "Each step must have at least one condition"),
+    actions: z.array(ApprovalStepActionSchema).min(1, "Each step must have at least one action"),
 });
 
 // For creating/updating an entire ApprovalWorkflow
@@ -107,8 +97,28 @@ export const ApprovalWorkflowInputSchema = z.object({
     ),
 });
 
+
+// Main Schema for ApprovalWorkflow Update Input Data
+export const WorkflowUpdateInputSchema = z.object({
+    name: z.string().min(1, "Workflow name cannot be empty").optional(), // Optional for update
+    description: z.string().nullable().optional(),
+    isActive: z.boolean().optional(),
+    steps: z.array(ApprovalWorkflowStepSchema)
+        .min(1, "Workflow must have at least one step")
+        .refine(steps => {
+            // Ensure step numbers are unique
+            const stepNumbers = steps.map(s => s.stepNumber);
+            return new Set(stepNumbers).size === stepNumbers.length;
+        }, {
+            message: "Step numbers must be unique within a workflow",
+            path: ['steps'],
+        }),
+});
+
 // Type alias for easier use
 export type ApprovalWorkflowInput = z.infer<typeof ApprovalWorkflowInputSchema>;
 export type ApprovalWorkflowStepInput = z.infer<typeof ApprovalWorkflowStepSchema>;
 export type ApprovalStepConditionInput = z.infer<typeof ApprovalStepConditionSchema>;
 export type ApprovalStepActionInput = z.infer<typeof ApprovalStepActionSchema>;
+export type ValidatedWorkflowUpdateInput = z.infer<typeof WorkflowUpdateInputSchema>;
+

@@ -27,10 +27,10 @@ import {
   Warehouse as WarehouseIcon,
   ClipboardList,
 } from 'lucide-react';
-import { InventoryLocation } from '@prisma/client';
-import { Member } from '@prisma/client';
-import { StorageZone } from '@prisma/client';
-import { StorageUnit } from '@prisma/client';
+import { InventoryLocation } from '@/prisma/client';
+import { Member } from '@/prisma/client';
+import { StorageZone } from '@/prisma/client';
+import { StorageUnit } from '@/prisma/client';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 

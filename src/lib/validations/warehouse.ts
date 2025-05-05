@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LocationType, MeasurementUnit, StorageUnitType } from "@prisma/client";
+import { LocationType, MeasurementUnit, StorageUnitType } from "@/prisma/client";
 
 // --- InventoryLocation Schemas ---
 

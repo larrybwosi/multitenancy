@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { FilterControls, FilterControlsProps } from '@/components/file-controls';
 import ProductModal from './product-details-modal';
 import { useDeleteProduct } from '@/lib/hooks/use-products';
-import { Product, ProductVariant, Supplier, Category } from '@prisma/client';
+import { Product, ProductVariant, Supplier, Category } from '@/prisma/client';
 
 import {
   DropdownMenu,

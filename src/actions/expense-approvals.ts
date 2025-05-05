@@ -7,7 +7,7 @@ import {
   ExpenseCategory,
   InventoryLocation,
   ApprovalWorkflowStep,
-} from '../../prisma/src/generated/prisma/client'; 
+} from '@/prisma/client'; 
 
 const prisma = new PrismaClient();
 
@@ -218,7 +218,7 @@ export async function getRequiredApproversForExpense(
   }
 
   // Fetch the workflow again, this time including actions
-  const detailedWorkflow = await getWorkflowDetails(workflow.id) as WorkflowWithSteps;
+  const detailedWorkflow = await getWorkflowDetails(workflow.id);
   if (!detailedWorkflow) return []; // Should not happen if getActiveWorkflow succeeded, but check anyway.
 
   const applicableStep = findApplicableWorkflowStep(expenseData, detailedWorkflow);
@@ -308,38 +308,3 @@ export function formatCurrency(
     return `${amount} ${currencyCode}`;
   }
 }
-
-// --- Example Usage of Helpers ---
-/*
-async function testExpenseChecks() {
-    const orgId = "org_123"; // Replace with actual Org ID
-    const expense: ExpenseCheckData = {
-        amount: new Decimal("150.75"),
-        expenseCategoryId: "cat_travel_456", // Replace with actual Category ID
-        locationId: "loc_office_789", // Replace with actual Location ID
-        memberId: "mem_submitter_abc", // Replace with actual Member ID
-        isReimbursable: true,
-    };
-
-    const needsApproval = await checkExpenseApprovalNeeded(expense, orgId);
-    console.log(`Expense ${formatCurrency(expense.amount)} needs approval: ${needsApproval}`);
-
-    if (needsApproval) {
-        const approvers = await getRequiredApproversForExpense(expense, orgId);
-        console.log("Required Approvers:", approvers.map(a => a.type === 'ROLE' ? a.approverRole : a.specificMemberId));
-
-        const memberTryingToApproveId = "mem_manager_xyz"; // Replace with actual Member ID
-        const memberTryingToApproveRole = MemberRole.MANAGER; // Replace with actual Role
-
-        const canApprove = await canMemberApproveExpense(
-            memberTryingToApproveId,
-            memberTryingToApproveRole,
-            expense,
-            orgId
-        );
-        console.log(`Member ${memberTryingToApproveId} (${memberTryingToApproveRole}) can approve: ${canApprove}`);
-    }
-}
-
-// testExpenseChecks();
-*/

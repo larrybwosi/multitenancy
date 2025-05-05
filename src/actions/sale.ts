@@ -1,8 +1,8 @@
-import { PaymentMethod, Prisma } from '@prisma/client';
+import { PaymentMethod, Prisma } from '@/prisma/client';
 import { z } from 'zod';
 import { getServerAuthContext } from './auth';
 import { revalidatePath } from 'next/cache';
-import { AuditLogAction, AuditEntityType, LoyaltyReason, PaymentStatus, ProductVariantStock } from '@prisma/client';
+import { AuditLogAction, AuditEntityType, LoyaltyReason, PaymentStatus, ProductVariantStock } from '@/prisma/client';
 // import { generateAndSaveReceiptPdf } from '@/lib/receiptGenerator';
 import { createAuditLog } from '@/lib/audits/logger';
 import { db } from '@/lib/db';

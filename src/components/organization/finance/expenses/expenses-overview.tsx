@@ -137,6 +137,7 @@ export function ExpensesOverview() {
     isError, 
     error 
   } = useExpenses(filters)
+  
 
   // Safely extract and transform data from the API
   const apiData = data as ExpensesResponse | undefined
@@ -147,7 +148,6 @@ export function ExpensesOverview() {
     limit: pageSize,
     totalPages: 0
   }
-
 
   const handlePageChange = (newPage: number) => {
     setFilters({ page: newPage })

@@ -10,7 +10,7 @@ import { TotalIncomeCard } from "./total-income-card"
 import { PaymentVouchersCard } from "./payment-vouchers-card"
 import { BudgetHistoryCard } from "./budget-history-card"
 import { Users, FileText, FolderKanban, Building } from "lucide-react"
-import { ExpenseStatus, InvitationStatus } from "@prisma/client"
+import { ExpenseStatus, InvitationStatus } from "@/prisma/client"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useSession } from "@/lib/auth/authClient"
 

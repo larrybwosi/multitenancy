@@ -4,7 +4,7 @@ import { Suspense, useState } from "react";
 import { useQueryState } from "nuqs";
 import { Download, ExternalLink, Eye, FilePlus2 } from "lucide-react";
 import useSWR from "swr";
-import { Sale, PaymentMethod, PaymentStatus, Prisma } from "@prisma/client";
+import { Sale, PaymentMethod, PaymentStatus, Prisma } from "@/prisma/client";
 
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { FilterControls } from "@/components/file-controls";

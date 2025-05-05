@@ -51,7 +51,7 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@/components/ui/avatar"
-import { Member } from "@prisma/client"
+import { Member } from "@/prisma/client"
 
 interface MembersListProps {
   loading: boolean

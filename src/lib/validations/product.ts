@@ -1,6 +1,4 @@
-import { Prisma } from "@prisma/client";
 import { z } from "zod";
-
 
 // --- Zod Schemas (Aligned with schema.txt) ---
 
@@ -10,12 +8,15 @@ export const ProductVariantSchema = z.object({
   name: z.string().min(1, 'Variant name cannot be empty.'),
   sku: z.string().min(1, 'Variant SKU is required.').optional().nullable(),
   barcode: z.string().optional().nullable(),
+  buyingPrice: z.union([z.string(), z.number()]).pipe(z.coerce.number().nonnegative('Buying price must be non-negative.')),
+  retailPrice: z.union([z.string(), z.number(), z.null()]).pipe(z.coerce.number().nonnegative('Retail price must be non-negative.').optional().nullable()),
+  wholesalePrice: z.union([z.string(), z.number(), z.null()]).pipe(z.coerce.number().nonnegative('Wholesale price must be non-negative.').optional().nullable()),
   attributes: z
     .union([z.string(), z.record(z.string(), z.any()), z.null()])
     .transform((val, ctx) => {
       if (typeof val === 'string') {
         try {
-          if (!val) return Prisma.JsonNull;
+          if (!val) return null;
           return JSON.parse(val);
         } catch (e) {
           console.error('Error parsing attributes JSON:', e);
@@ -26,9 +27,9 @@ export const ProductVariantSchema = z.object({
           return z.NEVER;
         }
       }
-      return val ?? Prisma.JsonNull;
+      return val ?? null;
     })
-    .pipe(z.any().optional().default(Prisma.JsonNull)),
+    .pipe(z.any().optional().nullable()),
   isActive: z
     .union([z.boolean(), z.string()])
     .transform(val => {
@@ -43,7 +44,6 @@ export const ProductVariantSchema = z.object({
     .transform(val => val === true || val === 'true' || val === 'on')
     .default(false),
 });
-
 
 // Exporting Type for potential use elsewhere
 export type ProductVariantInput = z.infer<typeof ProductVariantSchema>;
@@ -106,36 +106,35 @@ export const BaseProductSchema = z.object({
     val => (Array.isArray(val) ? val : typeof val === 'string' && val ? [val] : []),
     z.array(z.string().url('Invalid image URL.').trim()).optional().default([])
   ),
-  // [cite: 33] Json, optional
+  // [cite: 33] Json | null
   customFields: z
     .union([z.string(), z.record(z.string(), z.any()), z.null()])
     .transform((val, ctx) => {
       if (typeof val === 'string') {
         try {
-          if (!val) return Prisma.JsonNull;
+          if (!val) return null;
           return JSON.parse(val);
         } catch (e) {
-          console.error('Error parsing custom fields JSON:', e);
+          console.error('Error parsing customFields JSON:', e);
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: 'Invalid JSON format for custom fields.',
+            message: 'Invalid JSON format for customFields.',
           });
           return z.NEVER;
         }
       }
-      return val ?? Prisma.JsonNull; // Allow object input or null
+      return val ?? null;
     })
-    .pipe(z.any().optional().default(Prisma.JsonNull)),
-  // [cite: 34, 35, 34] Float, optional
-  width: z.union([z.number(), z.string()]).pipe(z.coerce.number().positive().optional().nullable()),
-  height: z.union([z.number(), z.string()]).pipe(z.coerce.number().positive().optional().nullable()),
-  length: z.union([z.number(), z.string()]).pipe(z.coerce.number().positive().optional().nullable()),
-  // [cite: 37] Float, optional
-  weight: z.union([z.number(), z.string()]).pipe(z.coerce.number().positive().optional().nullable()),
-  // [cite: 38] Float, optional
-  volumetricWeight: z.union([z.number(), z.string()]).pipe(z.coerce.number().positive().optional().nullable()),
-  // [cite: 38] String CUID, optional
-  defaultLocationId: z.string().cuid('Invalid Location ID.').optional().nullable(),
+    .pipe(z.any().optional().nullable()),
+  // Physical dimensions
+  width: z.union([z.string(), z.number(), z.null()]).pipe(z.coerce.number().nonnegative().optional().nullable()),
+  height: z.union([z.string(), z.number(), z.null()]).pipe(z.coerce.number().nonnegative().optional().nullable()),
+  length: z.union([z.string(), z.number(), z.null()]).pipe(z.coerce.number().nonnegative().optional().nullable()),
+  dimensionUnit: z.enum(['METER', 'CENTIMETER', 'MILLIMETER', 'INCH', 'FOOT', 'YARD']).optional().nullable(),
+  weight: z.union([z.string(), z.number(), z.null()]).pipe(z.coerce.number().nonnegative().optional().nullable()),
+  weightUnit: z.enum(['WEIGHT_KG', 'WEIGHT_G', 'WEIGHT_LB', 'WEIGHT_OZ']).optional().nullable(),
+  volumetricWeight: z.union([z.string(), z.number(), z.null()]).pipe(z.coerce.number().nonnegative().optional().nullable()),
+  defaultLocationId: z.string().optional().nullable(),
 });
 
 // --- Schema for Adding a Product ---
@@ -145,6 +144,7 @@ export const AddProductSchema = BaseProductSchema.extend({
   suppliers: z.array(ProductSupplierSchema).optional().default([]),
 });
 
+// --- Schema for Adding a Product (Minimal) ---
 export const AddProductMinimalSchema = z.object({
   name: BaseProductSchema.shape.name, // Required: string, min 1
   categoryId: BaseProductSchema.shape.categoryId, // Required: string, CUID format check likely in BaseProductSchema already

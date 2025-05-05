@@ -1,6 +1,6 @@
 "use client";
 
-import { PaymentStatus, Prisma } from "@prisma/client";
+import { PaymentStatus, Prisma } from "@/prisma/client";
 import {
   Table,
   TableBody,

@@ -1,7 +1,8 @@
-import { CreateExpenseSchema, ListExpensesFilter } from '@/lib/validations/epenses';
-import { Expense, MemberRole, ExpenseStatus, ApprovalStatus, Prisma } from '../../prisma/src/generated/prisma/client';
+import { CreateExpenseSchema, ListExpensesFilter } from '@/lib/validations/expenses';
+import { Expense, MemberRole, ExpenseStatus, ApprovalStatus, Prisma } from '@/prisma/client';
 import { getServerAuthContext } from './auth';
 import prisma from '@/lib/db';
+import { canMemberApproveExpense, checkExpenseApprovalNeeded, ExpenseCheckData } from './expense-approvals';
 
 /**
  * Input data for approving or rejecting an expense.
@@ -83,8 +84,6 @@ export const createExpense = async (input: unknown): Promise<ServiceResponse<Exp
     const organization = await prisma.organization.findUnique({
       where: { id: organizationId },
       select: {
-        expenseApprovalRequired: true,
-        expenseApprovalThreshold: true,
         expenseReceiptRequired: true,
         expenseReceiptThreshold: true,
         id: true,
@@ -97,34 +96,34 @@ export const createExpense = async (input: unknown): Promise<ServiceResponse<Exp
 
     // 4. Determine Initial Status and Approval Requirements
     let initialStatus: ExpenseStatus = ExpenseStatus.PENDING;
-    let requiresApproval = false;
 
-    if (organization.expenseApprovalRequired) {
-      if (
-        organization.expenseApprovalThreshold === null ||
-        validateAndConvertToDecimal(validatedInput.amount, 'amount')?.greaterThan(organization.expenseApprovalThreshold)
-      ) {
-        requiresApproval = true;
-      }
-    }
+    const expenseData: ExpenseCheckData = {
+      amount: validatedInput.amount,
+      expenseCategoryId: categoryId,
+      locationId: locationId,
+      memberId,
+      isReimbursable: validatedInput.isReimbursable,
+    };
+
+    const requiresApproval = await checkExpenseApprovalNeeded(expenseData, organizationId);
 
     if (!requiresApproval) {
       initialStatus = ExpenseStatus.APPROVED;
     }
 
     // 5. Receipt Validation
-    const requiresReceipt =
-      organization.expenseReceiptRequired &&
-      (organization.expenseReceiptThreshold === null ||
-        validateAndConvertToDecimal(validatedInput.amount, 'amount')?.greaterThan(organization.expenseReceiptThreshold));
+    // const requiresReceipt =
+    //   organization.expenseReceiptRequired &&
+    //   (organization.expenseReceiptThreshold === null ||
+    //     validateAndConvertToDecimal(validatedInput.amount, 'amount')?.greaterThan(organization.expenseReceiptThreshold));
 
-    if (requiresReceipt && !validatedInput.receiptUrl) {
-      return {
-        success: false,
-        error: `Receipt is required for expenses over ${organization.expenseReceiptThreshold ?? 0}.`,
-        errorCode: 400,
-      };
-    }
+    // if (requiresReceipt && !validatedInput.receiptUrl) {
+    //   return {
+    //     success: false,
+    //     error: `Receipt is required for expenses over ${organization.expenseReceiptThreshold ?? 0}.`,
+    //     errorCode: 400,
+    //   };
+    // }
 
     // 6. Generate unique expense number
     const expenseNumber = `EXP-${Date.now().toString().toUpperCase().slice(3, 8)}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
@@ -195,19 +194,10 @@ export const approveExpense = async (input: UpdateExpenseStatusInput): Promise<S
       return { success: false, error: 'Authentication required.', errorCode: 401 };
     }
 
-    // Define roles allowed to approve (adjust as per MemberRole enum)
-    const allowedRoles: MemberRole[] = [MemberRole.ADMIN, MemberRole.MANAGER, MemberRole.OWNER];
-    if (!hasRequiredRole(role, allowedRoles)) {
-      return {
-        success: false,
-        error: 'Permission denied. You do not have the required role to approve expenses.',
-        errorCode: 403,
-      };
-    }
-
+    const { expenseId, comments } = input;
     // 2. Fetch Expense and Validate Status
     const expense = await prisma.expense.findUnique({
-      where: { id: input.expenseId, organizationId: organizationId },
+      where: { id: expenseId, organizationId: organizationId },
       include: {
         approval: true, // Include existing approval record if any
       },
@@ -230,47 +220,78 @@ export const approveExpense = async (input: UpdateExpenseStatusInput): Promise<S
       };
     }
 
+    // Verify approver can approve this expense
+    const expenseData: ExpenseCheckData = {
+      amount: expense.amount,
+      expenseCategoryId: expense.categoryId,
+      locationId: expense.locationId,
+      memberId: expense.memberId,
+      isReimbursable: expense.isReimbursable,
+    };
+    const canApprove = await canMemberApproveExpense(memberId, role as MemberRole, expenseData, organizationId);
+
+    if (!canApprove) {
+      return {
+        success: false,
+        error: 'You do not have permission to approve this expense',
+      };
+    }
+
     // 3. Update Expense and potentially ExpenseApproval record
     const now = new Date();
     const updatedExpense = await prisma.$transaction(async tx => {
-      // Update expense
-      await tx.$executeRaw`
-        UPDATE "expense" 
-        SET "status" = ${ExpenseStatus.APPROVED}, 
-            "approverId" = ${memberId}, 
-            "approvalDate" = ${now} 
-        WHERE "id" = ${input.expenseId}
-      `;
+      // Update the expense
+      const result = await tx.expense.update({
+        where: { id: expenseId },
+        data: {
+          status: ExpenseStatus.APPROVED,
+          approverId: memberId,
+          approvalDate: now,
+        },
+      });
 
-      // Update or create ExpenseApproval record
+      // Create or update approval record
       if (expense.approval) {
-        // Update existing approval record
-        await tx.$executeRaw`
-          UPDATE "expense_approval" 
-          SET "status" = ${ApprovalStatus.APPROVED}, 
-              "comments" = ${input.comments || null}, 
-              "decisionDate" = ${now}, 
-              "approverId" = ${memberId}
-          WHERE "id" = ${expense.approval.id}
-        `;
+        await tx.expenseApproval.update({
+          where: { id: expense.approval.id },
+          data: {
+            status: ApprovalStatus.APPROVED,
+            comments: comments,
+            decisionDate: now,
+            approverId: memberId,
+          },
+        });
       } else {
-        // Create a new approval record if one didn't exist
         await tx.expenseApproval.create({
           data: {
-            expenseId: input.expenseId,
+            expenseId: expenseId,
             approverId: memberId,
             status: ApprovalStatus.APPROVED,
-            comments: input.comments,
+            comments: comments,
             decisionDate: now,
-            organizationId: organizationId,
+            organizationId,
           },
         });
       }
-      
-      // Return the updated expense
-      return await tx.expense.findUnique({
-        where: { id: input.expenseId },
+
+      // Create audit log entry
+      await tx.auditLog.create({
+        data: {
+          organizationId,
+          memberId: memberId,
+          action: 'UPDATE',
+          entityType: 'EXPENSE',
+          entityId: expenseId,
+          description: `Expense ${expenseId} approved by ${memberId}`,
+          details: {
+            comments,
+            previousStatus: expense.status,
+            newStatus: ExpenseStatus.APPROVED,
+          },
+        },
       });
+
+      return result;
     });
 
     return { success: true, data: updatedExpense };
@@ -284,7 +305,6 @@ export const approveExpense = async (input: UpdateExpenseStatusInput): Promise<S
     return { success: false, error: 'An unexpected error occurred while approving the expense.', errorCode: 500 };
   }
 };
-
 /**
  * Rejects an existing expense.
  * Checks user authentication and role, verifies the expense exists and is pending,
@@ -301,27 +321,14 @@ export const rejectExpense = async (input: UpdateExpenseStatusInput): Promise<Se
       return { success: false, error: 'Authentication required.', errorCode: 401 };
     }
 
-    // Define roles allowed to reject (usually same as approval)
-    const allowedRoles: MemberRole[] = [MemberRole.ADMIN, MemberRole.MANAGER, MemberRole.OWNER];
-    if (!hasRequiredRole(role!, allowedRoles)) {
-      return {
-        success: false,
-        error: 'Permission denied. You do not have the required role to reject expenses.',
-        errorCode: 403,
-      };
-    }
-
     // Rejection comment is mandatory
     if (!input.comments || input.comments.trim() === '') {
       return { success: false, error: 'Rejection comments are required.', errorCode: 400 };
     }
-
-    // 2. Fetch Expense and Validate Status
+    const { expenseId, comments } = input;
     const expense = await prisma.expense.findUnique({
-      where: { id: input.expenseId, organizationId: organizationId },
-      include: {
-        approval: true, // Include existing approval record if any
-      },
+      where: { id: input.expenseId, organizationId },
+      include: { approval: true },
     });
 
     if (!expense) {
@@ -337,51 +344,84 @@ export const rejectExpense = async (input: UpdateExpenseStatusInput): Promise<Se
       return { success: false, error: `Expense is in ${expense.status} state and cannot be rejected.`, errorCode: 400 };
     }
 
+    // Verify rejector can reject this expense (same rules as approval)
+    const expenseData: ExpenseCheckData = {
+      amount: expense.amount,
+      expenseCategoryId: expense.categoryId,
+      locationId: expense.locationId,
+      memberId: expense.memberId,
+      isReimbursable: expense.isReimbursable,
+    };
+
+    const canReject = await canMemberApproveExpense(memberId, role as MemberRole, expenseData, organizationId);
+
+    if (!canReject) {
+      return {
+        success: false,
+        error: 'You do not have permission to reject this expense',
+        errorCode: 403,
+      };
+    }
+
+    // Determine the new notes value by combining existing notes with the rejection comment
+    const newNotes = expense.notes 
+      ? `${expense.notes}\nRejection: ${comments}`
+      : `Rejection: ${comments}`;
+
     // 3. Update Expense and potentially ExpenseApproval record
     const now = new Date();
     const updatedExpense = await prisma.$transaction(async tx => {
-      // Set the notes
-      const newNotes = expense.notes 
-        ? `${expense.notes}\nREJECTED: ${input.comments}` 
-        : `REJECTED: ${input.comments}`;
-      
-      // Update expense
-      await tx.$executeRaw`
-        UPDATE "expense" 
-        SET "status" = ${ExpenseStatus.REJECTED},
-            "notes" = ${newNotes}
-        WHERE "id" = ${input.expenseId}
-      `;
+      // Update the expense
+      const result = await tx.expense.update({
+        where: { id: expenseId },
+        data: {
+          status: ExpenseStatus.REJECTED,
+          notes: newNotes,
+        },
+      });
 
-      // Update or create ExpenseApproval record
+      // Create or update approval record
       if (expense.approval) {
-        // Update existing approval record
-        await tx.$executeRaw`
-          UPDATE "expense_approval" 
-          SET "status" = ${ApprovalStatus.REJECTED}, 
-              "comments" = ${input.comments}, 
-              "decisionDate" = ${now}, 
-              "approverId" = ${memberId}
-          WHERE "id" = ${expense.approval.id}
-        `;
+        await tx.expenseApproval.update({
+          where: { id: expense.approval.id },
+          data: {
+            status: ApprovalStatus.REJECTED,
+            comments: comments,
+            decisionDate: now,
+            approverId: memberId,
+          },
+        });
       } else {
-        // Create a new approval record if one didn't exist
         await tx.expenseApproval.create({
           data: {
-            expenseId: input.expenseId,
+            expenseId: expenseId,
             approverId: memberId,
             status: ApprovalStatus.REJECTED,
-            comments: input.comments,
+            comments: comments,
             decisionDate: now,
-            organizationId: organizationId,
+            organizationId,
           },
         });
       }
-      
-      // Return the updated expense
-      return await tx.expense.findUnique({
-        where: { id: input.expenseId },
+
+      // Create audit log entry
+      await tx.auditLog.create({
+        data: {
+          organizationId,
+          memberId,
+          action: 'UPDATE',
+          entityType: 'EXPENSE',
+          entityId: input.expenseId,
+          description: `Expense ${input.expenseId} rejected by ${memberId}`,
+          details: {
+            comments,
+            previousStatus: expense.status,
+            newStatus: ExpenseStatus.REJECTED,
+          },
+        },
       });
+
+      return result;
     });
 
     return { success: true, data: updatedExpense };
@@ -396,6 +436,121 @@ export const rejectExpense = async (input: UpdateExpenseStatusInput): Promise<Se
   }
 };
 
+
+/**
+ * Determines if a given expense needs approval and who can approve it.
+ * 
+ * @param expenseId The expense ID to check
+ * @param organizationId The organization ID
+ * @returns Object with approval requirements and eligible approvers
+ */
+export async function checkExpenseApprovalRequirements(expenseId: string, organizationId: string) {
+  try {
+    // Fetch the expense
+    const expense = await prisma.expense.findUnique({
+      where: { id: expenseId, organizationId },
+      include: {
+        category: true,
+        member: true,
+        location: true
+      }
+    });
+
+    if (!expense) {
+      return {
+        success: false,
+        error: 'Expense not found',
+        requiresApproval: false,
+        eligibleApprovers: []
+      };
+    }
+
+    // If expense is already approved or rejected, it doesn't need further approval
+    if (expense.status !== ExpenseStatus.PENDING) {
+      return {
+        success: true,
+        requiresApproval: false,
+        message: `Expense is already ${expense.status.toLowerCase()}`,
+        eligibleApprovers: []
+      };
+    }
+
+    // Create the expense data for approval checks
+    const expenseData: ExpenseCheckData = {
+      amount: expense.amount,
+      expenseCategoryId: expense.categoryId,
+      locationId: expense.locationId,
+      memberId: expense.memberId,
+      isReimbursable: expense.isReimbursable
+    };
+
+    // Check if approval is needed
+    const requiresApproval = await checkExpenseApprovalNeeded(expenseData, organizationId);
+
+    if (!requiresApproval) {
+      return {
+        success: true,
+        requiresApproval: false,
+        message: 'This expense does not require approval',
+        eligibleApprovers: []
+      };
+    }
+
+    // Find eligible approvers
+    const members = await prisma.member.findMany({
+      where: { 
+        organizationId,
+        isActive: true 
+      },
+      include: {
+        user: {
+          select: {
+            name: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    // Determine which members can approve
+    const eligibleApprovers = [];
+    for (const member of members) {
+      // Skip the expense submitter (can't approve own expense)
+      if (member.id === expense.memberId) continue;
+
+      const canApprove = await canMemberApproveExpense(
+        member.id,
+        member.role as MemberRole,
+        expenseData,
+        organizationId
+      );
+
+      if (canApprove) {
+        eligibleApprovers.push({
+          id: member.id,
+          role: member.role,
+          name: member.user?.name,
+          email: member.user?.email
+        });
+      }
+    }
+
+    return {
+      success: true,
+      requiresApproval,
+      message: 'Approval required',
+      eligibleApprovers
+    };
+  } catch (error) {
+    console.error('Error checking approval requirements:', error);
+    return {
+      success: false,
+      error: 'Failed to determine approval requirements',
+      requiresApproval: false,
+      eligibleApprovers: []
+    };
+  }
+}
 /**
  * Retrieves a single expense by its ID.
  * Checks authentication and ensures the expense belongs to the user's organization.
@@ -462,7 +617,9 @@ export const getExpenseById = async (expenseId: string): Promise<ServiceResponse
  * @param filter - Optional filtering criteria.
  * @returns A ServiceResponse containing an array of Expense objects or an error message.
  */
-export const listExpenses = async (filter: ListExpensesFilter = {}): Promise<ServiceResponse<Expense[]>> => {
+export const listExpenses = async (
+  filter: ListExpensesFilter = {}
+): Promise<ServiceResponse<{ expenses: Expense[]; pagination: PaginationMeta }>> => {
   try {
     // 1. Authentication and Authorization
     const { memberId, organizationId, role } = await getServerAuthContext();
@@ -509,6 +666,14 @@ export const listExpenses = async (filter: ListExpensesFilter = {}): Promise<Ser
       if (filter.dateTo) whereClause.expenseDate.lte = new Date(filter.dateTo);
     }
 
+    // Get pagination parameters with defaults
+    const skip = filter.skip ?? 0;
+    const take = filter.take ?? 50;
+
+    // Calculate current page based on skip/take
+    const page = Math.floor(skip / take) + 1;
+    const limit = take;
+
     // 4. Fetch Expenses with Pagination
     const expenses = await prisma.expense.findMany({
       where: whereClause,
@@ -521,14 +686,31 @@ export const listExpenses = async (filter: ListExpensesFilter = {}): Promise<Ser
       orderBy: {
         expenseDate: 'desc', // Default sort order
       },
-      skip: filter.skip ?? 0,
-      take: filter.take ?? 50, // Default page size
+      skip: skip,
+      take: take,
     });
 
-    // Optionally return total count for pagination
-    // const totalCount = await prisma.expense.count({ where: whereClause });
+    // Get total count for pagination
+    const total = await prisma.expense.count({ where: whereClause });
 
-    return { success: true, data: expenses /*, totalCount */ };
+    // Calculate total pages
+    const totalPages = Math.ceil(total / take);
+
+    // Create pagination metadata
+    const pagination: PaginationMeta = {
+      total,
+      page,
+      limit,
+      totalPages,
+    };
+
+    return {
+      success: true,
+      data: {
+        expenses,
+        pagination,
+      },
+    };
   } catch (error: unknown) {
     console.error('Error listing expenses:', error);
     if (error instanceof Error) {
@@ -537,3 +719,20 @@ export const listExpenses = async (filter: ListExpensesFilter = {}): Promise<Ser
     return { success: false, error: 'An unexpected error occurred while listing expenses.', errorCode: 500 };
   }
 };
+
+// Types needed for the function
+interface PaginationMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+
+// Types needed for the function
+interface PaginationMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}

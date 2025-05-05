@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { Member, MemberRole, User, Prisma } from "@prisma/client";
+import { MemberRole, User } from "@/prisma/client";
 
 // Define the arguments for the function
 interface CreateAssistantArgs {
@@ -25,7 +25,7 @@ interface CreateAssistantArgs {
  */
 export async function createOrganizationAssistant(
   args: CreateAssistantArgs
-): Promise<Member & { user: User }> {
+): Promise<MemberRole & { user: User }> {
   const {
     organizationId,
     assistantName = "Organization Assistant", // Default name

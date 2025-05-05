@@ -21,7 +21,7 @@ import { useLocations, useSuppliers } from '@/lib/hooks/use-supplier';
 import { DragOverlay } from '@/components/ui/drag-overlay';
 import { VariantModal } from '../add/variant';
 import { Checkbox } from '@/components/ui/checkbox';
-import { MeasurementUnit, Prisma } from '@prisma/client';
+import { MeasurementUnit, Prisma } from '@/prisma/client';
 import Loading from './loading';
 import { EditProductSchema, EditProductSchemaType } from '@/lib/validations/product';
 

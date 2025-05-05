@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQueryState, parseAsArrayOf, parseAsString } from "nuqs";
 import { ProductGrid } from "./ProductGrid";
-import { Customer, PaymentMethod } from "@prisma/client";
+import { Customer, PaymentMethod } from "@/prisma/client";
 import { CartItem as ProjectCartItem } from "@/app/point-of-sale/types";
 import { useAppStore } from "@/store/app";
 import Cart, { SaleData as CartSaleData, SaleResult } from "./cart-test";

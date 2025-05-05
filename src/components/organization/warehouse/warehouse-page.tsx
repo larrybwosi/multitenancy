@@ -15,7 +15,7 @@ import { WarehouseStats } from "./warehouse-stats";
 import { WarehouseCreateSheet } from "./warehouse-create-sheet";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { toast } from "sonner";
-import { InventoryLocation } from "@prisma/client";
+import { InventoryLocation } from "@/prisma/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryState } from "nuqs";
 

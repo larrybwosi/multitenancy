@@ -7,7 +7,7 @@
 
 import { z } from 'zod';
 import { db } from '@/lib/db'; // Adjust path if needed
-import { Supplier, Prisma } from '@prisma/client';
+import { Supplier, Prisma } from '@/prisma/client';
 import { revalidatePath } from 'next/cache';
 import { ActionResponse, SupplierInfo, } from '@/lib/types/suppliers'; // Assuming these types exist
 import { getServerAuthContext } from './auth'; // Assuming auth context helper

@@ -2,7 +2,7 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { InventoryLocation } from "@prisma/client";
+import { InventoryLocation } from "@/prisma/client";
 import { Warehouse, Package, AlertTriangle, CheckCircle } from "lucide-react";
 
 interface WarehouseStatsProps {

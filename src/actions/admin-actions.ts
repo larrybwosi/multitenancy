@@ -3,7 +3,7 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { Prisma, UserRole } from "@prisma/client";
+import { Prisma, UserRole } from "@/prisma/client";
 import { db } from "@/lib/db";
 import { v4 as uuid} from 'uuid';
 import { auth } from "@/lib/auth";

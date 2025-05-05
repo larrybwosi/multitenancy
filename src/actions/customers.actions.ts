@@ -1,6 +1,6 @@
 "use server";
 
-import { Customer, Prisma } from "@prisma/client";
+import { Customer, Prisma } from "@/prisma/client";
 import { db, db as prisma } from "@/lib/db";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { checkUserAuthorization, getServerAuthContext } from "./auth";

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { CreateExpense, ListExpensesFilter } from '../validations/epenses';
-import { Expense } from '../../../prisma/src/generated/prisma/client';
+import { CreateExpense, ListExpensesFilter } from '../validations/expenses';
+import { Expense } from '@/prisma/client';
 // import { CreateExpenseSchema, Expense, ExpenseStatus, ListExpensesFilter } from '@/lib/validations/expenses';
 
 // Helper function for API calls
@@ -60,7 +60,7 @@ export const useCreateExpense = () => {
 
   return useMutation<Expense, Error, CreateExpense>({
     mutationFn: data =>
-      apiFetch('/api/expenses', {
+      apiFetch('/api/finance/expenses', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
