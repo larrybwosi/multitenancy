@@ -24,29 +24,10 @@ import {
   parseAsIsoDateTime
 } from "nuqs"
 import { 
+  Expense,
   useExpenses,
 } from "@/lib/hooks/use-expenses"
 
-// Define types for expenses data
-interface Expense {
-  id: string
-  description: string
-  amount: number
-  date?: string
-  category: string | { name: string }
-  paymentMethod?: string
-  status?: string
-  vendor?: string
-  isRecurring: boolean
-  recurringFrequency?: string
-  taxDeductible?: boolean
-  department?: string
-  createdBy?: { name: string }
-  frequency?: string
-  nextDueDate?: string
-  createdAt?: string
-  updatedAt?: string
-}
 
 interface PaginationData {
   total: number
@@ -318,7 +299,7 @@ export function ExpensesOverview() {
                     <DatePicker 
                       date={startDate as Date | undefined}
                       setDate={(date: Date | undefined) => {
-                        setStartDate(date)
+                        setStartDate(date!)
                         setFilters({ page: 1 })
                       }}
                       placeholder="Start Date" 
@@ -327,7 +308,7 @@ export function ExpensesOverview() {
                     <DatePicker 
                       date={endDate as Date | undefined}
                       setDate={(date: Date | undefined) => {
-                        setEndDate(date)
+                        setEndDate(date!)
                         setFilters({ page: 1 })
                       }}
                       placeholder="End Date" 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useQueryState, parseAsArrayOf, parseAsString } from "nuqs";
 import { ProductGrid } from "./ProductGrid";
 import { Customer, PaymentMethod } from "@/prisma/client";
@@ -9,6 +9,10 @@ import { useAppStore } from "@/store/app";
 import Cart, { SaleData as CartSaleData, SaleResult } from "./cart-test";
 import { ExtendedProduct } from "../types";
 import { toast } from "sonner";
+import { receiptGenerationTest, useSubmitSale } from "@/hooks/use-sales";
+import { Button } from "@/components/ui/button";
+import { Printer } from "lucide-react";
+import { useReactToPrint } from 'react-to-print';
 
 // Use the project's CartItem interface with additional required fields
 type CartItem = Omit<ProjectCartItem, "sku"> & {
@@ -45,24 +49,23 @@ export function PosClientWrapper({
   products = [],
   customers = [],
 }: PosClientWrapperProps) {
-  const [cartProductIds, setCartProductIds] = useQueryState(
-    "cartItems",
-    parseAsArrayOf(parseAsString).withDefault([])
-  );
-  
-  const warehouse = useAppStore((state) => state.currentWarehouse);
+  const [cartProductIds, setCartProductIds] = useQueryState('cartItems', parseAsArrayOf(parseAsString).withDefault([]));
+
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const warehouse = useAppStore(state => state.currentWarehouse);
   const [cartQuantities, setCartQuantities] = useState<Record<string, number>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { mutateAsync } = useSubmitSale();
 
   const cartItems = useMemo(() => {
     return cartProductIds
-      .map((productId) => {
-        const product = products.find((p) => p.id === productId);
+      .map(productId => {
+        const product = products.find(p => p.id === productId);
         if (!product) return null;
         // Get default variant id
         // TODO: Use selected variant
         const defaultVariantId = product.variants[0].id;
-        
+
         const quantity = cartQuantities[productId] || 0;
         // Convert string price to number for display
         const price = parseFloat(product.sellingPrice.toString());
@@ -95,7 +98,7 @@ export function PosClientWrapper({
     const initialQuantities: Record<string, number> = {};
     let updateNeeded = false;
 
-    cartProductIds.forEach((id) => {
+    cartProductIds.forEach(id => {
       if (cartQuantities[id] === undefined) {
         initialQuantities[id] = 1;
         updateNeeded = true;
@@ -104,7 +107,7 @@ export function PosClientWrapper({
       }
     });
 
-    Object.keys(cartQuantities).forEach((id) => {
+    Object.keys(cartQuantities).forEach(id => {
       if (!cartProductIds.includes(id)) {
         updateNeeded = true;
       }
@@ -117,15 +120,15 @@ export function PosClientWrapper({
 
   const addProductToCart = useCallback(
     (productId: string) => {
-      setCartProductIds((prevIds) => {
+      setCartProductIds(prevIds => {
         if (prevIds.includes(productId)) {
-          setCartQuantities((prevQtys) => ({
+          setCartQuantities(prevQtys => ({
             ...prevQtys,
             [productId]: (prevQtys[productId] || 0) + 1,
           }));
           return prevIds;
         } else {
-          setCartQuantities((prevQtys) => ({ ...prevQtys, [productId]: 1 }));
+          setCartQuantities(prevQtys => ({ ...prevQtys, [productId]: 1 }));
           return [...prevIds, productId];
         }
       });
@@ -136,13 +139,11 @@ export function PosClientWrapper({
   const updateQuantity = useCallback(
     (productId: string, quantity: number) => {
       const newQuantity = Math.max(0, quantity);
-      setCartQuantities((prevQtys) => {
+      setCartQuantities(prevQtys => {
         if (newQuantity === 0) {
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const { [productId]: omitted, ...rest } = prevQtys;
-          setCartProductIds((prevIds) =>
-            prevIds.filter((id) => id !== productId)
-          );
+          setCartProductIds(prevIds => prevIds.filter(id => id !== productId));
           return rest;
         } else {
           return { ...prevQtys, [productId]: newQuantity };
@@ -154,8 +155,8 @@ export function PosClientWrapper({
 
   const removeProductFromCart = useCallback(
     (productId: string) => {
-      setCartProductIds((prevIds) => prevIds.filter((id) => id !== productId));
-      setCartQuantities((prevQtys) => {
+      setCartProductIds(prevIds => prevIds.filter(id => id !== productId));
+      setCartQuantities(prevQtys => {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { [productId]: omitted, ...rest } = prevQtys;
         return rest;
@@ -172,10 +173,10 @@ export function PosClientWrapper({
   const handleSaleSubmit = useCallback(
     async (cartSaleData: CartSaleData): Promise<SaleResult> => {
       if (!warehouse?.id) {
-        toast.error("No warehouse selected");
-        throw new Error("No warehouse selected");
+        toast.error('No warehouse selected');
+        throw new Error('No warehouse selected');
       }
-      
+
       setIsSubmitting(true);
       try {
         // Create our internal SaleData with items
@@ -183,7 +184,7 @@ export function PosClientWrapper({
           ...cartSaleData,
           items: cartItems,
         };
-        
+
         const processData: ProcessSaleInput = {
           cartItems: cartItems.map(item => ({
             productId: item.productId,
@@ -195,32 +196,19 @@ export function PosClientWrapper({
           paymentMethod: saleData.paymentMethod as PaymentMethod,
           notes: saleData.notes,
           discountAmount: 0,
-          enableStockTracking: false, // Set to false as requested
+          enableStockTracking: false,
         };
-        
-        const response = await fetch('/api/pos', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(processData),
-        });
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(errorText || 'Failed to process sale');
-        }
-        
-        const result = await response.json();
-        
+
+        const result = await mutateAsync(processData);
+
         // Clear cart on successful sale
         clearCart();
-        toast.success("Sale completed successfully");
-        
-        return result;
+        toast.success('Sale completed successfully');
+
+        return result.data;
       } catch (error) {
-        console.error("Error processing sale:", error);
-        toast.error(error instanceof Error ? error.message : "Failed to process sale");
+        console.error('Error processing sale:', error);
+        toast.error(error instanceof Error ? error.message : 'Failed to process sale');
         throw error;
       } finally {
         setIsSubmitting(false);
@@ -229,14 +217,85 @@ export function PosClientWrapper({
     [cartItems, warehouse?.id, clearCart]
   );
 
+  // const handlePrint = async () => {
+  //   try {
+  //     // if (!iframeRef.current) {
+  //     //   toast.error('Failed to print receipt');
+  //     //   console.error('Iframe reference not available');
+  //     //   return;
+  //     // }
+
+  //     const pdf = await receiptGenerationTest();
+  //     const blobUrl = URL.createObjectURL(pdf);
+
+  //     // Clean up previous URL
+  //     if (iframeRef.current.src) {
+  //       URL.revokeObjectURL(iframeRef.current.src);
+  //     }
+
+  //     const onLoad = () => {
+  //       URL.revokeObjectURL(blobUrl);
+  //       iframeRef.current.contentWindow.print();
+  //     };
+
+  //     iframeRef.current.addEventListener('load', onLoad, { once: true });
+  //     iframeRef.current.src = blobUrl;
+  //   } catch (error) {
+  //     console.error('Error printing PDF:', error);
+  //     // Handle error appropriately
+  //   }
+
+  //   // const blobUrl = URL.createObjectURL(pdfBlob);
+
+  //   // // Open a new window with the PDF
+  //   // const printWindow = window.open(blobUrl);
+
+  //   // printWindow.onload = () => {
+  //   //   // Clean up the URL after printing
+  //   //   const cleanup = () => {
+  //   //     URL.revokeObjectURL(blobUrl);
+  //   //   };
+
+  //   //   // Add event listener for when printing is done (or canceled)
+  //   //   printWindow.addEventListener('afterprint', cleanup);
+
+  //   //   // For browsers that don't support 'afterprint'
+  //   //   setTimeout(() => {
+  //   //     if (!printWindow.closed) {
+  //   //       cleanup();
+  //   //       printWindow.close();
+  //   //     }
+  //   //   }, 1000);
+
+  //   //   // Trigger print
+  //   //   printWindow.print();
+  //   // };
+
+  //   //   const handlePrint = useReactToPrint({
+  //   //   print: async (printIframe: HTMLIframeElement) => {
+  //   //     // Do whatever you want here, including asynchronous work
+  //   //     await generateAndSavePDF(printIframe);
+  //   //   },
+  //   // });
+  // };
+const handlePrint = useReactToPrint({
+  print: async (printIframe: HTMLIframeElement) => {
+    // Do whatever you want here, including asynchronous work
+    await receiptGenerationTest();
+  },
+});
+
   return (
     <div className="flex h-screen overflow-hidden bg-muted/20 dark:bg-neutral-900/50">
-      
+      <Button className="fixed top-4 right-4 z-50" onClick={() => handlePrint()}>
+        <Printer className="h-5 w-5 mr-2" />
+        Test Receipt
+      </Button>
       <div className="flex-grow h-full overflow-auto p-4 md:p-6">
-        <ProductGrid 
-          products={products} 
-          onAddToCart={addProductToCart} 
-          getProductUrl={(product) => product.sku ? product.sku.toLowerCase() : ''}
+        <ProductGrid
+          products={products}
+          onAddToCart={addProductToCart}
+          getProductUrl={product => (product.sku ? product.sku.toLowerCase() : '')}
         />
       </div>
 

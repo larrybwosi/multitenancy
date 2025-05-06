@@ -1,4 +1,4 @@
-import { Organization, OrganizationSettings } from "@prisma/client";
+import { Organization, OrganizationSettings } from "@/prisma/client";
 import { useQuery } from "@tanstack/react-query";
 
 interface OrganizationWithSettings extends Organization {

@@ -7,14 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -40,7 +32,6 @@ import {
   ReceiptIcon,
   EyeIcon,
   CreditCardIcon,
-  CalendarIcon,
   DollarSignIcon,
   UserIcon,
   CheckCircleIcon,
@@ -51,32 +42,8 @@ import {
   SearchIcon,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-
-// Define a more comprehensive type for Expense
-interface Expense {
-  id: string;
-  description: string;
-  amount: string | number;
-  createdAt: string;
-  expenseDate: string;
-  expenseNumber: string;
-  category: { name: string };
-  status: string;
-  member?: { user?: { name: string } };
-  paymentMethod: string;
-  notes?: string | null;
-  receiptUrl?: string | null;
-  isBillable: boolean;
-  isReimbursable: boolean;
-  approver?: { user?: { name: string } };
-  approvalDate?: string;
-  tags: string[];
-  taxAmount?: number | null;
-  mileage?: number | null;
-  supplierId?: string | null;
-  locationId?: string | null;
-}
+import { Expense } from '@/lib/hooks/use-expenses';
+import ExpenseDetails from './details-modal';
 
 interface ExpensesListProps {
   expenses: Expense[];
@@ -115,14 +82,6 @@ export function ExpensesList({ expenses = [], isLoading, pagination, onPageChang
     }
   };
 
-  const formatDateTime = (dateString: string) => {
-    try {
-      return format(new Date(dateString), 'MMM d, yyyy h:mm a');
-    } catch (error) {
-      console.error('Error formatting date:', error);
-      return dateString;
-    }
-  };
 
   const getStatusBadgeVariant = (status: string) => {
     const statusLower = status.toLowerCase();
@@ -462,138 +421,11 @@ export function ExpensesList({ expenses = [], isLoading, pagination, onPageChang
       </div>
 
       {/* Details Modal */}
-      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-        {selectedExpense && (
-          <DialogContent className="sm:max-w-2xl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-xl">
-                <FileTextIcon className="h-5 w-5" />
-                Expense Details
-              </DialogTitle>
-              <DialogDescription>View complete information about this expense</DialogDescription>
-            </DialogHeader>
-
-            <ScrollArea className="max-h-[70vh]">
-              <div className="space-y-6 px-1 py-2">
-                {/* Basic Info */}
-                <div className="grid grid-cols-2 gap-x-12 gap-y-4">
-                  <div className="space-y-1.5">
-                    <h4 className="text-sm font-medium text-muted-foreground">Expense Number</h4>
-                    <p className="font-mono">{selectedExpense.expenseNumber}</p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <h4 className="text-sm font-medium text-muted-foreground">Status</h4>
-                    <div className="flex items-center gap-1">
-                      <Badge variant={getStatusBadgeVariant(selectedExpense.status)}>{selectedExpense.status}</Badge>
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <h4 className="text-sm font-medium text-muted-foreground">Created By</h4>
-                    <p>{selectedExpense.member?.user?.name || '-'}</p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <h4 className="text-sm font-medium text-muted-foreground">Created On</h4>
-                    <p>{formatDateTime(selectedExpense.createdAt)}</p>
-                  </div>
-                </div>
-
-                <div className="border-t pt-4">
-                  <h3 className="font-medium text-lg mb-4">Expense Information</h3>
-                  <div className="grid grid-cols-2 gap-x-12 gap-y-4">
-                    <div className="space-y-1.5">
-                      <h4 className="text-sm font-medium text-muted-foreground">Description</h4>
-                      <p>{selectedExpense.description}</p>
-                    </div>
-                    <div className="space-y-1.5">
-                      <h4 className="text-sm font-medium text-muted-foreground">Category</h4>
-                      <p>{selectedExpense.category.name}</p>
-                    </div>
-                    <div className="space-y-1.5">
-                      <h4 className="text-sm font-medium text-muted-foreground">Amount</h4>
-                      <p className="text-lg font-semibold">{formatCurrency(selectedExpense.amount)}</p>
-                    </div>
-                    <div className="space-y-1.5">
-                      <h4 className="text-sm font-medium text-muted-foreground">Tax Amount</h4>
-                      <p>{selectedExpense.taxAmount ? formatCurrency(selectedExpense.taxAmount) : '-'}</p>
-                    </div>
-                    <div className="space-y-1.5">
-                      <h4 className="text-sm font-medium text-muted-foreground">Date</h4>
-                      <div className="flex items-center gap-1">
-                        <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                        <p>{formatDate(selectedExpense.expenseDate)}</p>
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <h4 className="text-sm font-medium text-muted-foreground">Payment Method</h4>
-                      <div className="flex items-center gap-1">
-                        {getPaymentMethodIcon(selectedExpense.paymentMethod)}
-                        <p>{selectedExpense.paymentMethod.replace('_', ' ')}</p>
-                      </div>
-                    </div>
-                    <div className="space-y-1.5 col-span-2">
-                      <h4 className="text-sm font-medium text-muted-foreground">Notes</h4>
-                      <p className="italic text-muted-foreground">{selectedExpense.notes || 'No notes provided'}</p>
-                    </div>
-                    <div className="space-y-1.5">
-                      <h4 className="text-sm font-medium text-muted-foreground">Billable</h4>
-                      <p>{selectedExpense.isBillable ? 'Yes' : 'No'}</p>
-                    </div>
-                    <div className="space-y-1.5">
-                      <h4 className="text-sm font-medium text-muted-foreground">Reimbursable</h4>
-                      <p>{selectedExpense.isReimbursable ? 'Yes' : 'No'}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {selectedExpense.approver && (
-                  <div className="border-t pt-4">
-                    <h3 className="font-medium text-lg mb-4">Approval Information</h3>
-                    <div className="grid grid-cols-2 gap-x-12 gap-y-4">
-                      <div className="space-y-1.5">
-                        <h4 className="text-sm font-medium text-muted-foreground">Approved By</h4>
-                        <p>{selectedExpense.approver?.user?.name || '-'}</p>
-                      </div>
-                      <div className="space-y-1.5">
-                        <h4 className="text-sm font-medium text-muted-foreground">Approval Date</h4>
-                        <p>{selectedExpense.approvalDate ? formatDateTime(selectedExpense.approvalDate) : '-'}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {selectedExpense.receiptUrl && (
-                  <div className="border-t pt-4">
-                    <h3 className="font-medium text-lg mb-4">Receipt</h3>
-                    <div className="border rounded-md p-6 flex items-center justify-center bg-slate-50 dark:bg-slate-900">
-                      <div className="text-center">
-                        <ReceiptIcon className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
-                        <Button variant="outline" size="sm">
-                          <DownloadIcon className="h-4 w-4 mr-2" />
-                          Download Receipt
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
-
-            <DialogFooter className="gap-2">
-              <Button variant="outline" onClick={() => setIsDetailsOpen(false)}>
-                Close
-              </Button>
-              <Button variant="outline">
-                <EditIcon className="h-4 w-4 mr-2" />
-                Edit
-              </Button>
-              <Button>
-                <CheckCircleIcon className="h-4 w-4 mr-2" />
-                Approve
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        )}
-      </Dialog>
+      <ExpenseDetails
+       expense={selectedExpense}
+       isOpen={isDetailsOpen}
+       onClose={()=>setIsDetailsOpen(false)}
+      />
 
       {/* Quick View Slide-over Panel */}
       <Sheet open={isQuickViewOpen} onOpenChange={setIsQuickViewOpen}>

@@ -1,6 +1,6 @@
 'use server'
 import { db } from '@/lib/db';
-import { Notification, NotificationType, Prisma } from '@prisma/client';
+import { Notification, NotificationType, Prisma } from '@/prisma/client';
 
 // Define the type for create notification input
 export type CreateNotificationInput = {

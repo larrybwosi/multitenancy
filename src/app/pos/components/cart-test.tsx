@@ -248,7 +248,7 @@ export default function Cart({
                   {item.imageUrls && item.imageUrls.length > 0 ? (
                     <Image 
                       src={item.imageUrls[0]} 
-                      alt={item.name} 
+                      alt={item?.name} 
                       width={100} 
                       height={100} 
                       className="w-full h-full object-cover" 
@@ -260,9 +260,9 @@ export default function Cart({
 
                 {/* Item Details */}
                 <div className="ml-4 flex-grow">
-                  <h3 className="font-medium text-gray-800">{item.name}</h3>
+                  <h3 className="font-medium text-gray-800">{item?.name}</h3>
                   <p className="text-xs text-gray-500">{item.sku}</p>
-                  <p className="text-sm font-semibold mt-1">${Number(item.unitPrice).toFixed(2)}</p>
+                  <p className="text-sm font-semibold mt-1">${Number(item.unitPrice)}</p>
                 </div>
 
                 {/* Quantity Controls */}
@@ -305,11 +305,11 @@ export default function Cart({
           </div>
           <div className="flex justify-between font-semibold text-gray-700">
             <span>Subtotal:</span>
-            <span>${parseFloat(cartTotal).toFixed(2)}</span>
+            <span>${parseFloat(cartTotal)}</span>
           </div>
           <div className="flex justify-between text-lg font-bold text-gray-900">
             <span>Total:</span>
-            <span>${parseFloat(cartTotal).toFixed(2)}</span>
+            <span>${parseFloat(cartTotal)}</span>
           </div>
         </div>
 
@@ -363,7 +363,7 @@ export default function Cart({
                     >
                       Walk-in Customer
                     </div>
-                    {customers.map(customer => (
+                    {customers?.map(customer => (
                       <div
                         key={customer.id}
                         className="p-2 hover:bg-gray-100 cursor-pointer"
@@ -372,7 +372,7 @@ export default function Cart({
                           setShowCustomerDropdown(false);
                         }}
                       >
-                        {customer.name}
+                        {customer?.name}
                       </div>
                     ))}
                   </div>
@@ -436,7 +436,7 @@ export default function Cart({
               </div>
               <div className="flex justify-between text-lg font-bold mt-1">
                 <span>Amount:</span>
-                <span>${parseFloat(cartTotal).toFixed(2)}</span>
+                <span>${parseFloat(cartTotal)}</span>
               </div>
             </div>
           </div>
@@ -488,7 +488,7 @@ export default function Cart({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Amount:</span>
-                  <span>${receipt.finalAmount.toFixed(2)}</span>
+                  <span>${receipt.finalAmount}</span>
                 </div>
               </div>
               
@@ -498,9 +498,9 @@ export default function Cart({
                   {receipt.items.map(item => (
                     <div key={item.id} className="flex justify-between text-sm">
                       <span>
-                        {item.product.name} x {item.quantity}
+                        {item.product?.name} x {item.quantity}
                       </span>
-                      <span>${item.totalAmount.toFixed(2)}</span>
+                      <span>${item.totalAmount}</span>
                     </div>
                   ))}
                 </div>

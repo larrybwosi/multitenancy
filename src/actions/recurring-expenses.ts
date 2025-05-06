@@ -3,6 +3,8 @@
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { getServerAuthContext } from './auth';
+import prisma from '@/lib/db';
+import { Prisma } from '@/prisma/client';
 
 // Schema for query parameters
 const QueryParamsSchema = z.object({
@@ -17,12 +19,7 @@ export type RecurringExpensesParams = z.infer<typeof QueryParamsSchema>;
 
 export async function getRecurringExpenses(params: RecurringExpensesParams = {}) {
   try {
-    // Get server context for authentication and authorization
     const { organizationId } = await getServerAuthContext();
-    
-    if (!organizationId) {
-      throw new Error('Not authorized to access this organization');
-    }
 
     // Parse and validate query parameters
     const { page, limit, search, sortBy, sortOrder } = QueryParamsSchema.parse(params);
@@ -31,8 +28,8 @@ export async function getRecurringExpenses(params: RecurringExpensesParams = {})
     const skip = (page - 1) * limit;
     
     // Build where condition for search
-    const where: any = {
-      organizationId: organization.id,
+    const where: Prisma.RecurringExpenseWhereInput = {
+      organizationId,
     };
     
     if (search) {
@@ -101,11 +98,7 @@ export type CreateExpenseData = z.infer<typeof CreateExpenseSchema>;
 
 export async function createRecurringExpense(data: CreateExpenseData) {
   try {
-    const { organization } = await getServerContext();
-    
-    if (!organization) {
-      throw new Error('Not authorized to create expenses for this organization');
-    }
+    const { organizationId } = await getServerAuthContext();
     
     // Validate input data
     const validData = CreateExpenseSchema.parse(data);
@@ -114,7 +107,7 @@ export async function createRecurringExpense(data: CreateExpenseData) {
     const expense = await prisma.recurringExpense.create({
       data: {
         ...validData,
-        organizationId: organization.id,
+        organizationId,
       },
     });
     
@@ -130,17 +123,13 @@ export async function createRecurringExpense(data: CreateExpenseData) {
 
 export async function deleteRecurringExpense(id: string) {
   try {
-    const { organization } = await getServerContext();
-    
-    if (!organization) {
-      throw new Error('Not authorized to delete expenses for this organization');
-    }
+    const { organizationId } = await getServerAuthContext();
     
     // Find the expense first to verify it belongs to this organization
     const expense = await prisma.recurringExpense.findFirst({
       where: {
         id,
-        organizationId: organization.id,
+        organizationId: organizationId,
       },
     });
     
@@ -165,17 +154,13 @@ export async function deleteRecurringExpense(id: string) {
 
 export async function updateRecurringExpense(id: string, data: Partial<CreateExpenseData>) {
   try {
-    const { organization } = await getServerContext();
-    
-    if (!organization) {
-      throw new Error('Not authorized to update expenses for this organization');
-    }
+    const { organizationId } = await getServerAuthContext();
     
     // Find the expense first to verify it belongs to this organization
     const expense = await prisma.recurringExpense.findFirst({
       where: {
         id,
-        organizationId: organization.id,
+        organizationId,
       },
     });
     

@@ -15,35 +15,6 @@ import {
   ProductVariantSchema,
 } from '@/lib/validations/product';
 
-// Extended ProductVariantSchema to match Prisma schema
-const ProductVariantCreateInput = {
-  name: true,
-  sku: true,
-  barcode: true,
-  buyingPrice: true,
-  retailPrice: true,
-  wholesalePrice: true,
-  attributes: true,
-  isActive: true,
-  reorderPoint: true,
-  reorderQty: true,
-  lowStockAlert: true,
-} as const;
-
-type ProductVariantCreate = {
-  name: string;
-  sku: string | null;
-  barcode: string | null;
-  buyingPrice: Prisma.Decimal;
-  retailPrice: Prisma.Decimal | null;
-  wholesalePrice: Prisma.Decimal | null;
-  attributes: Prisma.JsonValue;
-  isActive: boolean;
-  reorderPoint: number;
-  reorderQty: number;
-  lowStockAlert: boolean;
-};
-
 // --- Helper Functions ---
 
 // Parses JSON array from FormData, validates structure with Zod schema
@@ -225,14 +196,14 @@ export async function addProduct(
         name: `Default-${productData.name}`,
         sku: null, // Signal generation
         barcode: productData.barcode || null,
-        buyingPrice: new Prisma.Decimal(buyingPrice || 0),
-        retailPrice: retailPrice ? new Prisma.Decimal(retailPrice) : null,
-        wholesalePrice: wholesalePrice ? new Prisma.Decimal(wholesalePrice) : null,
+        buyingPrice: buyingPrice || 0,
+        retailPrice: retailPrice ? retailPrice : null,
+        wholesalePrice: wholesalePrice ? wholesalePrice : null,
         attributes: Prisma.JsonNull,
         isActive: productData.isActive,
-        reorderPoint: 5, // Default from schema
-        reorderQty: 10, // Default from schema
-        lowStockAlert: false, // Default from schema
+        reorderPoint: 5,
+        reorderQty: 10,
+        lowStockAlert: false,
       },
     ];
   }
@@ -501,12 +472,11 @@ export async function editProduct(
 
   // 4. Extract validated data
   const {
-    productId, // string (validated as CUID)
-    categoryId, // string | undefined (required by EditProductSchema override)
-    defaultLocationId, // string | null | undefined
-    buyingPrice, // number | undefined
-    retailPrice, // number | null | undefined
-    reorderPoint, // number | undefined
+    productId,
+    categoryId, 
+    defaultLocationId,
+    buyingPrice,
+    retailPrice, 
     width,
     height,
     length, // number | null | undefined
@@ -547,15 +517,10 @@ export async function editProduct(
         organizationId: organizationId, // Ensure user owns the product
       },
       data: {
-        // Update core fields if they exist in validated data
         name: productData.name, // Always present due to schema override
         description: productData.description,
         sku: productData.sku ? productData.sku : undefined, // Update SKU if provided
         barcode: productData.barcode,
-        buyingPrice: buyingPrice !== undefined ? new Prisma.Decimal(buyingPrice) : undefined,
-        retailPrice:
-          retailPrice !== undefined ? (retailPrice !== null ? new Prisma.Decimal(retailPrice) : null) : undefined,
-        reorderPoint: reorderPoint,
         isActive: productData.isActive,
         imageUrls: productData.imageUrls,
         customFields: validatedCustomFields,
@@ -585,17 +550,17 @@ export async function editProduct(
           },
           // Upsert variants based on the input array
           upsert: variantsForUpsert.map(v => {
-            // Data for creation (ensure required fields have values)
             const createData = {
               organization: { connect: { id: organizationId } },
               name: v.name, // Required
               sku: v.sku!, // Required, generated if missing for new variants
               barcode: v.barcode,
               attributes: v.attributes ?? Prisma.JsonNull,
-              isActive: v.isActive ?? true, // Use default if undefined
-              reorderPoint: v.reorderPoint ?? 5, // Use default if undefined
-              reorderQty: v.reorderQty ?? 10, // Use default if undefined
-              lowStockAlert: v.lowStockAlert ?? false, // Use default if undefined
+              isActive: v.isActive ?? true,
+              reorderPoint: v.reorderPoint ?? 5,
+              reorderQty: v.reorderQty ?? 10,
+              lowStockAlert: v.lowStockAlert ?? false,
+              buyingPrice: v.buyingPrice
             };
             // Data for update (only include fields present in input 'v')
             const updateData = {
@@ -653,7 +618,6 @@ export async function editProduct(
       include: {
         // Include relations in the response
         variants: true,
-        suppliers: { include: { supplier: true } },
         category: true,
         defaultLocation: true,
       },

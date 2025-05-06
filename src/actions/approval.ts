@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/prisma/client";
 import { ApprovalWorkflowInput, ApprovalWorkflowInputSchema } from "@/lib/validations/approval";
 
 const prisma = db;

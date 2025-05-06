@@ -20,40 +20,29 @@ import {
 import { ApprovalWorkflowInput } from "@/lib/validations/approval";
 import { useApprovalWorkflows, useDeleteApprovalWorkflow, useSetActiveWorkflow } from "@/lib/hooks/use-approval-workflows";
 import { Spinner } from "@/components/ui/spinner";
-import { useQuery } from "@tanstack/react-query";
 import type { ApprovalWorkflow } from "@/prisma/client";
+import { useOrganization } from "@/hooks/use-organization";
 
 export default function ApprovalWorkflowsPage() {
-  // Get organization data
-  const { data: organization } = useQuery({
-    queryKey: ['organization'],
-    queryFn: async () => {
-      const res = await fetch("/api/organization");
-      if (!res.ok) throw new Error("Failed to fetch organization");
-      return res.json();
-    },
-  });
-  
-  // Query workflows using the Tanstack Query hook
+  const { organization, isLoading: loadingOrganization } = useOrganization()
   const { data: workflows, isLoading, isError } = useApprovalWorkflows();
   
-  // Mutations for workflow actions
-  const deleteWorkflowMutation = useDeleteApprovalWorkflow();
-  const setActiveWorkflowMutation = useSetActiveWorkflow();
+  const { mutateAsync:deleteWorkflow, isPending: deletingWorkflow, variables: workflowVariables } = useDeleteApprovalWorkflow();
+  const { mutateAsync:setActiveWorkflow, isPending: settingActiveWorkflow, variables } = useSetActiveWorkflow();
 
   // Handle setting a workflow as active
   const handleSetActive = async (workflowId: string) => {
     if (!organization) return;
     
-    await setActiveWorkflowMutation.mutateAsync({ 
+    await setActiveWorkflow({ 
       organizationId: organization.id, 
       workflowId 
     });
   };
-
+  
   // Handle deleting a workflow
   const handleDelete = async (workflowId: string) => {
-    await deleteWorkflowMutation.mutateAsync(workflowId);
+    await deleteWorkflow(workflowId);
   };
 
   if (!organization) {
@@ -140,9 +129,9 @@ export default function ApprovalWorkflowsPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => handleSetActive(workflow.id)}
-                  disabled={organization.activeExpenseWorkflowId === workflow.id || setActiveWorkflowMutation.isPending}
+                  disabled={organization.activeExpenseWorkflowId === workflow.id || settingActiveWorkflow}
                 >
-                  {setActiveWorkflowMutation.isPending && setActiveWorkflowMutation.variables?.workflowId === workflow.id ? (
+                  {settingActiveWorkflow && variables?.workflowId === workflow.id ? (
                     <>
                       <Spinner className="mr-1 h-3 w-3" />
                       Setting active...
@@ -162,9 +151,9 @@ export default function ApprovalWorkflowsPage() {
                       <Button 
                         variant="destructive" 
                         size="icon"
-                        disabled={deleteWorkflowMutation.isPending && deleteWorkflowMutation.variables === workflow.id}
+                        disabled={deletingWorkflow && workflowVariables === workflow.id}
                       >
-                        {deleteWorkflowMutation.isPending && deleteWorkflowMutation.variables === workflow.id ? (
+                        {deletingWorkflow && workflowVariables === workflow.id ? (
                           <Spinner className="h-4 w-4" />
                         ) : (
                           <Trash2 className="h-4 w-4" />

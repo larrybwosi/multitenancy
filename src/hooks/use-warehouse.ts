@@ -31,6 +31,38 @@ interface WarehouseWithDetails extends InventoryLocation {
   productCount?: number;
 }
 
+
+interface Warehouse {
+  id: string;
+  name: string;
+  isActive: boolean;
+}
+
+interface WarehouseResponse {
+  warehouses: Warehouse[];
+}
+
+
+const fetcher = async <T>(url: string): Promise<T> => {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error('Failed to fetch data');
+  }
+  return response.json();
+};
+
+export const useLocations = (enabled = true) => {
+  return useQuery<WarehouseResponse>({
+    queryKey: ['warehouse'],
+    queryFn: () => fetcher<WarehouseResponse>('/api/warehouse'),
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    retry: false,
+    enabled,
+  });
+};
+
+
 export const useGetWarehouse = (id: string) => {
   return useQuery<WarehouseWithDetails>({
     queryKey: ['warehouse', id],

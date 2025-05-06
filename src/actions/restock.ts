@@ -114,7 +114,7 @@ export async function restockProduct(unsafeParams: unknown): Promise<object> {
           suppliers: true,
         },
       },
-      defaultLocation: true, // May be useful contextually [cite: 37]
+      defaultLocation: true, 
     },
   });
 

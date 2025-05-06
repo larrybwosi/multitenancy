@@ -1,12 +1,12 @@
 'use client';
 
+import { CalendarIcon, Receipt, Map, Loader2 } from 'lucide-react';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { CalendarIcon, Receipt, Map, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
-import * as z from 'zod';
 import { cn } from '@/lib/utils';
+import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -100,7 +100,7 @@ export function CreateExpense() {
   const { data: suppliersResult, error: suppliersError, isLoading: isLoadingSuppliers } = useSuppliers();
 
   const locations = locationsResult?.warehouses || [];
-  const suppliers = suppliersResult?.data || [];
+  const suppliers = suppliersResult?.suppliers || [];
 
   const form = useForm({
     resolver: zodResolver(CreateExpenseSchema),
@@ -438,7 +438,7 @@ export function CreateExpense() {
                             <SelectContent className="bg-white shadow-lg rounded-md">
                               <SelectGroup>
                                 <SelectLabel >None</SelectLabel>
-                                {suppliers?.suppliers?.map(supplier => (
+                                {suppliers?.map(supplier => (
                                   <SelectItem key={supplier.id} value={supplier.id}>
                                     {supplier.name}
                                   </SelectItem>

@@ -1,6 +1,6 @@
 "use server";
 
-import { Prisma, Category } from "@prisma/client";
+import { Prisma, Category } from "@/prisma/client";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import db from "@/lib/db";
@@ -8,7 +8,6 @@ import { getServerAuthContext } from "./auth";
 
 // --- Type Definitions ---
 
-// Define the structure of the category data including calculated stats
 export type CategoryWithStats = Category & {
   _count: {
     products: number;
@@ -26,7 +25,7 @@ const CategoryFormSchema = z.object({
   id: z.string().optional(), // Optional: only present for updates
   name: z.string().min(1, "Category name is required."),
   description: z.string().optional(),
-  parentId: z.string().optional().nullable(), // Allow empty string or null
+  parentId: z.string().optional().nullable(),
 });
 
 // --- Server Actions ---

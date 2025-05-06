@@ -1,8 +1,33 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { CreateExpense, ListExpensesFilter } from '../validations/expenses';
-import { Expense } from '@/prisma/client';
+// import { Expense } from '@/prisma/client';
 // import { CreateExpenseSchema, Expense, ExpenseStatus, ListExpensesFilter } from '@/lib/validations/expenses';
+
+// Define a more comprehensive type for Expense
+export interface Expense {
+  id: string;
+  description: string;
+  amount: string | number;
+  createdAt: string;
+  expenseDate: string;
+  expenseNumber: string;
+  category: { name: string };
+  status: string;
+  member?: { user?: { name: string } };
+  paymentMethod: string;
+  notes?: string | null;
+  receiptUrl?: string | null;
+  isBillable: boolean;
+  isReimbursable: boolean;
+  approver?: { user?: { name: string } };
+  approvalDate?: string;
+  tags: string[];
+  taxAmount?: number | null;
+  mileage?: number | null;
+  supplierId?: string | null;
+  locationId?: string | null;
+}
 
 // Helper function for API calls
 const apiFetch = async (url: string, options?: RequestInit) => {

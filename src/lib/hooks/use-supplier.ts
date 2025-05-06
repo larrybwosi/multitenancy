@@ -11,16 +11,6 @@ const fetcher = async <T,>(url: string): Promise<T> => {
   return response.json();
 };
 
-interface Warehouse {
-  id: string;
-  name: string;
-  isActive: boolean;
-}
-
-
-interface WarehouseResponse {
-  warehouses: Warehouse[];
-}
 
 interface SupplierResponse {
   data: {
@@ -32,19 +22,8 @@ interface SupplierResponse {
   success: boolean;
 }
 
-const useLocations = (enabled = true) => {
-  return useQuery<WarehouseResponse>({
-    queryKey: ["warehouse"],
-    queryFn: () => fetcher<WarehouseResponse>("/api/warehouse"),
-    refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    retry: false,
-    enabled
-  });
-};
-
 const useSuppliers = (enabled = true) => {
-  return useQuery({
+  const { data, isLoading, error}= useQuery({
     queryKey: ["suppliers"],
     queryFn: () => fetcher<SupplierResponse>("/api/suppliers"),
     refetchOnWindowFocus: false,
@@ -52,6 +31,7 @@ const useSuppliers = (enabled = true) => {
     retry: false,
     enabled
   });
+  return { data: data?.data, isLoading, error}
 }
 
 export const useCreateSupplier = () => {
@@ -79,4 +59,4 @@ const createSupplier = async (data: unknown) => {
   
 
 
-export { useLocations, useSuppliers };
+export { useSuppliers };
