@@ -1,12 +1,12 @@
-"use client"; // Required for hooks and event handlers
+"use client";
 
 import type React from "react";
-import { useState } from "react"; // Keep useState for local UI state like isCreateSheetOpen
 import {
   useQueryStates,
   parseAsString,
   parseAsInteger,
   parseAsIsoDate,
+  useQueryState,
 } from "nuqs";
 import {
   useQuery,
@@ -36,7 +36,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ExpensesList } from "./expenses-list";
 import { ExpensesStats } from "./expenses-stats";
 import { RecurringExpensesList } from "./recurring-expenses-list";
-import { CreateExpenseSheet } from "./create-expense-sheet";
 import { ExpenseAnalytics } from "./expense-analytics";
 
 // Define the shape of the API response (optional but recommended)
@@ -90,7 +89,10 @@ const fetchExpensesData = async ({
 
 export function ExpensesPage() {
   const queryClient = useQueryClient();
-  const [isCreateSheetOpen, setIsCreateSheetOpen] = useState(false);
+  const [isCreateSheetOpen, setIsCreateSheetOpen] = useQueryState('create', {
+    parse: v => v === 'true',
+    serialize: v => (v ? 'true' : 'false'),
+  });
 
   // Manage URL search params state with nuqs
   const [queryStates, setQueryStates] = useQueryStates(

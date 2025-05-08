@@ -1,10 +1,10 @@
-import { Suspense } from "react";
+'use client';
+import { use } from "react";
 import { CustomerTable } from "./components/CustomerTable";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { Users } from "lucide-react";
-import { getCustomers } from "@/actions/customers.actions";
+import { useCustomers } from "@/lib/hooks/use-customers";
 
-// Loading Skeleton for Table
 function LoadingSkeleton() {
   return (
     <div className="w-full space-y-4">
@@ -33,33 +33,21 @@ function LoadingSkeleton() {
   );
 }
 
-export const metadata = {
-  title: "Customer Management",
-  description: "View and manage customer data.",
-};
+type SearchParams = Promise<{ [key: string]: string | undefined }>;
+export default function CustomersPage(props: { searchParams: SearchParams }) {
 
-type CustomersPageProps =Promise<{
-  searchParams: {
-    query?: string;
-    status?: "active" | "inactive" | "all" | undefined;
-    sortBy?: "name" | "email" | "loyaltyPoints" | "createdAt" | undefined;
-    sortOrder?: string;
-    page?: string;
-  }
-}>
+  const searchParams = use(props.searchParams);
 
-export default async function CustomersPage(params: CustomersPageProps) {
-  const {searchParams: search} = await params
-  const searchParams = await search
-  const { data } = await getCustomers({
+  const { data, isLoading } = useCustomers({
     query: searchParams.query,
-    status: searchParams.status,
+    status: searchParams.status as "active" | "inactive" | "all" | undefined,
     sortBy: searchParams.sortBy,
-    sortOrder: searchParams.sortOrder as "asc" | "desc",
-    page: searchParams.page ? parseInt(searchParams.page) : 1,
+    sortOrder: searchParams.sortOrder as 'asc' | 'desc',
+    page: searchParams.page ? parseInt(searchParams.page as string) : 1,
   });
   
-  if (!data) {
+
+  if (!data || isLoading) {
     return (
       <div className="container mx-auto py-6 px-4 lg:px-6">
         <SectionHeader
@@ -71,7 +59,7 @@ export default async function CustomersPage(params: CustomersPageProps) {
       </div>
     );
   }
-  const { customers, totalCount, totalPages } = data
+  const { data: { customers, totalCount, totalPages } } = data;
 
   return (
     <div className="container mx-auto py-6 px-4 lg:px-6">
@@ -83,15 +71,9 @@ export default async function CustomersPage(params: CustomersPageProps) {
           icon={<Users className="h-8 w-8 text-indigo-500" />}
         />
       </div>
-      
+
       <div className=" rounded-lg shadow-sm">
-        <Suspense fallback={<LoadingSkeleton />}>
-          <CustomerTable
-            initialCustomers={customers}
-            total={totalCount}
-            totalPages={totalPages}
-          />
-        </Suspense>
+        <CustomerTable initialCustomers={customers} total={totalCount} totalPages={totalPages} />
       </div>
     </div>
   );

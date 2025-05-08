@@ -44,15 +44,17 @@ export const sidebarSectionsData: SectionItem[] = [
           {
             title: "All Sales",
             path: "/sales", // Child path
-            // icon is optional for children, null is fine, or omit it
+            icon: <ClipboardEdit size={18} />,
           },
           {
             title: "Returns",
             path: "/sales/history/returned",
+            icon: <ArrowLeftRight size={18} />,
           },
           {
             title: "Voided Sales",
             path: "/sales/history/voided",
+            icon: <Layers3 size={18} />,
           },
         ],
       },

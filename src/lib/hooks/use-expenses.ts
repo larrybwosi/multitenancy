@@ -112,7 +112,7 @@ export const useApproveExpense = () => {
 
   return useMutation<Expense, Error, { id: string; comments?: string }>({
     mutationFn: ({ id, comments }) =>
-      apiFetch(`/api/expenses/${id}/approve`, {
+      apiFetch(`/api/finance/expenses/${id}/approve`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -140,7 +140,7 @@ export const useRejectExpense = () => {
 
   return useMutation<Expense, Error, { id: string; comments: string }>({
     mutationFn: ({ id, comments }) =>
-      apiFetch(`/api/expenses/${id}/reject`, {
+      apiFetch(`/api/finance/expenses/${id}/reject`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

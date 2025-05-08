@@ -7,7 +7,7 @@ import type { BusinessType, BusinessDetails, BusinessCustomization } from "@/com
 let genAI: GoogleGenerativeAI | null = null
 
 // Function to get or initialize the Gemini client
-function getGeminiClient() {
+export function getGeminiClient() {
   if (!genAI) {
     const apiKey = process.env.GEMINI_API_KEY
 

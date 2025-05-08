@@ -12,7 +12,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       expenseId: id,
       comments: body.comments,
     });
-
+console.log(result)
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: result.errorCode || 400 });
     }

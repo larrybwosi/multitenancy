@@ -1,28 +1,50 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
-import { toast } from "sonner";
-import { CustomerFormValues } from "../validations/customers";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
+import { toast } from 'sonner';
+import { CustomerFormValues } from '../validations/customers';
+import { Customer } from '@/prisma/client';
 
-export function useCustomers() {
+
+const api = axios.create({
+  baseURL: '/api',
+});
+
+export const useCustomers = (params: {
+  query?: string;
+  status?: 'active' | 'inactive' | 'all';
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  page?: number;
+  pageSize?: number;
+}) => {
   return useQuery({
-    queryKey: ["customers"],
+    queryKey: ['customers', params],
     queryFn: async () => {
-      const res = await axios.get("/api/customers");
-      if (res.status !== 200) {
-        throw new Error("Failed to fetch customers");
+      try {
+        const response = await api.get('/customers', { params });
+        return response.data as {
+          success: boolean;
+          data: {
+            customers: Customer[];
+            totalCount: number;
+            totalPages: number;
+          };
+        };
+      } catch (error) {
+        return handleError(error, 'Failed to fetch customers');
       }
-      return res.data;
     },
   });
-}
+};
+
 
 export function useCustomerById(customerId: string) {
   return useQuery({
-    queryKey: ["customer", customerId],
+    queryKey: ['customer', customerId],
     queryFn: async () => {
       const res = await axios.get(`/api/customers/${customerId}`);
       if (res.status !== 200) {
-        throw new Error("Failed to fetch customer");
+        throw new Error('Failed to fetch customer');
       }
       return res.data;
     },
@@ -59,7 +81,6 @@ export function useCreateCustomer(customer?: { id?: string; name: string }) {
           : 'New customer has been successfully added.',
         duration: 3000,
       });
-
     },
     onError: (error: Error) => {
       toast.error(`Failed to ${customer?.id ? 'update' : 'create'} customer`, {
@@ -69,3 +90,37 @@ export function useCreateCustomer(customer?: { id?: string; name: string }) {
     },
   });
 }
+
+export const useDeleteCustomer = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      try {
+        const response = await api.delete(`/customers/${id}`);
+        return response.data as {
+          success: boolean;
+          data: { id: string };
+          message?: string;
+        };
+      } catch (error) {
+        return handleError(error, 'Failed to delete customer');
+      }
+    },
+    onSuccess: data => {
+      if (data.success) {
+        toast.success(data.message || 'Customer deleted successfully');
+        queryClient.invalidateQueries({
+          queryKey: ['customers'],
+        });
+      }
+    },
+  });
+};
+
+const handleError = (error: any, defaultMessage: string) => {
+  console.error(error);
+  const message = error.response?.data?.message || defaultMessage;
+  toast.error(message);
+  throw new Error(message);
+};

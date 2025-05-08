@@ -37,9 +37,10 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { toast } from 'sonner';
 import { MotionDiv, MotionForm } from '@/components/motion';
 import { useExpenseCategories } from '@/lib/hooks/use-expense-categories';
-import { useLocations, useSuppliers } from '@/lib/hooks/use-supplier';
+import { useSuppliers } from '@/lib/hooks/use-supplier';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useLocations } from '@/hooks/use-warehouse';
 
 const dateSchema = z
   .union([z.date(), z.string().datetime(), z.string().regex(/^\d{4}-\d{2}-\d{2}$/)])

@@ -112,18 +112,18 @@ export const createExpense = async (input: unknown): Promise<ServiceResponse<Exp
     }
 
     // 5. Receipt Validation
-    // const requiresReceipt =
-    //   organization.expenseReceiptRequired &&
-    //   (organization.expenseReceiptThreshold === null ||
-    //     validateAndConvertToDecimal(validatedInput.amount, 'amount')?.greaterThan(organization.expenseReceiptThreshold));
+    const requiresReceipt =
+      organization.expenseReceiptRequired &&
+      (organization.expenseReceiptThreshold === null ||
+        validateAndConvertToDecimal(validatedInput.amount, 'amount')?.greaterThan(organization.expenseReceiptThreshold));
 
-    // if (requiresReceipt && !validatedInput.receiptUrl) {
-    //   return {
-    //     success: false,
-    //     error: `Receipt is required for expenses over ${organization.expenseReceiptThreshold ?? 0}.`,
-    //     errorCode: 400,
-    //   };
-    // }
+    if (requiresReceipt && !validatedInput.receiptUrl) {
+      return {
+        success: false,
+        error: `Receipt is required for expenses over ${organization.expenseReceiptThreshold ?? 0}.`,
+        errorCode: 400,
+      };
+    }
 
     // 6. Generate unique expense number
     const expenseNumber = `EXP-${Date.now().toString().toUpperCase().slice(3, 8)}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;

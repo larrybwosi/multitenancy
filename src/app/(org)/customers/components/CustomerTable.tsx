@@ -126,9 +126,6 @@ export function CustomerTable({
     setEditingCustomer(customer);
   };
 
-  const handleCloseSheet = () => {
-    setEditingCustomer(null);
-  };
 
   const handleViewCustomer = (customer: Customer) => {
     setViewingCustomer(customer);
@@ -272,8 +269,8 @@ export function CustomerTable({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {customers.length > 0 ? (
-                    customers.map(customer => (
+                  {!!customers?.length ? (
+                    customers?.map(customer => (
                       <TableRow
                         key={customer.id}
                         className="hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors"

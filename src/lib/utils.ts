@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/prisma/client";
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -14,16 +14,22 @@ export function cn(...inputs: ClassValue[]) {
  * @param amount The amount to format
  * @param currency The currency code (default: USD)
  * @param locale The locale to use for formatting (default: en-US)
+ * @param options Additional formatting options
  * @returns Formatted currency string
  */
 export function formatCurrency(
   amount: number | Prisma.Decimal | string,
-  currency: string = "KSH",
-  locale: string = "en-US"
+  currency: string = "USD",
+  locale: string = "en-US",
+  options: Intl.NumberFormatOptions = {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }
 ): string {
   return new Intl.NumberFormat(locale, {
     style: "currency",
     currency,
+    ...options,
   }).format(amount);
 }
 

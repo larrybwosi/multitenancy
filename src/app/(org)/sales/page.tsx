@@ -49,6 +49,7 @@ interface SaleWithCustomer extends Sale {
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
+
 export function SalesLoadingSkeleton() {
   return (
     <div className="space-y-4">
@@ -120,13 +121,17 @@ export default function SalesPage() {
   const [page, setPage] = useQueryState("page", {
     defaultValue: "1",
     parse: (v) => parseInt(v) || 1,
+    serialize: String
   });
-  const [pageSize, setPageSize] = useQueryState("pageSize", {
-    defaultValue: "10",
-    parse: (v) => parseInt(v) || 10,
+  const [pageSize, setPageSize] = useQueryState('pageSize', {
+    defaultValue: '10',
+    parse: v => parseInt(v) || 10,
+    serialize: String,
   });
-  const [paymentMethod, setPaymentMethod] =
-    useQueryState<PaymentMethod>("paymentMethod");
+  const [paymentMethod, setPaymentMethod] = useQueryState<PaymentMethod | null>('paymentmethod', {
+    defaultValue: null,
+    serialize: String,
+  });
   const [paymentStatus, setPaymentStatus] =
     useQueryState<PaymentStatus>("paymentStatus");
   const [dateRange, setDateRange] = useQueryState("dateRange");
