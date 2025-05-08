@@ -866,6 +866,25 @@ exports.Prisma.SessionScalarFieldEnum = {
   activeOrganizationId: 'activeOrganizationId'
 };
 
+exports.Prisma.MpesaPaymentRequestScalarFieldEnum = {
+  id: 'id',
+  organizationId: 'organizationId',
+  memberId: 'memberId',
+  checkoutRequestId: 'checkoutRequestId',
+  merchantRequestId: 'merchantRequestId',
+  amount: 'amount',
+  phoneNumber: 'phoneNumber',
+  reference: 'reference',
+  status: 'status',
+  resultCode: 'resultCode',
+  resultDescription: 'resultDescription',
+  mpesaReceiptNumber: 'mpesaReceiptNumber',
+  transactionDate: 'transactionDate',
+  saleData: 'saleData',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -1236,7 +1255,8 @@ exports.Prisma.ModelName = {
   Notification: 'Notification',
   Account: 'Account',
   Verification: 'Verification',
-  Session: 'Session'
+  Session: 'Session',
+  MpesaPaymentRequest: 'MpesaPaymentRequest'
 };
 
 /**

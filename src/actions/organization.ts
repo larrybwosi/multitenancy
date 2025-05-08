@@ -4,14 +4,13 @@ import { Prisma, type Organization, MemberRole, LocationType, InventoryLocation 
 import slugify from "slugify";
 
 import { db as prisma } from "@/lib/db";
-import type {
-  CreateOrganizationInput,
-  UpdateOrganizationInput,
-} from "@/lib/types"; 
 import { getServerAuthContext } from "./auth";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { AppError, AuthenticationError, ConflictError, DatabaseError, NotFoundError, SlugGenerationError, ValidationError } from '@/utils/errors';
+import { z } from 'zod';
+import { CreateOrganizationInput, CreateOrganizationInputSchema, UpdateOrganizationInput, UpdateOrganizationInputSchema } from '@/lib/validations/organization';
 
 interface CreationResponse {
   organization: Organization;
@@ -20,88 +19,107 @@ interface CreationResponse {
 
 /**
  * Creates a new organization and assigns the current user as the owner.
- * @param data - The data for the new organization (name, description, logo, etc.).
- * @returns The newly created organization.
- * @throws Error if user is not authenticated or if slug generation fails.
+ * @param rawData - The data for the new organization.
+ * @returns The newly created organization and its default warehouse.
+ * @throws Various AppError descendants for specific error conditions.
  */
 export async function createOrganization(
-  data: CreateOrganizationInput
+  rawData: unknown // Accept unknown to validate first
 ): Promise<CreationResponse> {
+  // 1. Authentication
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.id) {
-    throw new Error("User not authenticated.");
+    throw new AuthenticationError("User not authenticated.");
   }
   const userId = session.user.id;
+
+  // 2. Validation
+  let data: CreateOrganizationInput;
+  try {
+    data = CreateOrganizationInputSchema.parse(rawData);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new ValidationError("Invalid input data for creating organization.", error.issues);
+    }
+    throw new ValidationError("Invalid input data.");
+  }
+
   const {
     name,
     description,
     logo,
-    defaultCurrency = "USD",
-    defaultTimezone = "UTC",
+    defaultCurrency,
+    defaultTimezone,
     defaultTaxRate,
-    inventoryPolicy = "FEFO",
-    lowStockThreshold = 10,
-    negativeStock = false,
+    inventoryPolicy,
+    lowStockThreshold,
+    negativeStock,
   } = data;
 
-  // Generate a unique slug
-  const baseSlug = slugify(name, { lower: true, strict: true, trim: true });
-  let finalSlug = baseSlug;
-  let counter = 1;
-  let isSlugUnique = false;
+  // 3. Generate a unique slug
+  let finalSlug: string;
+  try {
+    const baseSlug = slugify(name, { lower: true, strict: true, trim: true });
+    let slugCandidate = baseSlug;
+    let counter = 1;
+    const MAX_SLUG_ATTEMPTS = 10;
 
-  // Basic check for slug uniqueness, repeat until unique
-  while (!isSlugUnique) {
-    const existing = await prisma.organization.findUnique({
-      where: { slug: finalSlug },
-      select: { id: true }, // Only select ID for efficiency
-    });
-    if (!existing) {
-      isSlugUnique = true;
-    } else {
-      finalSlug = `${baseSlug}-${counter}`;
-      counter++;
-      if (counter > 10) {
-        // Safety break to prevent infinite loops
-        throw new Error(
-          `Failed to generate a unique slug for "${name}" after several attempts.`
+    // Loop to find a unique slug
+    while (true) {
+      const existing = await prisma.organization.findUnique({
+        where: { slug: slugCandidate },
+        select: { id: true },
+      });
+      if (!existing) {
+        finalSlug = slugCandidate;
+        break;
+      }
+      if (counter > MAX_SLUG_ATTEMPTS) {
+        throw new SlugGenerationError(
+          `Failed to generate a unique slug for "${name}" after ${MAX_SLUG_ATTEMPTS} attempts.`
         );
       }
+      slugCandidate = `${baseSlug}-${counter}`;
+      counter++;
     }
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    console.error("Error during slug generation:", error);
+    throw new SlugGenerationError("An unexpected error occurred while generating the slug.");
   }
 
+
+  // 4. Database Operations
   try {
     const newOrganization = await prisma.organization.create({
       data: {
-        id: `org-${finalSlug}`,
+        id: `org-${finalSlug}`, // Consider using CUIDs or UUIDs if not strictly necessary to have slug in ID
         name,
         slug: finalSlug,
         description,
         logo,
         members: {
           create: {
-            id: `user-org-${finalSlug}-${userId}`,
+            // id: `user-org-${finalSlug}-${userId}`, // Prisma can autogenerate CUIDs
             userId,
-            role: MemberRole.OWNER, // Assign the creator as OWNER
+            role: MemberRole.OWNER,
           },
         },
         settings: {
           create: {
             defaultCurrency,
             defaultTimezone,
-            defaultTaxRate: defaultTaxRate
+            defaultTaxRate: defaultTaxRate !== null && defaultTaxRate !== undefined
               ? new Prisma.Decimal(defaultTaxRate)
               : null,
             inventoryPolicy,
-            lowStockThreshold: parseInt(lowStockThreshold.toString()),
+            lowStockThreshold, // Zod ensures it's an int
             negativeStock,
           },
         },
       },
       include: {
-        members: {
-          where: { userId }, // Filter to include the owner just created
-        },
+        members: { where: { userId } },
         settings: true,
       },
     });
@@ -109,7 +127,7 @@ export async function createOrganization(
     const mainStore = await prisma.inventoryLocation.create({
       data: {
         name: "Main Store",
-        description: "Primary retail store location",
+        description: "Primary retail store location for " + name,
         locationType: LocationType.RETAIL_SHOP,
         isDefault: true,
         isActive: true,
@@ -117,35 +135,42 @@ export async function createOrganization(
         organizationId: newOrganization.id,
       },
     });
-    // Optionally: Update the user's activeOrganizationId if desired
-    await prisma.user.update({
-      where: { id: userId },
-      data: { activeOrganizationId: newOrganization.id },
-    });
 
-    const org = await prisma.organization.update({
-      where: { id: newOrganization.id },
-      data: { defaultLocationId: mainStore.id },
-    });
+    // Update user's active organization and organization's default location
+    await prisma.$transaction([
+        prisma.user.update({
+            where: { id: userId },
+            data: { activeOrganizationId: newOrganization.id },
+        }),
+        prisma.organization.update({
+            where: { id: newOrganization.id },
+            data: { defaultLocationId: mainStore.id },
+        })
+    ]);
+    
+    // Fetch the updated organization to include defaultLocationId in the returned object if needed immediately
+    // Or adjust the return type/logic based on whether newOrganization already contains this post-transaction.
+    // For simplicity, we return the initially created newOrganization and mainStore.
+    // If `defaultLocationId` must be in the returned `newOrganization` object, re-fetch or merge.
 
-    console.log("New Organization Created:", org);
+    console.log("New Organization Created:", newOrganization.name);
     return { organization: newOrganization, warehouse: mainStore };
+
   } catch (error) {
     console.error("Failed to create organization:", error);
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      // Handle potential known errors, e.g., unique constraints
-      if (error.code === "P2002") {
-        // Unique constraint violation
-        // This might happen in a race condition despite the check above
-        throw new Error(
-          `An organization with a similar name/slug already exists.`
+      if (error.code === 'P2002') { // Unique constraint violation
+        // This might happen in a race condition for the slug despite the check.
+        // Or if the id generation `org-${finalSlug}` clashes, though less likely with CUIDs for sub-models.
+        const target = (error.meta?.target as string[])?.join(', ');
+        throw new ConflictError(
+          `An organization with similar attributes (${target || 'slug/id'}) already exists.`
         );
       }
+      throw new DatabaseError(`Database error: ${error.message} (Code: ${error.code})`);
     }
-    // Rethrow a generic error or the original error
-    throw new Error(
-      `Could not create organization. ${error instanceof Error ? error.message : ""}`
-    );
+    if (error instanceof AppError) throw error; // Re-throw known app errors
+    throw new DatabaseError(`Could not create organization. ${error instanceof Error ? error.message : "Unknown database error"}`);
   }
 }
 
@@ -235,86 +260,163 @@ export async function getUserOrganizations(): Promise<Organization[]> {
   }
 }
 
+
 /**
- * Updates an existing organization.
- * @param id - The ID of the organization to update.
- * @param data - The data to update (name, description, logo, etc.).
+ * Updates an existing organization and its settings.
+ * @param organizationId - The ID of the organization to update.
+ * @param rawData - The data to update (can include organization and settings fields).
  * @returns The updated organization.
- * @throws Error if user is not authenticated, not permitted, or org not found.
+ * @throws Various AppError descendants.
  */
 export async function updateOrganization(
-  id: string,
-  data: UpdateOrganizationInput
-): Promise<Organization> {
-  // Permission Check
-  // const canUpdate = await canUpdateOrganization(userId, id);
-  // if (!canUpdate) {
-  //   throw new Error(
-  //     "Forbidden: You do not have permission to update this organization."
-  //   );
-  // }
+  organizationId: string,
+  rawData: unknown // Accept unknown to validate first
+): Promise<any> { // Replace any with Prisma.OrganizationGetPayload including settings
+  // 1. Authorization/Permission Check (Conceptual)
+  // ... (as in previous version, ensure user has rights)
 
-  const { name, ...restData } = data;
-  let slugData = {};
+  // 2. Validation
+  let validatedData: UpdateOrganizationInput;
+  try {
+    validatedData = UpdateOrganizationInputSchema.parse(rawData);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new ValidationError("Invalid input data for updating organization.", error.issues);
+    }
+    throw new ValidationError("Invalid input data.");
+  }
 
-  // If name is being updated, regenerate the slug
+  const {
+    name,
+    description,
+    logo,
+    // Destructure settings fields
+    defaultCurrency,
+    defaultTimezone,
+    defaultTaxRate,
+    inventoryPolicy,
+    lowStockThreshold,
+    negativeStock,
+    enableCapacityTracking,
+    enforceSpatialConstraints,
+    enableProductDimensions,
+    defaultMeasurementUnit,
+    defaultDimensionUnit,
+    defaultWeightUnit,
+  } = validatedData;
+
+  const organizationUpdateData: Prisma.OrganizationUpdateInput = {};
+  const settingsUpdateData: Prisma.OrganizationSettingsUpdateInput = {};
+
+  // Populate Organization fields
+  if (name !== undefined) organizationUpdateData.name = name;
+  if (description !== undefined) organizationUpdateData.description = description;
+  if (logo !== undefined) organizationUpdateData.logo = logo;
+
+  // Populate Settings fields
+  if (defaultCurrency !== undefined) settingsUpdateData.defaultCurrency = defaultCurrency;
+  if (defaultTimezone !== undefined) settingsUpdateData.defaultTimezone = defaultTimezone;
+  if (defaultTaxRate !== undefined) { // Handles null explicitly
+    settingsUpdateData.defaultTaxRate = defaultTaxRate === null ? null : new Prisma.Decimal(defaultTaxRate);
+  }
+  if (inventoryPolicy !== undefined) settingsUpdateData.inventoryPolicy = inventoryPolicy;
+  if (lowStockThreshold !== undefined) settingsUpdateData.lowStockThreshold = lowStockThreshold;
+  if (negativeStock !== undefined) settingsUpdateData.negativeStock = negativeStock;
+  if (enableCapacityTracking !== undefined) settingsUpdateData.enableCapacityTracking = enableCapacityTracking;
+  if (enforceSpatialConstraints !== undefined) settingsUpdateData.enforceSpatialConstraints = enforceSpatialConstraints;
+  if (enableProductDimensions !== undefined) settingsUpdateData.enableProductDimensions = enableProductDimensions;
+  if (defaultMeasurementUnit !== undefined) settingsUpdateData.defaultMeasurementUnit = defaultMeasurementUnit;
+  if (defaultDimensionUnit !== undefined) settingsUpdateData.defaultDimensionUnit = defaultDimensionUnit;
+  if (defaultWeightUnit !== undefined) settingsUpdateData.defaultWeightUnit = defaultWeightUnit;
+
+
+  // 3. If name is being updated, regenerate the slug
   if (name) {
-    const baseSlug = slugify(name, { lower: true, strict: true, trim: true });
-    let finalSlug = baseSlug;
-    let counter = 1;
-    let isSlugUnique = false;
+    try {
+      const baseSlug = slugify(name, { lower: true, strict: true, trim: true });
+      let finalSlug = baseSlug;
+      let counter = 1;
+      const MAX_SLUG_ATTEMPTS = 10;
 
-    while (!isSlugUnique) {
-      // Check if slug exists *for a different organization*
-      const existing = await prisma.organization.findFirst({
-        where: {
-          slug: finalSlug,
-          NOT: { id: id }, // Exclude the current organization
-        },
-        select: { id: true },
-      });
-      if (!existing) {
-        isSlugUnique = true;
-      } else {
-        finalSlug = `${baseSlug}-${counter}`;
-        counter++;
-        if (counter > 10) {
-          // Safety break
-          throw new Error(
-            `Failed to generate a unique slug for updated name "${name}" after several attempts.`
+      while (true) {
+        const existing = await prisma.organization.findFirst({
+          where: {
+            slug: finalSlug,
+            NOT: { id: organizationId },
+          },
+          select: { id: true },
+        });
+
+        if (!existing) {
+          organizationUpdateData.slug = finalSlug; // Add slug to update data
+          break;
+        }
+        if (counter > MAX_SLUG_ATTEMPTS) {
+          throw new SlugGenerationError(
+            `Failed to generate a unique slug for updated name "${name}" after ${MAX_SLUG_ATTEMPTS} attempts.`
           );
         }
+        finalSlug = `${baseSlug}-${counter}`;
+        counter++;
       }
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      console.error("Error during slug generation for update:", error);
+      throw new SlugGenerationError("An unexpected error occurred while generating the new slug.");
     }
-    slugData = { slug: finalSlug };
   }
+
+  // 4. Database Operation
+  // Only include settings update if there's data for it
+  if (Object.keys(settingsUpdateData).length > 0) {
+    organizationUpdateData.settings = {
+      update: settingsUpdateData,
+    };
+  }
+  // Ensure there's something to update overall
+  if (Object.keys(organizationUpdateData).length === 0 && Object.keys(settingsUpdateData).length === 0) {
+    // Optionally, you could throw an error or return the existing organization if no data to update was provided.
+    // For now, let's fetch and return the current org to indicate no change.
+    // Or, more strictly, one might require at least one field to be passed for an update.
+    const currentOrganization = await prisma.organization.findUnique({
+        where: { id: organizationId },
+        include: { settings: true } // Ensure settings are included
+    });
+    if (!currentOrganization) {
+        throw new NotFoundError(`Organization with ID ${organizationId} not found.`);
+    }
+    return currentOrganization; // No actual update performed
+  }
+
 
   try {
     const updatedOrganization = await prisma.organization.update({
-      where: { id },
-      data: {
-        name, // Include name if provided
-        ...restData, // Include other fields like description, logo
-        ...slugData, // Include new slug if name changed
+      where: { id: organizationId },
+      data: organizationUpdateData,
+      include: {
+        settings: true, // Ensure settings are included in the response
       },
     });
     return updatedOrganization;
   } catch (error) {
-    console.error("Failed to update organization:", error);
+    console.error(`Failed to update organization ${organizationId}:`, error);
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === "P2002") {
-        // Unique constraint failed
-        throw new Error(
-          `An organization with the updated name/slug already exists.`
+      if (error.code === 'P2002') {
+        const target = (error.meta?.target as string[])?.join(', ');
+        throw new ConflictError(
+          `An organization with the updated attributes (${target || 'name/slug'}) already exists.`
         );
       }
-      if (error.code === "P2025") {
-        // Record not found
-        throw new Error(`Organization with ID ${id} not found.`);
+      if (error.code === 'P2025') { // Record to update not found (either Org or related Settings if not handled by nested write correctly)
+        // For a nested update on settings, if OrganizationSettings does not exist, P2025 might be "An operation failed because it depends on one or more records that were required but not found. No 'OrganizationSettings' record was found for a nested update on relation 'OrganizationToOrganizationSettings'."
+        // This implies the settings record must exist. The createOrganization ensures this.
+        throw new NotFoundError(`Organization with ID ${organizationId} or its settings not found for update.`);
       }
+      throw new DatabaseError(`Database error: ${error.message} (Code: ${error.code})`);
     }
-    throw new Error(
-      `Could not update organization. ${error instanceof Error ? error.message : ""}`
+    if (error instanceof AppError) throw error;
+    throw new DatabaseError(
+      `Could not update organization ${organizationId}. ${error instanceof Error ? error.message : "Unknown database error"}`
     );
   }
 }

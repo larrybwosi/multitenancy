@@ -29,15 +29,10 @@ import {useOrganization} from '@/hooks/use-organization';
 import {useUpdateOrganization} from '@/lib/hooks/use-org';
 import {Alert, AlertDescription, AlertTitle} from '@/components/ui/alert';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useExpenseCategories } from '@/lib/hooks/use-expense-categories';
 import { AddCategoryModal } from './add-expense-category-modal';
 import { DeleteCategoryModal } from './delete-category-modal';
+import { UpdateOrganizationInputSchema } from '@/lib/validations/organization';
 
 // Define the timezone options
 const timezones = [
@@ -60,105 +55,13 @@ const timezones = [
 // Define currency options
 const currencies = ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'CNY', 'INR', 'BRL', 'KES', 'NGN', 'ZAR'];
 
-// Organization form schema with all new fields
-const organizationFormSchema = z.object({
-  // Basic organization details
-  name: z
-    .string()
-    .min(2, {
-      message: 'Organization name must be at least 2 characters.',
-    })
-    .max(50, {
-      message: 'Organization name must not exceed 50 characters.',
-    }),
-  slug: z
-    .string()
-    .min(2, {
-      message: 'Slug must be at least 2 characters.',
-    })
-    .max(30, {
-      message: 'Slug must not exceed 30 characters.',
-    })
-    .regex(/^[a-z0-9-]+$/, {
-      message: 'Slug can only contain lowercase letters, numbers, and hyphens.',
-    }),
-  description: z
-    .string()
-    .max(500, {
-      message: 'Description must not exceed 500 characters.',
-    })
-    .optional()
-    .nullable(),
-  logo: z.string().optional().nullable(),
-
-  // Expense Management Settings
-  expenseApprovalRequired: z.boolean().default(false),
-  expenseApprovalThreshold: z
-    .union([
-      z.string().refine(val => !isNaN(parseFloat(val)), {
-        message: 'Must be a valid number',
-      }),
-      z.number(),
-    ])
-    .optional()
-    .nullable(),
-  expenseReceiptRequired: z.boolean().default(true),
-  expenseReceiptThreshold: z
-    .union([
-      z.string().refine(val => !isNaN(parseFloat(val)), {
-        message: 'Must be a valid number',
-      }),
-      z.number(),
-    ])
-    .optional()
-    .nullable(),
-  defaultExpenseCurrency: z.string().default('USD'),
-  expenseApprovalChain: z.string().optional().nullable(),
-  expenseTagOptions: z.array(z.string()).default([]),
-
-  // General Settings
-  defaultCurrency: z.string().default('USD'),
-  defaultTimezone: z.string().default('UTC'),
-  defaultTaxRate: z
-    .union([
-      z.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0 && parseFloat(val) <= 1, {
-        message: 'Tax rate must be between 0 and 1',
-      }),
-      z.number().min(0).max(1),
-    ])
-    .optional()
-    .nullable(),
-
-  // Inventory Settings
-  inventoryPolicy: z.nativeEnum(InventoryPolicy).default('FEFO'),
-  lowStockThreshold: z
-    .union([
-      z.string().refine(val => !isNaN(parseInt(val)) && parseInt(val) >= 0, {
-        message: 'Must be a non-negative integer',
-      }),
-      z.number().int().min(0),
-    ])
-    .default(10),
-  negativeStock: z.boolean().default(false),
-
-  // Spatial Settings
-  enableCapacityTracking: z.boolean().default(false),
-  enforceSpatialConstraints: z.boolean().default(false),
-  enableProductDimensions: z.boolean().default(false),
-  defaultMeasurementUnit: z.nativeEnum(MeasurementUnit).optional().nullable(),
-  defaultDimensionUnit: z.string().optional().nullable(),
-  defaultWeightUnit: z.string().optional().nullable(),
-});
-
-type OrganizationFormValues = z.infer<typeof organizationFormSchema>;
+type OrganizationFormValues = z.infer<typeof UpdateOrganizationInputSchema>;
 
 interface EditOrganizationFormProps {
   onSuccess?: () => void;
 }
 
 export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
-  // Form and UI states
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [previewLogo, setPreviewLogo] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -172,12 +75,13 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { organization, isLoading } = useOrganization();
+  
   const { data: expenseCategories, isLoading: loadingExpenseCategories } = useExpenseCategories(true,activeTab === 'expenses');
-  const { mutateAsync: updateOrganization, isPending: isUpdating } = useUpdateOrganization();
+  const { mutateAsync: updateOrganization, isPending: isSubmitting } = useUpdateOrganization();
   const router = useRouter();
 
-  const form = useForm({
-    resolver: zodResolver(organizationFormSchema),
+  const form = useForm<OrganizationFormValues>({
+    resolver: zodResolver(UpdateOrganizationInputSchema),
     defaultValues: {
       name: '',
       slug: '',
@@ -187,21 +91,19 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
       expenseApprovalThreshold: null,
       expenseReceiptRequired: true,
       expenseReceiptThreshold: null,
-      defaultExpenseCurrency: 'USD',
-      expenseApprovalChain: undefined,
       expenseTagOptions: [],
       defaultCurrency: 'USD',
       defaultTimezone: 'UTC',
       defaultTaxRate: null,
-      inventoryPolicy: 'FEFO',
-      lowStockThreshold: '10',
+      inventoryPolicy: InventoryPolicy.FEFO,
+      lowStockThreshold: 10,
       negativeStock: false,
       enableCapacityTracking: false,
       enforceSpatialConstraints: false,
       enableProductDimensions: false,
-      defaultMeasurementUnit: null,
-      defaultDimensionUnit: null,
-      defaultWeightUnit: null,
+      defaultMeasurementUnit: MeasurementUnit.METER,
+      defaultDimensionUnit: MeasurementUnit.METER,
+      defaultWeightUnit: MeasurementUnit.WEIGHT_KG,
     },
   });
 
@@ -210,29 +112,33 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
     const loadOrganizationData = async () => {
       try {
         if (organization) {
-          // Convert numeric values to strings for the form
-          const formData = {
-            ...organization,
-            description: organization.description || '', // Handle null values
+          // Convert numeric values to numbers for the form
+          const formData: OrganizationFormValues = {
+            name: organization.name,
+            slug: organization.slug,
+            description: organization.description || '',
             logo: organization.logo || '',
-            expenseApprovalThreshold: organization.expenseApprovalThreshold?.toString() || null,
-            expenseReceiptThreshold: organization.expenseReceiptThreshold?.toString() || null,
-            defaultTaxRate: organization.settings?.defaultTaxRate?.toString() || null,
-            lowStockThreshold: organization.settings?.lowStockThreshold?.toString() || '10',
+            expenseApprovalRequired: organization.expenseApprovalRequired || false,
+            expenseApprovalThreshold: organization.expenseApprovalThreshold ? Number(organization.expenseApprovalThreshold) : null,
+            expenseReceiptRequired: organization.expenseReceiptRequired || true,
+            expenseReceiptThreshold: organization.expenseReceiptThreshold ? Number(organization.expenseReceiptThreshold) : null,
+            defaultTaxRate: organization.settings?.defaultTaxRate ? Number(organization.settings.defaultTaxRate) : null,
+            lowStockThreshold: organization.settings?.lowStockThreshold ? Number(organization.settings.lowStockThreshold) : 10,
             expenseTagOptions: organization.expenseTagOptions || [],
             // Map other settings from the organization.settings object
-            inventoryPolicy: organization.settings?.inventoryPolicy || 'FEFO',
+            inventoryPolicy: organization.settings?.inventoryPolicy || InventoryPolicy.FEFO,
             negativeStock: organization.settings?.negativeStock || false,
-            defaultMeasurementUnit: organization.settings?.defaultMeasurementUnit || null,
-            defaultDimensionUnit: organization.settings?.defaultDimensionUnit || null,
-            defaultWeightUnit: organization.settings?.defaultWeightUnit || null,
+            defaultMeasurementUnit: (organization.settings?.defaultMeasurementUnit as MeasurementUnit) || MeasurementUnit.METER,
+            defaultDimensionUnit: (organization.settings?.defaultDimensionUnit as MeasurementUnit) || MeasurementUnit.METER,
+            defaultWeightUnit: (organization.settings?.defaultWeightUnit as MeasurementUnit) || MeasurementUnit.WEIGHT_KG,
             enableCapacityTracking: organization.settings?.enableCapacityTracking || false,
             enforceSpatialConstraints: organization.settings?.enforceSpatialConstraints || false,
             enableProductDimensions: organization.settings?.enableProductDimensions || false,
+            defaultCurrency: organization.settings?.defaultCurrency || 'USD',
+            defaultTimezone: organization.settings?.defaultTimezone || 'UTC',
           };
 
-          form.reset(formData); // Type assertion to handle the complex form structure
-
+          form.reset(formData);
           if (organization.logo) {
             setPreviewLogo(organization.logo);
           }
@@ -248,46 +154,75 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
     };
 
     loadOrganizationData();
-  }, [form, organization]);
+  }, [form, isLoading]);
+const onSubmit = async (data: OrganizationFormValues) => {
+  try {
+    // Get the initial values (from when the form was loaded)
+    const initialValues = form.formState.defaultValues as OrganizationFormValues | undefined;
 
+    // Create an object with only changed fields
+    const changedFields: Partial<OrganizationFormValues> = {};
 
+    // Compare each field with its initial value
+    Object.entries(data).forEach(([key, value]) => {
+      const fieldKey = key as keyof OrganizationFormValues;
 
-  const onSubmit = async (data: OrganizationFormValues) => {
-    setIsSubmitting(true);
-    try {
-      // Convert form string values to appropriate types for API
-      const apiData = {
-        ...data,
-        expenseApprovalThreshold: data.expenseApprovalThreshold
-          ? parseFloat(data.expenseApprovalThreshold as string)
-          : null,
-        expenseReceiptThreshold: data.expenseReceiptThreshold
-          ? parseFloat(data.expenseReceiptThreshold as string)
-          : null,
-        defaultTaxRate: data.defaultTaxRate ? parseFloat(data.defaultTaxRate as string) : null,
-        lowStockThreshold: data.lowStockThreshold ? parseInt(data.lowStockThreshold as string) : 10,
-      };
-
-      await updateOrganization(apiData);
-
-      toast.success('Organization updated', {
-        description: 'Your organization settings have been updated successfully.',
-      });
-
-      if (onSuccess) {
-        onSuccess();
+      // Skip if no initial values or if the field wasn't in initial values
+      if (!initialValues || !(fieldKey in initialValues)) {
+        return;
       }
 
-      router.refresh();
-    } catch (error) {
-      console.error('Failed to update organization:', error);
-      toast.error('Error updating organization', {
-        description: 'There was an error updating your organization. Please try again.',
-      });
-    } finally {
-      setIsSubmitting(false);
+      // Compare current value with initial value
+      if (JSON.stringify(value) !== JSON.stringify(initialValues[fieldKey])) {
+        // Type-safe assignment
+        changedFields[fieldKey] = value as never;
+      }
+    });
+
+    // Convert numeric values in changed fields to numbers for API
+    const apiData: Partial<OrganizationFormValues> = {
+      ...changedFields,
+    };
+
+    // Handle numeric conversions only for fields that exist in changedFields
+    if ('expenseApprovalThreshold' in changedFields) {
+      apiData.expenseApprovalThreshold =
+        changedFields.expenseApprovalThreshold !== null ? Number(changedFields.expenseApprovalThreshold) : null;
     }
-  };
+
+    if ('expenseReceiptThreshold' in changedFields) {
+      apiData.expenseReceiptThreshold =
+        changedFields.expenseReceiptThreshold !== null ? Number(changedFields.expenseReceiptThreshold) : null;
+    }
+
+    if ('defaultTaxRate' in changedFields) {
+      apiData.defaultTaxRate = changedFields.defaultTaxRate !== null ? Number(changedFields.defaultTaxRate) : null;
+    }
+
+    if ('lowStockThreshold' in changedFields) {
+      apiData.lowStockThreshold =
+        changedFields.lowStockThreshold !== undefined ? Number(changedFields.lowStockThreshold) : 10;
+    }
+
+    await updateOrganization(apiData);
+
+    toast.success('Organization updated', {
+      description: 'Your organization settings have been updated successfully.',
+    });
+
+    if (onSuccess) {
+      onSuccess();
+    }
+
+    router.refresh();
+  } catch (error) {
+    console.error('Failed to update organization:', error);
+    toast.error('Error updating organization', {
+      description: 'There was an error updating your organization. Please try again.',
+    });
+  }
+};
+
   //https://i.pinimg.com/736x/af/63
   const handleLogoClick = () => {
     fileInputRef.current?.click();
@@ -527,9 +462,7 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6">
                   <div className="flex flex-col space-y-4">
-                    <div className="text-lg font-medium flex items-center">
-                      Organization Logo
-                    </div>
+                    <div className="text-lg font-medium flex items-center">Organization Logo</div>
 
                     <input
                       type="file"
@@ -713,12 +646,12 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                               placeholder="0.20"
                               {...field}
                               value={field.value || ''}
-                              onChange={e => field.onChange(e.target.value)}
+                              onChange={e => field.onChange(parseFloat(e.target.value))}
                               className="rounded-r-none"
                             />
                             <div className="h-full px-3 flex items-center bg-muted border border-l-0 border-input rounded-r-md">
                               <span className="text-muted-foreground">
-                                ({field.value ? (parseFloat(field.value as string) * 100).toFixed(2) : '0.00'}%)
+                                ({field.value ? (parseFloat(field.value.toString()) * 100).toFixed(2) : '0.00'}%)
                               </span>
                             </div>
                           </div>
@@ -844,7 +777,7 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                                 placeholder="100.00"
                                 {...field}
                                 value={field.value || ''}
-                                onChange={e => field.onChange(e.target.value)}
+                                onChange={e => field.onChange(parseInt(e.target.value))}
                                 className="rounded-l-none"
                               />
                             </div>
@@ -876,7 +809,7 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                                 placeholder="25.00"
                                 {...field}
                                 value={field.value || ''}
-                                onChange={e => field.onChange(e.target.value)}
+                                onChange={e => field.onChange(parseInt(e.target.value))}
                                 className="rounded-l-none"
                               />
                             </div>
@@ -890,32 +823,6 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                       )}
                     />
                   </div>
-
-                  <FormField
-                    control={form.control}
-                    name="defaultExpenseCurrency"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-base font-medium">Default Expense Currency</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger className="h-11">
-                              <SelectValue placeholder="Select a currency" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {currencies.map(currency => (
-                              <SelectItem key={currency} value={currency}>
-                                {currency}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormDescription>The default currency used for expense claims and reports.</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
 
                   <FormField
                     control={form.control}
@@ -982,45 +889,6 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                     )}
                   />
 
-                  <FormField
-                    control={form.control}
-                    name="expenseApprovalChain"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-base font-medium">
-                          <div className="flex items-center">
-                            Approval Workflow
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Info className="h-4 w-4 text-muted-foreground ml-2 cursor-help" />
-                                </TooltipTrigger>
-                                <TooltipContent className="max-w-sm p-4">
-                                  <p className="text-sm">
-                                    JSON configuration for multi-level expense approval workflows. Define thresholds and
-                                    required approvers at each level.
-                                  </p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </div>
-                        </FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder='e.g., {"levels": [{"threshold": 100, "approvers": ["manager"]}, {"threshold": 1000, "approvers": ["manager", "finance"]}]}'
-                            className="resize-none font-mono text-sm h-24"
-                            {...field}
-                            value={field.value || ''}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          JSON configuration for approval chain workflow. Leave blank to use default approvers.
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
                   <Card className="border-2">
                     <CardHeader className="bg-muted/30">
                       <div className="flex items-center justify-between">
@@ -1060,12 +928,12 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                           />
                         </Dialog>
 
-                      <DeleteCategoryModal
-                        open={isDeleteCategoryOpen}
-                        onOpenChange={setIsDeleteCategoryOpen}
-                        categoryId={categoryToDelete}
-                        onSuccess={() => {}}
-                      />
+                        <DeleteCategoryModal
+                          open={isDeleteCategoryOpen}
+                          onOpenChange={setIsDeleteCategoryOpen}
+                          categoryId={categoryToDelete}
+                          onSuccess={() => {}}
+                        />
                       </div>
                     </CardHeader>
                     <CardContent className="pt-6">
@@ -1425,21 +1293,18 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-base font-medium">Default Measurement System</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value || ''}>
+                          <Select onValueChange={field.onChange} value={field.value || undefined}>
                             <FormControl>
                               <SelectTrigger className="h-11">
                                 <SelectValue placeholder="Select a measurement system" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="METRIC">
+                              <SelectItem value={MeasurementUnit.METER}>
                                 <div className="font-medium">Metric</div>
                               </SelectItem>
-                              <SelectItem value="IMPERIAL">
+                              <SelectItem value={MeasurementUnit.FEET}>
                                 <div className="font-medium">Imperial</div>
-                              </SelectItem>
-                              <SelectItem value="CUSTOM">
-                                <div className="font-medium">Custom</div>
                               </SelectItem>
                             </SelectContent>
                           </Select>
@@ -1457,7 +1322,7 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-base font-medium">Default Dimension Unit</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value || ''}>
+                          <Select onValueChange={field.onChange} value={field.value || undefined}>
                             <FormControl>
                               <SelectTrigger className="h-11">
                                 <SelectValue placeholder="Select a unit" />
@@ -1465,17 +1330,19 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                             </FormControl>
                             <SelectContent>
                               {Object.values(MeasurementUnit)
-                                // Filter for appropriate dimension units (adjust as needed)
                                 .filter(
                                   value =>
-                                    !value.startsWith('WEIGHT_') &&
-                                    !value.startsWith('AREA_') &&
-                                    !value.startsWith('VOLUME_')
+                                    value === MeasurementUnit.METER ||
+                                    value === MeasurementUnit.FEET ||
+                                    value === MeasurementUnit.SQUARE_METER ||
+                                    value === MeasurementUnit.SQUARE_FEET ||
+                                    value === MeasurementUnit.CUBIC_METER ||
+                                    value === MeasurementUnit.CUBIC_FEET
                                 )
                                 .map(value => (
                                   <SelectItem key={value} value={value}>
                                     {value
-                                      .replace('_', ' ')
+                                      .replace(/_/g, ' ')
                                       .toLowerCase()
                                       .replace(/\b\w/g, l => l.toUpperCase())}
                                   </SelectItem>
@@ -1497,7 +1364,7 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-base font-medium">Default Weight Unit</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value || ''}>
+                        <Select onValueChange={field.onChange} value={field.value || undefined}>
                           <FormControl>
                             <SelectTrigger className="h-11">
                               <SelectValue placeholder="Select a unit" />
@@ -1505,9 +1372,11 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
                           </FormControl>
                           <SelectContent>
                             {Object.values(MeasurementUnit)
-                              .filter(value => value.startsWith('WEIGHT_'))
+                              .filter(
+                                value => value === MeasurementUnit.WEIGHT_KG || value === MeasurementUnit.WEIGHT_LB
+                              )
                               .map(unit => (
-                                <SelectItem key={unit} value={unit} className="flex-1">
+                                <SelectItem key={unit} value={unit}>
                                   {unit.replace('WEIGHT_', '').replace(/_/g, ' ')}
                                 </SelectItem>
                               ))}

@@ -19,4 +19,5 @@ export const MotionForm = motion.form;
 export const MotionImage = motion.img;
 export const MotionInput = motion.input;
 export const MotionPath = motion.path;
+export const MotionSpan = motion.span;
 export const MotionLinearGradient = motion.linearGradient;

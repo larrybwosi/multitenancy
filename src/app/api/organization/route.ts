@@ -1,4 +1,4 @@
-import { createOrganization } from "@/actions/organization";
+import { createOrganization, updateOrganization } from "@/actions/organization";
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { getServerAuthContext } from "@/actions/auth";
@@ -35,10 +35,26 @@ export async function GET() {
     if (!organization) {
       return new NextResponse("Organization not found", { status: 404 });
     }
+    const org = {...organization, ...organization.settings}
 
-    return NextResponse.json(organization);
+    return NextResponse.json(org);
   } catch (error) {
     console.error("Error fetching organization:", error);
+    return new NextResponse("Internal Server Error", { status: 500 });
+  }
+} 
+
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+    console.log(body)
+    
+    const {organizationId } = await getServerAuthContext()
+    const updatedOrg = await updateOrganization(organizationId, body);
+    console.log(updatedOrg);
+    return NextResponse.json(updatedOrg);
+  } catch (error) {
+    console.error("Error updating organization:", error);
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }

@@ -56,6 +56,8 @@
     "nuqs": "^2.4.1",
     "papaparse": "^5.5.2",
     "puppeteer-core": "^24.6.1",
+    "pusher": "^5.2.0",
+    "pusher-js": "^8.4.0",
     "react": "^19.1.0",
     "react-colorful": "^5.6.1",
     "react-data-grid": "^7.0.0-beta.52",

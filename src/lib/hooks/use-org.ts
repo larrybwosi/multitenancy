@@ -16,11 +16,11 @@ export function useUpdateOrganization() {
 
   return useMutation({
     mutationFn: updateOrganization,
-    onSuccess: () => {
+    onSuccess: (data) => {
       // Invalidate and refetch organization data after successful update
       queryClient.invalidateQueries({queryKey: ['organization']});
       // Alternatively, you can set the data directly:
-      // queryClient.setQueryData(['organization'], data);
+      queryClient.setQueryData(['organization'], data);
     },
     onError: error => {
       console.error('Mutation error:', error);
@@ -51,7 +51,7 @@ async function fetchOrganization() {
 
 async function updateOrganization(data: unknown) {
   try {
-    const response = await fetch('/api/organizations/curret', {
+    const response = await fetch('/api/organization', {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -70,3 +70,40 @@ async function updateOrganization(data: unknown) {
     throw error;
   }
 }
+
+// const state$ = useObservableSyncedQuery<Profile>({
+//   query: {
+//     queryKey: ['profile'],
+//     queryFn: async () => {
+//       return fetch(`/api/profile`).then(v => v.json());
+//     },
+//     initialData: { ...profile },
+//     refetchOnMount: false,
+//   },
+//   mutation: {
+//     mutationFn: async function <Profile>(variables: Profile) {
+//       const sendData: Partial<Profile> = {};
+//       for (const k in serverState.current) {
+//         const key = k as keyof Profile;
+//         if (variables[key] !== serverState.current[key as string]) {
+//           sendData[key] = variables[key];
+//         }
+//       }
+//       return fetch(`/api/profile`, {
+//         method: 'POST',
+//         body: JSON.stringify(sendData),
+//       }).then(v => v.json());
+//     },
+//   },
+//   transform: {
+//     load: (data: Profile) => {
+//       serverState.current = { ...data };
+//       return data;
+//     },
+//   },
+//   persist: {
+//     plugin: ObservablePersistLocalStorage,
+//     retrySync: true,
+//     name: 'profile',
+//   },
+// });

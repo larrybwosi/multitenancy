@@ -104,6 +104,8 @@ model Member {
   createdRecurringExpenses RecurringExpense[]
   generatedBudgetReports   BudgetReport[]
 
+  mpesaPaymentRequests MpesaPaymentRequest[]
+
   @@unique([organizationId, userId])
   @@index([userId])
   @@index([organizationId])
@@ -177,6 +179,8 @@ model Organization {
   expenseApprovalWorkflows ApprovalWorkflow[] @relation("ExpenseApprovalWorkflows")
   defaultExpenseCurrency   String             @default("USD")
   expenseTagOptions        String[] // Predefined tags for expenses
+
+  mpesaPaymentRequests MpesaPaymentRequest[]
 
   @@map("organization")
 }
@@ -1760,4 +1764,32 @@ model Session {
   activeOrganizationId String?
 
   @@map("session")
+}
+
+model MpesaPaymentRequest {
+  id                 String    @id @default(cuid())
+  organizationId     String
+  memberId           String
+  checkoutRequestId  String
+  merchantRequestId  String
+  amount             Decimal
+  phoneNumber        String
+  reference          String
+  status             String // PENDING, SUCCESS, FAILED
+  resultCode         Int?
+  resultDescription  String?
+  mpesaReceiptNumber String?
+  transactionDate    DateTime?
+  saleData           Json? // Store the sale data for processing after successful payment
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  member       Member       @relation(fields: [memberId], references: [id])
+
+  @@index([organizationId])
+  @@index([memberId])
+  @@index([checkoutRequestId])
+  @@index([merchantRequestId])
+  @@index([reference])
 }

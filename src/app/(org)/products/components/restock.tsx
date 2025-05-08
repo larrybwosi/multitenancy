@@ -17,8 +17,9 @@ import { AlertCircle, CalendarIcon, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useQueryClient } from '@tanstack/react-query';
 import { UNIT_OPTIONS } from '@/lib/unit-conversion';
-import { useLocations, useSuppliers } from '@/lib/hooks/use-supplier';
+import { useSuppliers } from '@/lib/hooks/use-supplier';
 import { Badge } from '@/components/ui/badge';
+import { useLocations } from '@/hooks/use-warehouse';
 
 const formSchema = z.object({
   unit: z.string().min(1, 'Unit is required'),
@@ -158,7 +159,7 @@ export function RestockDialog({
   }
 
   const locations = locationsResult?.warehouses ?? [];
-  const suppliers = suppliersResult?.data ?? [];
+  const suppliers = suppliersResult?.suppliers ?? [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

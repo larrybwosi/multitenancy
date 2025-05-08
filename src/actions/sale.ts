@@ -53,7 +53,6 @@ type ProcessSaleResult =
       message: string;
       saleId: string;
       data: SaleWithDetails; // Use the detailed type
-      receiptUrl: string | null;
     }
   | {
       success: false;
@@ -127,7 +126,7 @@ export async function processSale(inputData: unknown): Promise<ProcessSaleResult
     const taxRate = orgSettings?.defaultTaxRate ?? new Prisma.Decimal(0); // Use Decimal, default to 0 [cite: 181]
     const allowNegativeStock = orgSettings?.negativeStock ?? false; // [cite: 182]
     const inventoryPolicy = orgSettings?.inventoryPolicy ?? 'FEFO'; // [cite: 182] Default to FEFO
-    console.log(`Inventory Policy: ${inventoryPolicy}`);
+    console.log(`Inventory Policy: ${inventoryPolicy}, taxRate: ${taxRate}, allowNegativeStock: ${allowNegativeStock}`);
 
     // Start the Prisma transaction
     const result = await db.$transaction(
@@ -184,6 +183,8 @@ export async function processSale(inputData: unknown): Promise<ProcessSaleResult
             throw new Error(`Retail price not set for ${product.name} (${variant.name}).`);
           }
           const itemTotal = new Prisma.Decimal(unitPrice).mul(item.quantity);
+          const itemTaxAmount = itemTotal.mul(taxRate).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+          const itemTotalWithTax = itemTotal.add(itemTaxAmount);
 
           // --- 3b. Stock Batch Handling (Conditional) ---
           let unitCost = new Prisma.Decimal(0); // Default cost if tracking disabled or no batch found
@@ -306,8 +307,8 @@ export async function processSale(inputData: unknown): Promise<ProcessSaleResult
             unitCost: unitCost, // Use derived cost (if tracking) or default (if not tracking)
             discountAmount: new Prisma.Decimal(0), // Item-level discount (can be added later)
             taxRate: new Prisma.Decimal(taxRate), // Assuming sale-level tax rate applies to all items
-            taxAmount: new Prisma.Decimal(0), // Calculated later or if item-specific tax exists
-            totalAmount: itemTotal, // Initial total before item-specific discount/tax
+            taxAmount: itemTaxAmount, // Calculated tax amount for this item
+            totalAmount: itemTotalWithTax, // Total including tax
           });
 
           // --- 3d. Aggregate Stock Updates (In Memory, IF Tracking Enabled) ---
@@ -513,34 +514,8 @@ export async function processSale(inputData: unknown): Promise<ProcessSaleResult
       }
     ); // --- End Database Transaction ---
 
-    // --- 4. Post-Transaction: Generate Receipt ---
-    // let receiptUrl: string | null = null;
-    // if (result) {
-    //   try {
-    //     console.log(`Attempting receipt generation for Sale ID: ${result.id}`);
-    //     receiptUrl = await generateAndSaveReceiptPdf(result); // Pass the detailed Sale object [cite: 62]
-    //     if (receiptUrl) {
-    //       // Update Sale record (best effort)
-    //       await db.sale.update({
-    //         where: { id: result.id },
-    //         data: { receiptUrl: receiptUrl }, // [cite: 61]
-    //       });
-    //       console.log(`Sale record ${result.id} updated with receipt URL.`);
-    //     } else {
-    //       console.warn(`Receipt generation did not return a URL for Sale ID ${result.id}.`);
-    //     }
-    //   } catch (receiptError: unknown) {
-    //     console.error(`Receipt generation/upload failed for Sale ID ${result.id}:`, receiptError);
-    //     // Log but don't fail the overall process
-    //   }
-    // } else {
-    //   console.error('Transaction seemed successful but returned no result object.');
-    //   // This indicates a potential issue in the transaction logic or return type.
-    //   // Throw an error here as the subsequent steps depend on 'result'.
-    //   throw new Error('Transaction completed without returning expected sale data.');
-    // }
 
-    // --- 5. Cache Revalidation ---
+    // --- 4. Cache Revalidation ---
     console.log('Revalidating relevant paths...');
     try {
       revalidatePath('/pos');

@@ -166,11 +166,6 @@ export default function ProductsTab({
   return (
     <div className="px-4 py-6 space-y-6 border-none">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Product Inventory</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your products and inventory</p>
-        </div>
-
         <CreateProductModal categories={initialCategories ?? []} />
       </div>
 

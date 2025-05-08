@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Package2 } from 'lucide-react';
+import { Package, Package2 } from 'lucide-react';
 import ProductsTab from './components/products-tab';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { useCategories } from '@/lib/hooks/use-categories';
@@ -126,9 +126,9 @@ export default function ProductsPage() {
     <Card className="border-none flex-1 overflow-hidden bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 flex flex-col min-h-[calc(100vh-theme(spacing.32))]">
       <CardHeader>
         <SectionHeader
-          title="Products"
+          title="Products List"
           subtitle="Manage your products efficiently and effectively"
-          icon={<Package2 className="h-8 w-8 text-blue-800" />}
+          icon={<Package className="h-8 w-8" />}
         />
       </CardHeader>
 

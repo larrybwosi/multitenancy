@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQueryState, parseAsArrayOf, parseAsString } from "nuqs";
 import { ProductGrid } from "./ProductGrid";
 import { Customer, PaymentMethod } from "@/prisma/client";
@@ -9,11 +9,9 @@ import { useAppStore } from "@/store/app";
 import Cart, { SaleData as CartSaleData, SaleResult } from "./cart-test";
 import { ExtendedProduct } from "../types";
 import { toast } from "sonner";
-import { receiptGenerationTest, useSubmitSale } from "@/hooks/use-sales";
+import { useSubmitSale } from "@/hooks/use-sales";
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
-import { useReactToPrint } from 'react-to-print';
-
 // Use the project's CartItem interface with additional required fields
 type CartItem = Omit<ProjectCartItem, "sku"> & {
   unitPrice: string | number;
@@ -51,7 +49,6 @@ export function PosClientWrapper({
 }: PosClientWrapperProps) {
   const [cartProductIds, setCartProductIds] = useQueryState('cartItems', parseAsArrayOf(parseAsString).withDefault([]));
 
-  const iframeRef = useRef<HTMLIFrameElement>(null);
   const warehouse = useAppStore(state => state.currentWarehouse);
   const [cartQuantities, setCartQuantities] = useState<Record<string, number>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -217,73 +214,9 @@ export function PosClientWrapper({
     [cartItems, warehouse?.id, clearCart]
   );
 
-  // const handlePrint = async () => {
-  //   try {
-  //     // if (!iframeRef.current) {
-  //     //   toast.error('Failed to print receipt');
-  //     //   console.error('Iframe reference not available');
-  //     //   return;
-  //     // }
+  const handlePrint = async () => {
 
-  //     const pdf = await receiptGenerationTest();
-  //     const blobUrl = URL.createObjectURL(pdf);
-
-  //     // Clean up previous URL
-  //     if (iframeRef.current.src) {
-  //       URL.revokeObjectURL(iframeRef.current.src);
-  //     }
-
-  //     const onLoad = () => {
-  //       URL.revokeObjectURL(blobUrl);
-  //       iframeRef.current.contentWindow.print();
-  //     };
-
-  //     iframeRef.current.addEventListener('load', onLoad, { once: true });
-  //     iframeRef.current.src = blobUrl;
-  //   } catch (error) {
-  //     console.error('Error printing PDF:', error);
-  //     // Handle error appropriately
-  //   }
-
-  //   // const blobUrl = URL.createObjectURL(pdfBlob);
-
-  //   // // Open a new window with the PDF
-  //   // const printWindow = window.open(blobUrl);
-
-  //   // printWindow.onload = () => {
-  //   //   // Clean up the URL after printing
-  //   //   const cleanup = () => {
-  //   //     URL.revokeObjectURL(blobUrl);
-  //   //   };
-
-  //   //   // Add event listener for when printing is done (or canceled)
-  //   //   printWindow.addEventListener('afterprint', cleanup);
-
-  //   //   // For browsers that don't support 'afterprint'
-  //   //   setTimeout(() => {
-  //   //     if (!printWindow.closed) {
-  //   //       cleanup();
-  //   //       printWindow.close();
-  //   //     }
-  //   //   }, 1000);
-
-  //   //   // Trigger print
-  //   //   printWindow.print();
-  //   // };
-
-  //   //   const handlePrint = useReactToPrint({
-  //   //   print: async (printIframe: HTMLIframeElement) => {
-  //   //     // Do whatever you want here, including asynchronous work
-  //   //     await generateAndSavePDF(printIframe);
-  //   //   },
-  //   // });
-  // };
-const handlePrint = useReactToPrint({
-  print: async (printIframe: HTMLIframeElement) => {
-    // Do whatever you want here, including asynchronous work
-    await receiptGenerationTest();
-  },
-});
+  };
 
   return (
     <div className="flex h-screen overflow-hidden bg-muted/20 dark:bg-neutral-900/50">

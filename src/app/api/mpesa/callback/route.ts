@@ -1,22 +1,19 @@
 // API route for handling M-Pesa callbacks
 import { NextRequest, NextResponse } from "next/server";
+import { db } from '@/lib/db';
+import Pusher from 'pusher';
 
-// Define the type for callback data
-interface MpesaCallback {
-  Body: {
-    stkCallback: {
-      MerchantRequestID: string;
-      CheckoutRequestID: string;
-      ResultCode: number;
-      ResultDesc: string;
-      CallbackMetadata?: {
-        Item: Array<{
-          Name: string;
-          Value?: string | number;
-        }>;
-      };
-    };
-  };
+// Initialize Pusher server
+const pusher = new Pusher({
+  appId: process.env.PUSHER_APP_ID!,
+  key: process.env.NEXT_PUBLIC_PUSHER_KEY!,
+  secret: process.env.PUSHER_SECRET!,
+  cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
+});
+
+interface MpesaMetadataItem {
+  Name: string;
+  Value: string | number;
 }
 
 /**
@@ -24,74 +21,74 @@ interface MpesaCallback {
  */
 export async function POST(request: NextRequest) {
   try {
-    const callbackData: MpesaCallback = await request.json();
-    
-    // Extract the checkout request ID
-    const { CheckoutRequestID, ResultCode, ResultDesc } = callbackData.Body.stkCallback;
-    
-    console.log('M-Pesa callback received:', {
+    const body = await request.json();
+    console.log(body);
+    const { Body: { stkCallback } } = body;
+
+    // Extract callback data
+    const {
+      MerchantRequestID,
       CheckoutRequestID,
       ResultCode,
       ResultDesc,
+      CallbackMetadata,
+    } = stkCallback;
+
+    // Find the payment request
+    const paymentRequest = await db.mpesaPaymentRequest.findFirst({
+      where: {
+        checkoutRequestId: CheckoutRequestID,
+        merchantRequestId: MerchantRequestID,
+      },
     });
 
-    // If the payment was successful (ResultCode 0)
-    if (ResultCode === 0) {
-      // Extract payment details from callback metadata
-      const metadataItems = callbackData.Body.stkCallback.CallbackMetadata?.Item || [];
-      
-      const mpesaReceiptNumber = metadataItems.find(item => item.Name === 'MpesaReceiptNumber')?.Value as string;
-      const amount = metadataItems.find(item => item.Name === 'Amount')?.Value as number;
-      const phoneNumber = metadataItems.find(item => item.Name === 'PhoneNumber')?.Value as string;
-      
-      // Log successful payment
-      console.log('Payment successful:', {
-        mpesaReceiptNumber,
-        amount,
-        phoneNumber,
-      });
-      
-      // TODO: Update payment status in database
-      // This would typically involve:
-      // 1. Finding the pending transaction by CheckoutRequestID
-      // 2. Updating it with the payment details
-      // 3. Marking it as completed
-      
-      // Example:
-      // await db.payment.update({
-      //   where: { checkoutRequestId: CheckoutRequestID },
-      //   data: {
-      //     status: 'COMPLETED',
-      //     mpesaReceiptNumber,
-      //     amount: amount.toString(),
-      //   },
-      // });
-    } else {
-      // Log failed payment
-      console.log('Payment failed:', { ResultCode, ResultDesc });
-      
-      // TODO: Update payment status in database as failed
-      // await db.payment.update({
-      //   where: { checkoutRequestId: CheckoutRequestID },
-      //   data: {
-      //     status: 'FAILED',
-      //     failureReason: ResultDesc,
-      //   },
-      // });
+    if (!paymentRequest) {
+      throw new Error('Payment request not found');
     }
 
-    // Always respond with success to the M-Pesa service
-    return NextResponse.json({ 
-      ResultCode: 0, 
-      ResultDesc: "Callback received successfully" 
+    // Determine payment status
+    const status = ResultCode === 0 ? 'SUCCESS' : 'FAILED';
+    const metadata = CallbackMetadata?.Item || [];
+
+    // Update payment request status
+    await db.mpesaPaymentRequest.update({
+      where: { id: paymentRequest.id },
+      data: {
+        status,
+        resultCode: ResultCode,
+        resultDescription: ResultDesc,
+        mpesaReceiptNumber: metadata.find((item: MpesaMetadataItem) => item.Name === 'MpesaReceiptNumber')?.Value as string,
+        transactionDate: metadata.find((item: MpesaMetadataItem) => item.Name === 'TransactionDate')?.Value as string,
+        phoneNumber: metadata.find((item: MpesaMetadataItem) => item.Name === 'PhoneNumber')?.Value as string,
+      },
     });
+
+    // If payment was successful, process the sale
+    if (status === 'SUCCESS' && paymentRequest.saleData) {
+      console.log('Processing sale...', paymentRequest.saleData);
+      // Process the sale using the stored sale data
+      // This will be handled by your existing sale processing logic
+      // You might want to call your processSale function here
+    }
+
+    // Notify the client about the payment status
+    await pusher.trigger('mpesa-payments', 'payment-status', {
+      status,
+      checkoutRequestId: CheckoutRequestID,
+      merchantRequestId: MerchantRequestID,
+      responseCode: ResultCode,
+      responseDescription: ResultDesc,
+      customerMessage: status === 'SUCCESS' 
+        ? 'Payment successful! Your order will be processed shortly.'
+        : 'Payment failed. Please try again.',
+    });
+
+    return NextResponse.json({ message: 'Callback processed successfully' });
   } catch (error) {
-    console.error('Error processing M-Pesa callback:', error);
-    
-    // Still return success to M-Pesa even if we had an internal error
-    return NextResponse.json({ 
-      ResultCode: 0, 
-      ResultDesc: "Callback acknowledged" 
-    });
+    console.error('M-Pesa callback error:', error);
+    return NextResponse.json(
+      { message: error instanceof Error ? error.message : 'Failed to process callback' },
+      { status: 500 }
+    );
   }
 } 

@@ -6,7 +6,7 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas-pro';
 import Image from 'next/image';
 import { Calendar, CreditCard, Download, Package, Printer, Receipt, User } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 
 import { useGetSale } from '@/lib/hooks/use-sales';
+import { MotionDiv, MotionSpan } from '@/components/motion';
 
 // Color palette
 const COLORS = {
@@ -162,7 +163,7 @@ export function SaleDetailsSheet({
     <Sheet open={!!saleId} onOpenChange={onOpenChange}>
       <SheetContent className="sm:max-w-2xl overflow-y-auto px-4" style={{ backgroundColor: COLORS.background }}>
         {isLoading ? (
-          <motion.div initial="hidden" animate="visible" variants={staggerVariants} className="space-y-6">
+          <MotionDiv initial="hidden" animate="visible" variants={staggerVariants} className="space-y-6">
             <SheetHeader className="pb-4 border-b">
               <Skeleton className="h-8 w-48 rounded-full" style={{ backgroundColor: COLORS.muted + '20' }} />
               <Skeleton className="h-5 w-72 mt-2 rounded-full" style={{ backgroundColor: COLORS.muted + '20' }} />
@@ -170,24 +171,24 @@ export function SaleDetailsSheet({
 
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-6">
-                <motion.div variants={cardVariants}>
+                <MotionDiv variants={cardVariants}>
                   <Skeleton className="h-20 w-full rounded-xl" style={{ backgroundColor: COLORS.muted + '20' }} />
-                </motion.div>
-                <motion.div variants={cardVariants}>
+                </MotionDiv>
+                <MotionDiv variants={cardVariants}>
                   <Skeleton className="h-20 w-full rounded-xl" style={{ backgroundColor: COLORS.muted + '20' }} />
-                </motion.div>
+                </MotionDiv>
               </div>
 
               <div className="grid grid-cols-2 gap-6">
-                <motion.div variants={cardVariants}>
+                <MotionDiv variants={cardVariants}>
                   <Skeleton className="h-20 w-full rounded-xl" style={{ backgroundColor: COLORS.muted + '20' }} />
-                </motion.div>
-                <motion.div variants={cardVariants}>
+                </MotionDiv>
+                <MotionDiv variants={cardVariants}>
                   <Skeleton className="h-20 w-full rounded-xl" style={{ backgroundColor: COLORS.muted + '20' }} />
-                </motion.div>
+                </MotionDiv>
               </div>
 
-              <motion.div variants={cardVariants}>
+              <MotionDiv variants={cardVariants}>
                 <Skeleton className="h-6 w-24 mb-3 rounded-full" style={{ backgroundColor: COLORS.muted + '20' }} />
                 <div className="space-y-3">
                   {[...Array(3)].map((_, i) => (
@@ -198,9 +199,9 @@ export function SaleDetailsSheet({
                     />
                   ))}
                 </div>
-              </motion.div>
+              </MotionDiv>
 
-              <motion.div variants={cardVariants} className="border-t pt-4 mt-6">
+              <MotionDiv variants={cardVariants} className="border-t pt-4 mt-6">
                 <div className="grid grid-cols-2 gap-4">
                   {[...Array(4)].map((_, i) => (
                     <Skeleton
@@ -210,18 +211,18 @@ export function SaleDetailsSheet({
                     />
                   ))}
                 </div>
-              </motion.div>
+              </MotionDiv>
             </div>
-          </motion.div>
+          </MotionDiv>
         ) : saleDetails ? (
           <AnimatePresence>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+            <MotionDiv initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
               <div className="flex justify-between items-center mb-6">
                 <SheetHeader className="text-left">
                   <SheetTitle className="text-2xl font-bold flex items-center gap-2" style={{ color: COLORS.text }}>
-                    <motion.div whileHover={{ rotate: -10 }} whileTap={{ scale: 0.9 }}>
+                    <MotionDiv whileHover={{ rotate: -10 }} whileTap={{ scale: 0.9 }}>
                       <Receipt className="h-5 w-5" style={{ color: COLORS.primary }} />
-                    </motion.div>
+                    </MotionDiv>
                     Sale #{saleDetails.saleNumber}
                   </SheetTitle>
                   <SheetDescription style={{ color: COLORS.muted }}>
@@ -230,7 +231,7 @@ export function SaleDetailsSheet({
                 </SheetHeader>
 
                 <div className="flex gap-2">
-                  <motion.div
+                  <MotionDiv
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onHoverStart={() => setIsHoveringPrint(true)}
@@ -250,8 +251,8 @@ export function SaleDetailsSheet({
                       <Printer className="h-4 w-4 mr-2" />
                       Print
                     </Button>
-                  </motion.div>
-                  <motion.div
+                  </MotionDiv>
+                  <MotionDiv
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onHoverStart={() => setIsHoveringDownload(true)}
@@ -270,7 +271,7 @@ export function SaleDetailsSheet({
                       <Download className="h-4 w-4 mr-2" />
                       Save PDF
                     </Button>
-                  </motion.div>
+                  </MotionDiv>
                 </div>
               </div>
 
@@ -278,22 +279,22 @@ export function SaleDetailsSheet({
 
               <div id="sale-details-content" className="space-y-6">
                 {/* Info cards */}
-                <motion.div
+                <MotionDiv
                   className="grid grid-cols-2 gap-6"
                   variants={staggerVariants}
                   initial="hidden"
                   animate="visible"
                 >
-                  <motion.div variants={cardVariants}>
+                  <MotionDiv variants={cardVariants}>
                     <Card className="border-0 shadow-sm" style={{ backgroundColor: 'white' }}>
                       <CardHeader className="pb-2">
                         <CardTitle
                           className="text-sm font-medium flex items-center gap-2"
                           style={{ color: COLORS.muted }}
                         >
-                          <motion.div whileHover={{ rotate: 15 }}>
+                          <MotionDiv whileHover={{ rotate: 15 }}>
                             <Calendar className="h-4 w-4" style={{ color: COLORS.accent }} />
-                          </motion.div>
+                          </MotionDiv>
                           Date & Time
                         </CardTitle>
                       </CardHeader>
@@ -306,18 +307,18 @@ export function SaleDetailsSheet({
                         </p>
                       </CardContent>
                     </Card>
-                  </motion.div>
+                  </MotionDiv>
 
-                  <motion.div variants={cardVariants}>
+                  <MotionDiv variants={cardVariants}>
                     <Card className="border-0 shadow-sm" style={{ backgroundColor: 'white' }}>
                       <CardHeader className="pb-2">
                         <CardTitle
                           className="text-sm font-medium flex items-center gap-2"
                           style={{ color: COLORS.muted }}
                         >
-                          <motion.div whileHover={{ rotate: 15 }}>
+                          <MotionDiv whileHover={{ rotate: 15 }}>
                             <User className="h-4 w-4" style={{ color: COLORS.accent }} />
-                          </motion.div>
+                          </MotionDiv>
                           Customer
                         </CardTitle>
                       </CardHeader>
@@ -332,18 +333,18 @@ export function SaleDetailsSheet({
                         )}
                       </CardContent>
                     </Card>
-                  </motion.div>
+                  </MotionDiv>
 
-                  <motion.div variants={cardVariants}>
+                  <MotionDiv variants={cardVariants}>
                     <Card className="border-0 shadow-sm" style={{ backgroundColor: 'white' }}>
                       <CardHeader className="pb-2">
                         <CardTitle
                           className="text-sm font-medium flex items-center gap-2"
                           style={{ color: COLORS.muted }}
                         >
-                          <motion.div whileHover={{ rotate: 15 }}>
+                          <MotionDiv whileHover={{ rotate: 15 }}>
                             <CreditCard className="h-4 w-4" style={{ color: COLORS.accent }} />
-                          </motion.div>
+                          </MotionDiv>
                           Payment Method
                         </CardTitle>
                       </CardHeader>
@@ -353,9 +354,9 @@ export function SaleDetailsSheet({
                         </p>
                       </CardContent>
                     </Card>
-                  </motion.div>
+                  </MotionDiv>
 
-                  <motion.div variants={cardVariants}>
+                  <MotionDiv variants={cardVariants}>
                     <Card className="border-0 shadow-sm" style={{ backgroundColor: 'white' }}>
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium" style={{ color: COLORS.muted }}>
@@ -363,7 +364,7 @@ export function SaleDetailsSheet({
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <motion.div whileHover={{ scale: 1.05 }}>
+                        <MotionDiv whileHover={{ scale: 1.05 }}>
                           <Badge
                             className="text-sm py-1"
                             variant={
@@ -389,23 +390,23 @@ export function SaleDetailsSheet({
                           >
                             {saleDetails.paymentStatus.charAt(0) + saleDetails.paymentStatus.slice(1).toLowerCase()}
                           </Badge>
-                        </motion.div>
+                        </MotionDiv>
                       </CardContent>
                     </Card>
-                  </motion.div>
-                </motion.div>
+                  </MotionDiv>
+                </MotionDiv>
 
                 {/* Items section */}
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+                <MotionDiv initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
                   <Card className="border-0 shadow-sm overflow-hidden" style={{ backgroundColor: 'white' }}>
                     <CardHeader className="pb-2">
                       <CardTitle
                         className="text-sm font-medium flex items-center gap-2"
                         style={{ color: COLORS.muted }}
                       >
-                        <motion.div whileHover={{ rotate: 15 }}>
+                        <MotionDiv whileHover={{ rotate: 15 }}>
                           <Package className="h-4 w-4" style={{ color: COLORS.accent }} />
-                        </motion.div>
+                        </MotionDiv>
                         Items
                       </CardTitle>
                     </CardHeader>
@@ -428,7 +429,7 @@ export function SaleDetailsSheet({
 
                         {/* Items */}
                         {saleDetails.items?.map((item, index) => (
-                          <motion.div
+                          <MotionDiv
                             key={index}
                             initial={{ opacity: 0, x: -20 }}
                             animate={{ opacity: 1, x: 0 }}
@@ -438,7 +439,7 @@ export function SaleDetailsSheet({
                           >
                             <div className="col-span-1">
                               {item.variant?.product.imageUrls ? (
-                                <motion.div whileHover={{ scale: 1.1 }} className="relative h-10 w-10">
+                                <MotionDiv whileHover={{ scale: 1.1 }} className="relative h-10 w-10">
                                   <Image
                                     src={item?.variant.product.imageUrls?.[0]}
                                     alt={item?.variant?.product.name}
@@ -446,7 +447,7 @@ export function SaleDetailsSheet({
                                     className="rounded-md object-cover border"
                                     style={{ borderColor: COLORS.muted + '30' }}
                                   />
-                                </motion.div>
+                                </MotionDiv>
                               ) : (
                                 <div
                                   className="h-10 w-10 rounded-md flex items-center justify-center border"
@@ -471,7 +472,7 @@ export function SaleDetailsSheet({
                               {formatCurrency(item?.variant?.retailPrice)}
                             </div>
                             <div className="col-span-2 text-center">
-                              <motion.span
+                              <MotionSpan
                                 whileHover={{ scale: 1.1 }}
                                 className="inline-flex items-center justify-center min-w-8 h-6 px-2 rounded-full text-sm font-medium"
                                 style={{
@@ -480,20 +481,20 @@ export function SaleDetailsSheet({
                                 }}
                               >
                                 {item.quantity}
-                              </motion.span>
+                              </MotionSpan>
                             </div>
                             <div className="col-span-2 text-right font-medium" style={{ color: COLORS.text }}>
                               {formatCurrency(item.price)}
                             </div>
-                          </motion.div>
+                          </MotionDiv>
                         ))}
                       </div>
                     </CardContent>
                   </Card>
-                </motion.div>
+                </MotionDiv>
 
                 {/* Totals section */}
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+                <MotionDiv initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
                   <Separator className="my-4" style={{ backgroundColor: COLORS.muted + '30' }} />
                   <div
                     className="space-y-2 max-w-xs ml-auto p-4 rounded-lg border"
@@ -519,16 +520,16 @@ export function SaleDetailsSheet({
 
                     <Separator className="my-2" style={{ backgroundColor: COLORS.muted + '30' }} />
 
-                    <motion.div className="flex justify-between font-medium pt-1" whileHover={{ scale: 1.01 }}>
+                    <MotionDiv className="flex justify-between font-medium pt-1" whileHover={{ scale: 1.01 }}>
                       <span style={{ color: COLORS.text }}>Total</span>
                       <span className="text-lg font-bold" style={{ color: COLORS.primary }}>
                         {formatCurrency(saleDetails.finalAmount)}
                       </span>
-                    </motion.div>
+                    </MotionDiv>
                   </div>
-                </motion.div>
+                </MotionDiv>
               </div>
-            </motion.div>
+            </MotionDiv>
           </AnimatePresence>
         ) : null}
       </SheetContent>

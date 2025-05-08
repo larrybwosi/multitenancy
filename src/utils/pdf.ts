@@ -472,7 +472,7 @@ export async function generateAndSaveReceiptPdf(saleResponseData: SaleData): Pro
       phone: '+1234567890',
       website: 'www.dealioinc.com',
       email: 'info@dealioinc.com',
-      logo: 'https://i.pinimg.com/736x/af/63/0d/af630de0e36a6ebb056478328941a175.jpg',
+      // logo: 'https://cdn.sanity.io/images/13g5zfv2/production/8ed944a246aaad6e3282771d2c8572099da2a39b-1024x1024.jpg?fm=webp&q=75&auto=format',
       tagline: 'Quality products at affordable prices',
       footerMessage: 'Thank you for shopping with us!',
     };
