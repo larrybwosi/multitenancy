@@ -23,7 +23,8 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { phoneNumber, amount, saleData } = body;
+    const { phoneNumber, amount, saleData } = body
+    // const amount = 2
 
     // Validate phone number format (Kenya format)
     const formattedPhone = phoneNumber.startsWith('0') 
@@ -53,7 +54,7 @@ export async function POST(request: Request) {
       PartyA: formattedPhone,
       PartyB: shortcode,
       PhoneNumber: formattedPhone,
-      CallBackURL: `http://localhost:3000/api/mpesa/callback`,
+      CallBackURL: `${process.env.ENDPOINT}/api/mpesa/callback`,
       AccountReference: reference,
       TransactionDesc: `Payment for sale ${reference}`,
     };

@@ -1,7 +1,6 @@
 // components/pos/Receipt.tsx
 "use client";
 
-import React from "react";
 import { formatCurrency } from "@/lib/utils";
 import { Customer } from "../types";
 import { CalendarDays, Phone, Mail, CheckCircle2 } from "lucide-react";

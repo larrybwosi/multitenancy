@@ -6,7 +6,7 @@ import { ProductGrid } from "./ProductGrid";
 import { Customer, PaymentMethod } from "@/prisma/client";
 import { CartItem as ProjectCartItem } from "@/app/point-of-sale/types";
 import { useAppStore } from "@/store/app";
-import Cart, { SaleData as CartSaleData, SaleResult } from "./cart-test";
+import Cart, { SaleData as CartSaleData, SaleResult } from "./cart";
 import { ExtendedProduct } from "../types";
 import { toast } from "sonner";
 import { useSubmitSale } from "@/hooks/use-sales";

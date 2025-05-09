@@ -1,4 +1,4 @@
-import { SaleResult } from '@/app/pos/components/cart-test';
+import { SaleResult } from '@/app/pos/components/cart';
 import { PaymentMethod } from '@/prisma/client';
 import { generateAndSaveReceiptPdf } from '@/utils/pdf';
 import { useMutation } from '@tanstack/react-query';
