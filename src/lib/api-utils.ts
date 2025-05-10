@@ -1,7 +1,7 @@
 // src/lib/api-utils.ts (or utils/api-errors.ts)
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/prisma/client";
 import { ApiError } from "next/dist/server/api-utils"; // Or define a custom error class
 
 // Optional: Define a custom error class for authorization/specific API errors

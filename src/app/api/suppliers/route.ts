@@ -11,6 +11,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     
     const newSupplier = await createSupplier(body)
+    console.log("newSupplier", newSupplier)
+    if (!newSupplier || newSupplier.success === false) {
+      return new NextResponse(newSupplier.error, { status: 500 });
+    }
     
     return NextResponse.json(newSupplier, { status: 201 });
 

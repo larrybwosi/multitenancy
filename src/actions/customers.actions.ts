@@ -192,7 +192,7 @@ export async function getCustomerById(
  * Handles validation and ensures uniqueness constraints.
  */
 export async function saveCustomer(
-  formData: FormData
+  formData: unknown
 ): Promise<ActionResponse<{ customer: Customer }>> {
   const authContext = await getServerAuthContext();
   if (!authContext) {
@@ -200,14 +200,7 @@ export async function saveCustomer(
   }
   const { memberId, organizationId } = authContext;
 
-  const validatedFields = CustomerFormSchema.safeParse({
-    id: formData.get("id") || undefined, // Get ID if present for update
-    name: formData.get("name"),
-    email: formData.get("email") || undefined,
-    phone: formData.get("phone") || undefined,
-    address: formData.get("address") || undefined,
-    notes: formData.get("notes") || undefined,
-  });
+  const validatedFields = CustomerFormSchema.safeParse(formData);
 
   if (!validatedFields.success) {
     console.error("Validation Error:", validatedFields.error.flatten());

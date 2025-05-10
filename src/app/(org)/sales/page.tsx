@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SaleDetailsSheet } from "./components/sheet";
+import { SalesStatsCards } from "./components/sales-stats-cards";
 
 interface FilterOption {
   value: string;
@@ -53,6 +54,9 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json());
 export function SalesLoadingSkeleton() {
   return (
     <div className="space-y-4">
+      <div className="mb-6">
+        <Skeleton className="h-48 w-full" />
+      </div>
       <div className="flex items-center justify-between">
         <Skeleton className="h-10 w-48" />
         <Skeleton className="h-10 w-32" />
@@ -130,10 +134,15 @@ export default function SalesPage() {
   });
   const [paymentMethod, setPaymentMethod] = useQueryState<PaymentMethod | null>('paymentmethod', {
     defaultValue: null,
-    serialize: String,
+    parse: (v) => v ? v as PaymentMethod : null,
+    serialize: v => v ?? "",
   });
   const [paymentStatus, setPaymentStatus] =
-    useQueryState<PaymentStatus>("paymentStatus");
+    useQueryState<PaymentStatus | null>("paymentStatus", {
+      defaultValue: null,
+      parse: (v) => v ? v as PaymentStatus : null,
+      serialize: v => v ?? "",
+    });
   const [dateRange, setDateRange] = useQueryState("dateRange");
 
   // Construct query params
@@ -201,10 +210,10 @@ export default function SalesPage() {
     if (paymentStatus) params.append("paymentStatus", paymentStatus);
     if (dateRange) params.append("dateRange", dateRange);
 
-    // window.open(
-    //   `/api/sales/export?${params.toString()}&format=${format}`,
-    //   "_blank"
-    // );
+    window.open(
+      `/api/sales/export?${params.toString()}&format=${format}`,
+      "_blank"
+    );
   };
 
   if (isLoading) {
@@ -223,6 +232,11 @@ export default function SalesPage() {
           subtitle="View and manage all sales transactions"
           icon={<FilePlus2 className="h-8 w-8 text-green-500" />}
         />
+        
+        {/* Sales Statistics Cards */}
+        <div className="mb-8">
+          <SalesStatsCards dateRange={dateRange || undefined} />
+        </div>
 
         <FilterControls
           searchPlaceholder="Search sales..."

@@ -38,3 +38,31 @@ export function useGetSale(saleId?: string | null) {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
+
+interface SalesSummary {
+  totalSales: number;
+  salesCount: number;
+  totalTax: number;
+  totalDiscount: number;
+  totalProfit: number;
+  itemsSold: number;
+  uniqueCustomers: number;
+  averageSaleValue: number;
+  salesGrowth: number;
+}
+
+export function useSalesSummary(dateRange?: string) {
+  return useQuery<SalesSummary>({
+    queryKey: ["salesSummary", dateRange],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (dateRange) params.append("dateRange", dateRange);
+      
+      const response = await fetch(`/api/sales/summary?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+  });
+}

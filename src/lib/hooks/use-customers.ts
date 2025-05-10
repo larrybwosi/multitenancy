@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { CustomerFormValues } from '../validations/customers';
 import { Customer } from '@/prisma/client';
+import { CustomerFormValues } from '../validations/customers';
 
 
 const api = axios.create({
@@ -34,6 +34,8 @@ export const useCustomers = (params: {
         return handleError(error, 'Failed to fetch customers');
       }
     },
+    staleTime: 1000 * 60 * 10, // 5 minutes
+    gcTime: 1000 * 60 * 20, // 10 minutes
   });
 };
 
@@ -58,7 +60,7 @@ export function useCreateCustomer(customer?: { id?: string; name: string }) {
       const response = await fetch('/api/customers', {
         method: customer?.id ? 'PUT' : 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'multipart/form-data',
         },
         body: JSON.stringify(data),
       });

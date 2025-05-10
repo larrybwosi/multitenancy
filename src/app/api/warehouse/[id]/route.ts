@@ -28,10 +28,7 @@ export async function GET(request: Request, { params }: { params: Params }) {
         organizationId,
       },
       include: {
-        // Include manager details
         manager: true,
-        
-        // Include storage zones and their units
         zones: {
           include: {
             storageUnits: true,
@@ -44,10 +41,19 @@ export async function GET(request: Request, { params }: { params: Params }) {
             stockBatches: {
               select: {
                 currentQuantity: true,
-                product: {
+                variant: {
                   select: {
                     id: true,
+                    productId: true,
                   },
+                  include:{
+                    product:{
+                      select:{
+                        id:true,
+                        name:true,
+                      }
+                    }
+                  }
                 },
               },
             },
@@ -57,7 +63,6 @@ export async function GET(request: Request, { params }: { params: Params }) {
         // Include stock batches with product information
         stockBatches: {
           include: {
-            product: true,
             variant: true,
             storageUnit: true,
             position: true,
@@ -89,7 +94,6 @@ export async function GET(request: Request, { params }: { params: Params }) {
 
     // Calculate unique products count
     const uniqueProductIds = new Set([
-      ...location.stockBatches.map((batch) => batch.productId),
       ...location.variantStocks.map((stock) => stock.productId),
     ]);
 
@@ -103,7 +107,7 @@ export async function GET(request: Request, { params }: { params: Params }) {
       
       // Count unique products in this unit
       const uniqueProductsInUnit = new Set(
-        unit.stockBatches.map(batch => batch.product.id)
+        unit.stockBatches.map(batch => batch.variant.productId)
       );
       
       return {
@@ -130,8 +134,8 @@ export async function GET(request: Request, { params }: { params: Params }) {
         stockValue,
         stockItems: location.stockBatches.map((batch) => ({
           id: batch.id,
-          productId: batch.productId,
-          productName: batch.product.name,
+          productId: batch.variant.productId,
+          productName: batch.variant.product.name,
           quantity: batch.currentQuantity,
           value: batch.currentQuantity * Number(batch.purchasePrice),
           location: batch.storageUnit ? {
@@ -177,7 +181,7 @@ export async function PUT(request: Request, { params }: { params: Params }) {
         stockBatches: {
           select: {
             currentQuantity: true,
-            product: {
+            variant: {
               select: {
                 id: true,
               },
@@ -220,7 +224,7 @@ export async function PUT(request: Request, { params }: { params: Params }) {
     );
 
     const uniqueProductIds = new Set(
-      existingLocation.stockBatches.map((batch) => batch.product.id)
+      existingLocation.stockBatches.map((batch) => batch.variant.id)
     );
 
     const productCount = uniqueProductIds.size;

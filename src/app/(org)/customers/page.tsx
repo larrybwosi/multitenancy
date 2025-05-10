@@ -1,9 +1,8 @@
 'use client';
-import { use } from "react";
+import { Suspense, use } from "react";
 import { CustomerTable } from "./components/CustomerTable";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { Users } from "lucide-react";
-import { useCustomers } from "@/lib/hooks/use-customers";
 
 function LoadingSkeleton() {
   return (
@@ -38,16 +37,7 @@ export default function CustomersPage(props: { searchParams: SearchParams }) {
 
   const searchParams = use(props.searchParams);
 
-  const { data, isLoading } = useCustomers({
-    query: searchParams.query,
-    status: searchParams.status as "active" | "inactive" | "all" | undefined,
-    sortBy: searchParams.sortBy,
-    sortOrder: searchParams.sortOrder as 'asc' | 'desc',
-    page: searchParams.page ? parseInt(searchParams.page as string) : 1,
-  });
-  
-
-  if (!data || isLoading) {
+  if (!searchParams) {
     return (
       <div className="container mx-auto py-6 px-4 lg:px-6">
         <SectionHeader
@@ -59,22 +49,23 @@ export default function CustomersPage(props: { searchParams: SearchParams }) {
       </div>
     );
   }
-  const { data: { customers, totalCount, totalPages } } = data;
 
   return (
-    <div className="container mx-auto py-6 px-4 lg:px-6">
-      <div className="mb-8">
-        <SectionHeader
-          title="Customer Management"
-          subtitle="Manage your customer data, track loyalty points, and monitor customer
+    <Suspense>
+      <div className="container mx-auto py-6 px-4 lg:px-6">
+        <div className="mb-8">
+          <SectionHeader
+            title="Customer Management"
+            subtitle="Manage your customer data, track loyalty points, and monitor customer
           status."
-          icon={<Users className="h-8 w-8 text-indigo-500" />}
-        />
-      </div>
+            icon={<Users className="h-8 w-8 text-indigo-500" />}
+          />
+        </div>
 
-      <div className=" rounded-lg shadow-sm">
-        <CustomerTable initialCustomers={customers} total={totalCount} totalPages={totalPages} />
+        <div className=" rounded-lg shadow-sm">
+          <CustomerTable searchParams={searchParams} />
+        </div>
       </div>
-    </div>
+    </Suspense>
   );
 }

@@ -20,18 +20,15 @@ import { FileText, Grid, PlusCircle } from "lucide-react";
 import { Category, Prisma } from "@/prisma/client";
 import { CategoryForm } from "./category-form";
 import { CategoryActions } from "./category-actions";
-import { CategoryWithStats } from "@/actions/category.actions";
 import { Pagination } from "@/components/pagination";
 import { FilterControls } from "@/components/file-controls";
 import { exportToPdf, exportToExcel } from "@/lib/export-utils";
 import { useQueryState } from "nuqs";
 import { useState } from "react";
+import { useCategories } from "@/lib/hooks/use-categories";
+import LoadingSkeleton from "../loading";
 
 interface CategoryTableProps {
-  categories: CategoryWithStats[];
-  categoryOptions: { value: string; label: string }[];
-  totalItems: number;
-  totalPages: number;
   currentPage: number;
   pageSize: number;
 }
@@ -46,10 +43,6 @@ const formatCurrency = (
 };
 
 export function CategoryTable({
-  categories,
-  categoryOptions,
-  totalItems,
-  totalPages,
   currentPage,
   pageSize,
 }: CategoryTableProps) {
@@ -59,17 +52,25 @@ export function CategoryTable({
   });
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [search, setSearch] = useQueryState('search');
-  const [filter, setFilter] = useQueryState('filter');
   const [page, setPage] = useQueryState('page', {
     defaultValue: currentPage.toString(),
     parse: Number,
     serialize: String
   });
   const [size, setSize] = useQueryState('pageSize', {
-    defaultValue: pageSize.toString(),
+    defaultValue: pageSize.toString() || '10',
     parse: Number,
     serialize: String
   });
+  
+  const { data: categoriesData, isLoading, error } = useCategories({
+    page,
+    pageSize: size,
+    search: search || undefined,
+    // filter: filter || undefined, // optional
+  });
+  const categories = categoriesData?.data || [];
+  const totalPages = categoriesData?.totalPages || 0;
 
   const handleOpenModal = (category: Category | null = null) => {
     setEditingCategory(category);
@@ -123,10 +124,6 @@ export function CategoryTable({
     setPage('1');
   };
 
-  const handleFilterChange = (value: string) => {
-    setFilter(value !== "all" ? value : null);
-    setPage('1');
-  };
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage.toString());
@@ -141,10 +138,13 @@ export function CategoryTable({
     console.log(column)
     // Implement sorting logic here
   };
+
+  if (isLoading) return <LoadingSkeleton/>;
+  if (error) return <div>Error loading categories</div>;
   return (
     <div className="w-full">
       <div className="flex justify-end mb-4">
-        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <Dialog open={isModalOpen as boolean} onOpenChange={setIsModalOpen}>
           <DialogTrigger asChild>
             <Button
               onClick={() => handleOpenModal()}
@@ -163,7 +163,6 @@ export function CategoryTable({
             <div className="py-4">
               <CategoryForm
                 category={editingCategory}
-                categoryOptions={categoryOptions}
                 onFormSubmit={handleCloseModal}
               />
             </div>
@@ -261,7 +260,7 @@ export function CategoryTable({
           currentPage={currentPage}
           totalPages={totalPages}
           pageSize={pageSize}
-          totalItems={totalItems}
+          totalItems={categoriesData?.totalItems || 0}
           onPageChange={handlePageChange}
           onPageSizeChange={handlePageSizeChange}
         />

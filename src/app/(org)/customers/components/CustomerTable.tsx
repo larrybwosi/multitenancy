@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Customer } from "@/prisma/client";
 import {
   Table,
@@ -23,14 +23,13 @@ import {
   Users,
   Award,
   Calendar,
-  Loader2,
   FileText,
   Grid,
   List,
   User,
   Mail,
 } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 import { CustomerActions } from "./CustomerActions";
 import { formatDate } from "@/lib/utils";
@@ -40,92 +39,90 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { FilterControls } from "@/components/file-controls";
 import { Pagination } from "@/components/pagination";
 import { CustomerModal } from "./CustomerForm";
+import CustomersLoading from "../loading";
+import { SectionHeader } from "@/components/ui/SectionHeader";
+import { useCustomers } from "@/lib/hooks/use-customers";
+import { parseAsInteger, parseAsString, useQueryState } from "nuqs";
 
-interface CustomerTableProps {
-  initialCustomers: Customer[];
-  total: number;
-  totalPages: number;
-}
+type SearchParams = {
+  [key: string]: string | undefined;
+};
 
-export function CustomerTable({
-  initialCustomers: customers,
-  total,
-  totalPages: initialTotalPages,
-}: CustomerTableProps) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [searchTerm, setSearchTerm] = useState(searchParams.get("query") || "");
+
+type SortOrder = 'asc' | 'desc';
+
+export function CustomerTable({ searchParams: initialSearchParams }: { searchParams: SearchParams }) {
+  const [searchTerm, setSearchTerm] = useQueryState(
+    'query',
+    parseAsString.withDefault(initialSearchParams.query || '')
+  );
+
+  const [currentPage, setCurrentPage] = useQueryState(
+    'page',
+    parseAsInteger.withDefault(Number(initialSearchParams.page) || 1)
+  );
+
+  const [statusFilter, setStatusFilter] = useQueryState(
+    'status',
+    parseAsString.withDefault(initialSearchParams.status || 'all')
+  );
+
+  const [sortBy, setSortBy] = useQueryState('sortBy', parseAsString.withDefault(initialSearchParams.sortBy || 'name'));
+  const [sortOrder, setSortOrder] = useQueryState<SortOrder>('sortOrder', {
+    // Custom parse function that ensures only 'asc' or 'desc' are valid
+    parse: value => {
+      if (value === 'asc' || value === 'desc') {
+        return value;
+      }
+      return null;
+    },
+    // Serialize function (identity function in this case)
+    serialize: value => value,
+    // Default value
+    defaultValue: (initialSearchParams.sortOrder as SortOrder) || 'asc',
+    // Optional: history mode ('push' or 'replace')
+    history: 'push',
+  });
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [viewingCustomer, setViewingCustomer] = useState<Customer | null>(null);
-  const [currentPage, setCurrentPage] = useState(
-    Number(searchParams.get("page")) || 1
-  );
-  const [statusFilter, setStatusFilter] = useState<string>(
-    searchParams.get("status") || "all"
-  );
-  const [sortBy, setSortBy] = useState<string>(
-    searchParams.get("sortBy") || "name"
-  );
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">(
-    (searchParams.get("sortOrder") as "asc" | "desc") || "asc"
-  );
-  const [isLoading, setIsLoading] = useState(false);
-  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
+
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [pageSize, setPageSize] = useState(10);
 
-  // Simulate loading state for UI improvements
-  useEffect(() => {
-    setIsLoading(true);
-    const timeout = setTimeout(() => {
-      setIsLoading(false);
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [currentPage, statusFilter, sortBy, sortOrder, searchTerm]);
-
+  const { data, isLoading } = useCustomers({
+    // query: searchParams.query,
+    status: statusFilter as 'all' | 'active' | 'inactive' | undefined,
+    sortBy: sortBy as 'name' | 'email' | 'createdAt' | 'loyaltyPoints',
+    sortOrder,
+    page: currentPage || 1,
+  });
   const handleSearch = (value: string) => {
     setSearchTerm(value);
-    updateUrl({ query: value, page: 1 });
   };
 
   const handleStatusChange = (value: string) => {
     setStatusFilter(value);
-    updateUrl({ status: value, page: 1 });
   };
 
-  const handleSort = (newSortBy: string, newSortOrder: "asc" | "desc") => {
+  const handleSort = (newSortBy: string, newSortOrder: 'asc' | 'desc') => {
     setSortBy(newSortBy);
     setSortOrder(newSortOrder);
-    updateUrl({ sortBy: newSortBy, sortOrder: newSortOrder });
   };
 
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage);
-    updateUrl({ page: newPage });
   };
 
   const handlePageSizeChange = (size: number) => {
     setPageSize(size);
     // You might want to reset to first page when changing page size
     setCurrentPage(1);
-    updateUrl({ pageSize: size, page: 1 });
   };
 
-  const updateUrl = (params: Record<string, string | number>) => {
-    const newParams = new URLSearchParams(searchParams.toString());
-    Object.entries(params).forEach(([key, value]) => {
-      if (value) {
-        newParams.set(key, value.toString());
-      } else {
-        newParams.delete(key);
-      }
-    });
-    router.push(`?${newParams.toString()}`);
-  };
 
   const handleOpenSheet = (customer: Customer | null = null) => {
     setEditingCustomer(customer);
   };
-
 
   const handleViewCustomer = (customer: Customer) => {
     setViewingCustomer(customer);
@@ -133,26 +130,26 @@ export function CustomerTable({
 
   const getInitials = (name: string) => {
     return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
+      .split(' ')
+      .map(n => n[0])
+      .join('')
       .toUpperCase()
       .substring(0, 2);
   };
 
   const getAvatarColor = (name: string) => {
     const colors = [
-      "bg-blue-500",
-      "bg-green-500",
-      "bg-purple-500",
-      "bg-pink-500",
-      "bg-amber-500",
-      "bg-teal-500",
-      "bg-indigo-500",
-      "bg-rose-500",
+      'bg-blue-500',
+      'bg-green-500',
+      'bg-purple-500',
+      'bg-pink-500',
+      'bg-amber-500',
+      'bg-teal-500',
+      'bg-indigo-500',
+      'bg-rose-500',
     ];
 
-    const hash = name.split("").reduce((acc, char) => {
+    const hash = name.split('').reduce((acc, char) => {
       return acc + char.charCodeAt(0);
     }, 0);
 
@@ -166,11 +163,24 @@ export function CustomerTable({
   const handleExportExcel = () => {
     // Excel export logic
   };
+if (isLoading || ! data) {
+  return (
+    <div className="container mx-auto py-6 px-4 lg:px-6">
+      <SectionHeader
+        title="Customer Management"
+        subtitle="Manage your customer data, track loyalty points, and monitor customer status."
+        icon={<Users className="h-8 w-8 text-indigo-500" />}
+      />
+      <CustomersLoading />
+    </div>
+  );
+}
 
+const { customers, totalCount, totalPages } = data?.data
   return (
     <div className="w-full space-y-6">
       <div className="flex justify-end">
-        <CustomerModal customer={editingCustomer}  />
+        <CustomerModal customer={editingCustomer} />
       </div>
 
       <FilterControls
@@ -250,8 +260,13 @@ export function CustomerTable({
       />
 
       {isLoading ? (
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 text-indigo-500 animate-spin" />
+        <div className="container mx-auto py-6 px-4 lg:px-6">
+          <SectionHeader
+            title="Customer Management"
+            subtitle="Manage your customer data, track loyalty points, and monitor customer status."
+            icon={<Users className="h-8 w-8 text-indigo-500" />}
+          />
+          <CustomersLoading />
         </div>
       ) : (
         <>
@@ -438,9 +453,9 @@ export function CustomerTable({
       {/* Custom Pagination Component */}
       <Pagination
         currentPage={currentPage}
-        totalPages={initialTotalPages}
+        totalPages={totalPages}
         pageSize={pageSize}
-        totalItems={total}
+        totalItems={totalCount}
         onPageChange={handlePageChange}
         onPageSizeChange={handlePageSizeChange}
         className="mt-6"

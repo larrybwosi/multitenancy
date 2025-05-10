@@ -27,7 +27,7 @@ export async function GET(request: Request) {
 
 
 export async function POST(request: Request) {
-  const formData = await request.formData();
+  const formData = await request.json();
 
   try {
     const result = await saveCustomer(formData);

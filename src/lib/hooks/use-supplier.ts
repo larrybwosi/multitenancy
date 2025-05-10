@@ -3,14 +3,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { toast } from "sonner";
 
-const fetcher = async <T,>(url: string): Promise<T> => {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error('Failed to fetch data');
-  }
-  return response.json();
-};
-
 
 interface SupplierResponse {
   data: {
@@ -22,14 +14,13 @@ interface SupplierResponse {
   success: boolean;
 }
 
-const useSuppliers = (enabled = true) => {
+const useSuppliers = () => {
   const { data, isLoading, error}= useQuery({
     queryKey: ["suppliers"],
-    queryFn: () => fetcher<SupplierResponse>("/api/suppliers"),
+    queryFn: () => axios.get<SupplierResponse>("/api/suppliers"),
     refetchOnWindowFocus: false,
     staleTime: 1000 * 60 * 5, // 5 minutes
     retry: false,
-    enabled
   });
   return { data: data?.data, isLoading, error}
 }
@@ -50,6 +41,7 @@ const createSupplier = async (data: unknown) => {
       queryClient.invalidateQueries({ queryKey: ['suppliers'] });
     },
     onError: error => {
+      console.error('Error creating supplier:', error);
       toast.error('Error', {
         description: error.message,
       });

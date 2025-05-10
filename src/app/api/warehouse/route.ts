@@ -5,29 +5,7 @@ import {
   createInventoryLocationSchema,
 } from "@/lib/validations/warehouse";
 import { z } from "zod";
-import { LocationType, MeasurementUnit } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-
-// Response schema for a single warehouse
-const warehouseResponseSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  description: z.string().optional(),
-  locationType: z.nativeEnum(LocationType),
-  isActive: z.boolean(),
-  isDefault: z.boolean(),
-  capacityTracking: z.boolean(),
-  totalCapacity: z.number().optional(),
-  capacityUnit: z.nativeEnum(MeasurementUnit).optional(),
-  capacityUsed: z.number().optional(),
-  address: z.string().optional(),
-  managerId: z.string().optional(),
-  managerName: z.string().optional(),
-  productCount: z.number(),
-  stockValue: z.number(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-});
 
 
 export async function GET() {
@@ -138,30 +116,10 @@ export async function POST(request: Request) {
       },
     });
 
-    // Transform to response schema
-    const response = warehouseResponseSchema.parse({
-      id: newLocation.id,
-      name: newLocation.name,
-      description: newLocation.description,
-      locationType: newLocation.locationType,
-      isActive: newLocation.isActive,
-      isDefault: newLocation.isDefault,
-      capacityTracking: newLocation.capacityTracking,
-      totalCapacity: newLocation.totalCapacity,
-      capacityUnit: newLocation.capacityUnit,
-      address: newLocation.address,
-      managerId: newLocation.managerId,
-      managerName: newLocation.manager?.user.name,
-      productCount: 0,
-      stockValue: 0,
-      createdAt: newLocation.createdAt.toISOString(),
-      updatedAt: newLocation.updatedAt.toISOString(),
-    });
-
     revalidatePath("/warehouses");
     // revalidatePath("/warehouses/new");
     revalidatePath(`/warehouses/${newLocation.id}`);
-    return NextResponse.json(response);
+    return NextResponse.json(newLocation);
   } catch (error) {
     console.error("Error creating warehouse:", error);
     if (error instanceof z.ZodError) {

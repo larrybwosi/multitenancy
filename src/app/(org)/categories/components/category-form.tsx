@@ -41,14 +41,12 @@ type CategoryFormValues = z.infer<typeof CategoryFormSchema>;
 // --- Component Props ---
 interface CategoryFormProps {
   category?: Category | null; // Pass existing category for editing
-  categoryOptions: { value: string; label: string }[]; // For parent dropdown
   onFormSubmit: () => void; // Callback to close dialog/modal
 }
 
 // --- Component ---
 export function CategoryForm({
   category,
-  categoryOptions,
   onFormSubmit,
 }: CategoryFormProps) {
   const [isPending, startTransition] = useTransition();
@@ -165,7 +163,7 @@ export function CategoryForm({
                 </FormControl>
                 <SelectContent>
                   <SelectItem value="null">-- No Parent --</SelectItem>
-                  {categoryOptions
+                  {/* {categoryOptions
                     // Prevent selecting itself as parent during edit
                     .filter(
                       (option) => !(isEditing && option.value === category?.id)
@@ -174,7 +172,7 @@ export function CategoryForm({
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}
                       </SelectItem>
-                    ))}
+                    ))} */}
                 </SelectContent>
               </Select>
               <FormDescription>

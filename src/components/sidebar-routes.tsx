@@ -61,7 +61,7 @@ export const sidebarSectionsData: SectionItem[] = [
       {
         
         title: "Customers",
-        icon: <Users size={18} />, // Using 'Users' (plural) icon
+        icon: <Users size={18} />,
         // path: "/customers", // Optional: Parent path if clickable itself
         children: [
           {
@@ -91,7 +91,7 @@ export const sidebarSectionsData: SectionItem[] = [
         title: "Products",
         icon: <Package size={18} />,
         children: [
-          { title: "Add Product", path: "/products/add", icon: <PackagePlus size={18} /> },
+          // { title: "Add Product", path: "/products/add", icon: <PackagePlus size={18} /> },
           { title: "Product List", path: "/products", icon: <ClipboardList size={18} /> },
         ]
       },

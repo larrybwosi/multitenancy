@@ -1,0 +1,7 @@
+[35.25ms] ".env"
+Resolving dependencies
+Resolved, downloaded and extracted [444]
+warn: incorrect peer dependency "ajv@6.12.6"
+
+error: No version matching "^0.5.0" found for specifier "webpack-virtual-modules" (but package exists)
+error: webpack-virtual-modules@^0.5.0 failed to resolve

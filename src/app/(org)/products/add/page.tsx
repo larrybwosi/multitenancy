@@ -17,7 +17,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useLocations } from '@/lib/hooks/use-supplier';
 import { DragOverlay } from '@/components/ui/drag-overlay';
 import { VariantModal } from '../add/variant';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -31,6 +30,7 @@ import {
   AddProductSchemaType,
   EditProductSchemaType,
 } from '@/lib/validations/product';
+import { useLocations } from '@/hooks/use-warehouse';
 
 type ProductFormType = AddProductSchemaType | EditProductSchemaType;
 

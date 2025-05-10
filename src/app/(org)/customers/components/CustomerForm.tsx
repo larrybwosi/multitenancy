@@ -80,11 +80,19 @@ export function CustomerModal({
   }, [externalIsOpen]);
 
   // Handle form submission
+
   const handleSubmit = async (data: CustomerFormValues) => {
-    await createCustomer(data);
-    // Close modal and reset form
-    handleClose();
+    try {
+      // Call the mutation
+      await createCustomer(data);
+
+      // Close modal and reset form
+      handleClose();
+    } catch (error) {
+      console.error('Error submitting form:', error);
+    }
   };
+
 
   // Handle modal close
   const handleClose = () => {
