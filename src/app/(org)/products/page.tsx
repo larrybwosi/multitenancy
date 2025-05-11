@@ -13,7 +13,6 @@ import { AlertCircle } from 'lucide-react';
 import { Pagination } from '@/components/pagination';
 
 export default function ProductsPage() {
-  // State management with nuqs for pagination and filters
   const [page, setPage] = useQueryState('page', { defaultValue: '1' });
   const [pageSize, setPageSize] = useQueryState('pageSize', { defaultValue: '10' });
   const [search, setSearch] = useQueryState('search');
@@ -76,7 +75,7 @@ export default function ProductsPage() {
           <SectionHeader
             title="Products"
             subtitle="Manage your products efficiently and effectively"
-            icon={<Package2 className="h-8 w-8 text-blue-800" />}
+            icon={<Package className="h-8 w-8 text-blue-800" />}
           />
         </CardHeader>
         <CardContent className="px-6 space-y-4">

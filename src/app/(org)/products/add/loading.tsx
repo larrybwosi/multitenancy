@@ -1,9 +1,7 @@
-// Loading state for initial data fetch
-
-import { PackagePlus } from "lucide-react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { SectionHeader } from "@/components/ui/SectionHeader";
+import { PackagePlus } from 'lucide-react';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { SectionHeader } from '@/components/ui/SectionHeader';
 
 export default function Loading() {
   return (

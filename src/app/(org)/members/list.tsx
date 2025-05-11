@@ -23,7 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { 
   MoreHorizontal, Search, UserMinus, UserCog, 
   Mail, ShieldAlert, ShieldCheck, Activity,
-  CheckCircle, XCircle, Clock, AlertCircle
+  CheckCircle, XCircle, AlertCircle
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
@@ -37,7 +37,6 @@ import {
   SheetHeader, SheetTitle 
 } from "@/components/ui/sheet"
 import { format } from "date-fns"
-import { MemberRole } from "@/lib/types"
 
 import {
   Card,
@@ -51,7 +50,7 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@/components/ui/avatar"
-import { Member } from "@/prisma/client"
+import { Member, MemberRole } from "@/prisma/client"
 
 interface MembersListProps {
   loading: boolean

@@ -134,6 +134,10 @@ export const BaseProductSchema = z.object({
   weight: z.union([z.string(), z.number(), z.null()]).pipe(z.coerce.number().nonnegative().optional().nullable()),
   weightUnit: z.enum(['WEIGHT_KG', 'WEIGHT_G', 'WEIGHT_LB', 'WEIGHT_OZ']).optional().nullable(),
   volumetricWeight: z.union([z.string(), z.number(), z.null()]).pipe(z.coerce.number().nonnegative().optional().nullable()),
+  restockUnit: z.string().optional().nullable(),
+  itemsPerUnit: z
+    .union([z.string(), z.number(), z.null()]),
+    sellingUnit: z.string().optional().nullable(),
   defaultLocationId: z.string().optional().nullable(),
 });
 
