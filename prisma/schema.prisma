@@ -179,7 +179,10 @@ model Organization {
   approvalWorkflows        ApprovalWorkflow[] @relation("OrgWorkflows")
   expenseApprovalWorkflows ApprovalWorkflow[] @relation("ExpenseApprovalWorkflows")
   defaultExpenseCurrency   String             @default("USD")
-  expenseTagOptions        String[] // Predefined tags for expenses
+  expenseTagOptions        String[]
+  taxrecords                  TaxRecord[]
+  taxReturns                TaxReturn[]
+  taxSchedule             TaxSchedule[]
 
   mpesaPaymentRequests MpesaPaymentRequest[]
 

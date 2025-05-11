@@ -885,6 +885,54 @@ exports.Prisma.MpesaPaymentRequestScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.TaxRecordScalarFieldEnum = {
+  id: 'id',
+  type: 'type',
+  amount: 'amount',
+  status: 'status',
+  date: 'date',
+  description: 'description',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  organizationId: 'organizationId'
+};
+
+exports.Prisma.TaxReturnScalarFieldEnum = {
+  id: 'id',
+  period: 'period',
+  type: 'type',
+  amount: 'amount',
+  filingDate: 'filingDate',
+  dueDate: 'dueDate',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  organizationId: 'organizationId'
+};
+
+exports.Prisma.TaxReturnAttachmentScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  url: 'url',
+  createdAt: 'createdAt',
+  taxReturnId: 'taxReturnId'
+};
+
+exports.Prisma.TaxScheduleScalarFieldEnum = {
+  id: 'id',
+  type: 'type',
+  amount: 'amount',
+  dueDate: 'dueDate',
+  description: 'description',
+  isRecurring: 'isRecurring',
+  recurringFrequency: 'recurringFrequency',
+  notificationDate: 'notificationDate',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  organizationId: 'organizationId'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -1256,7 +1304,11 @@ exports.Prisma.ModelName = {
   Account: 'Account',
   Verification: 'Verification',
   Session: 'Session',
-  MpesaPaymentRequest: 'MpesaPaymentRequest'
+  MpesaPaymentRequest: 'MpesaPaymentRequest',
+  TaxRecord: 'TaxRecord',
+  TaxReturn: 'TaxReturn',
+  TaxReturnAttachment: 'TaxReturnAttachment',
+  TaxSchedule: 'TaxSchedule'
 };
 
 /**
