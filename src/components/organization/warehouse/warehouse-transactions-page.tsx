@@ -18,28 +18,20 @@ interface WarehouseTransactionsPageProps {
 }
 
 export function WarehouseTransactionsPage({ id }: WarehouseTransactionsPageProps) {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [filterType, setFilterType] = useState("ALL")
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState('ALL');
 
-  const { data: warehouse, isLoading: warehouseLoading, error: warehouseError } = useGetWarehouse(id)
-  const { data: transactions, isLoading: transactionsLoading, error: transactionsError } = useGetWarehouseTransactions(id);
+  const { data: warehouse, isLoading: warehouseLoading, error: warehouseError } = useGetWarehouse(id);
+  const {
+    data: transactions,
+    isLoading: transactionsLoading,
+    error: transactionsError,
+  } = useGetWarehouseTransactions(id, {});
   // const warehouseErrorMessage = warehouseError?.message || "Failed to load warehouse data"
   // const transactionsErrorMessage = transactionsError?.message || "Failed to load transactions data"
 
-  // Filter transactions based on search query and type filter
-  const filteredTransactions = transactions?.filter((transaction) => {
-    const matchesSearch =
-      transaction.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      transaction.reference.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      transaction.user.toLowerCase().includes(searchQuery.toLowerCase())
-
-    const matchesType = filterType === "ALL" || transaction.type === filterType
-
-    return matchesSearch && matchesType
-  })
-
   if (warehouseLoading || transactionsLoading) {
-    return <TransactionsPageSkeleton />
+    return <TransactionsPageSkeleton />;
   }
 
   if (transactionsError) {
@@ -51,18 +43,32 @@ export function WarehouseTransactionsPage({ id }: WarehouseTransactionsPageProps
           <p className="text-sm text-muted-foreground">{warehouseError?.message || transactionsError?.message}</p>
         </div>
       </div>
-    )
+    );
   }
-  if(warehouseError){
-    return(
-       <div className="border rounded-md p-4 flex flex-col items-center justify-center gap-4 h-64">
-      <AlertTriangle className="h-8 w-8 text-red-500" />
-      <div className="text-center">
-        <h3 className="font-medium">Failed to load warehouse</h3>
-        <p className="text-sm text-muted-foreground">{warehouseError.message}</p>
+  if (warehouseError) {
+    return (
+      <div className="border rounded-md p-4 flex flex-col items-center justify-center gap-4 h-64">
+        <AlertTriangle className="h-8 w-8 text-red-500" />
+        <div className="text-center">
+          <h3 className="font-medium">Failed to load warehouse</h3>
+          <p className="text-sm text-muted-foreground">{warehouseError.message}</p>
+        </div>
       </div>
-    </div>)
+    );
   }
+  console.log("transactions", transactions);
+  console.log("warehouse", warehouse);
+  // Filter transactions based on search query and type filter
+  const filteredTransactions = transactions?.data?.filter(transaction => {
+    const matchesSearch =
+      transaction.variant.product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      transaction.reference.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      transaction.user.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesType = filterType === 'ALL' || transaction.type === filterType;
+
+    return matchesSearch && matchesType;
+  });
 
   return (
     <div className="space-y-6">
@@ -119,7 +125,7 @@ export function WarehouseTransactionsPage({ id }: WarehouseTransactionsPageProps
                 <Input
                   placeholder="Search transactions..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={e => setSearchQuery(e.target.value)}
                   className="pl-8"
                 />
                 <svg
@@ -162,8 +168,8 @@ export function WarehouseTransactionsPage({ id }: WarehouseTransactionsPageProps
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredTransactions.length > 0 ? (
-                    filteredTransactions.map((transaction) => (
+                  {!!filteredTransactions?.length ? (
+                    filteredTransactions.map(transaction => (
                       <TableRow key={transaction.id}>
                         <TableCell>{new Date(transaction.date).toLocaleDateString()}</TableCell>
                         <TableCell className="font-medium">{transaction.reference}</TableCell>
@@ -189,7 +195,7 @@ export function WarehouseTransactionsPage({ id }: WarehouseTransactionsPageProps
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
 
 function TransactionsPageSkeleton() {

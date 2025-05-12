@@ -1,6 +1,5 @@
-// src/app/api/warehouse/[id]/transactions/route.ts
 import { db } from '@/lib/db';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '@/prisma/client';
 import { NextResponse } from 'next/server';
 
 interface TransactionFilters {
@@ -15,9 +14,9 @@ interface TransactionFilters {
   pageSize?: number;
 }
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const { searchParams } = new URL(request.url);
 
     // Parse query parameters
@@ -48,9 +47,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
       where.movementType = { in: filters.movementType };
     }
 
-    if (filters.productId) {
-      where.productId = filters.productId;
-    }
+    // if (filters.productId) {
+    //   where?.variant?.productId = filters.productId;
+    // }
 
     if (filters.variantId) {
       where.variantId = filters.variantId;
@@ -74,13 +73,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
     // Search functionality (searches product name, variant name, or reference)
     if (filters.search) {
       where.OR = [
-        ...where.OR, // Keep existing location OR
         {
-          product: {
+          variant: {
+            product:{
             name: {
               contains: filters.search,
               mode: 'insensitive',
-            },
+            },}
           },
         },
         {
@@ -107,20 +106,26 @@ export async function GET(request: Request, { params }: { params: { id: string }
     const transactions = await db.stockMovement.findMany({
       where,
       include: {
-        product: {
-          select: {
-            id: true,
-            name: true,
-            sku: true,
-            barcode: true,
-          },
-        },
         variant: {
           select: {
             id: true,
             name: true,
             sku: true,
             attributes: true,
+            product: {
+              select: {
+                id: true,
+                name: true,
+                sku: true,
+                barcode: true,
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
           },
         },
         stockBatch: {

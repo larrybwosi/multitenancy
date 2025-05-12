@@ -9,6 +9,8 @@ import Cart, { SaleData as CartSaleData, SaleResult } from "./cart";
 import { ExtendedProduct } from "../types";
 import { toast } from "sonner";
 import { useSubmitSale } from "@/hooks/use-sales";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 
 interface ProjectCartItem {
   id: string;
@@ -58,11 +60,30 @@ export function PosClientWrapper({
   customers = [],
 }: PosClientWrapperProps) {
   const [cartProductIds, setCartProductIds] = useQueryState('cartItems', parseAsArrayOf(parseAsString).withDefault([]));
+  const [cartVisible, setCartVisible] = useState(true);
+  const [isMobileView, setIsMobileView] = useState(false);
 
   const warehouse = useAppStore(state => state.currentWarehouse);
   const [cartQuantities, setCartQuantities] = useState<Record<string, number>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { mutateAsync } = useSubmitSale();
+
+  // Check viewport size on mount and window resize
+  useEffect(() => {
+    const checkViewport = () => {
+      setIsMobileView(window.innerWidth < 1024);
+      // Auto-hide cart on mobile view initially
+      if (window.innerWidth < 1024) {
+        setCartVisible(false);
+      } else {
+        setCartVisible(true);
+      }
+    };
+    
+    checkViewport();
+    window.addEventListener('resize', checkViewport);
+    return () => window.removeEventListener('resize', checkViewport);
+  }, []);
 
   const cartItems = useMemo(() => {
     return cartProductIds
@@ -127,6 +148,11 @@ export function PosClientWrapper({
 
   const addProductToCart = useCallback(
     (productId: string) => {
+      // Auto show cart when adding first item on mobile
+      if (isMobileView && cartProductIds.length === 0) {
+        setCartVisible(true);
+      }
+      
       setCartProductIds(prevIds => {
         if (prevIds.includes(productId)) {
           setCartQuantities(prevQtys => ({
@@ -140,7 +166,7 @@ export function PosClientWrapper({
         }
       });
     },
-    [setCartProductIds]
+    [setCartProductIds, isMobileView, cartProductIds.length]
   );
 
   const updateQuantity = useCallback(
@@ -220,33 +246,75 @@ export function PosClientWrapper({
         setIsSubmitting(false);
       }
     },
-    [cartItems, warehouse?.id, clearCart]
+    [cartItems, warehouse?.id, clearCart, mutateAsync]
   );
 
-  return (
-    <div className="flex h-screen overflow-hidden bg-muted/20 dark:bg-neutral-900/50">
-      <div className="flex-grow h-full overflow-auto p-4 md:p-6">
-        <ProductGrid
-          products={products}
-          onAddToCart={addProductToCart}
-          getProductUrl={product => (product.sku ? product.sku.toLowerCase() : '')}
-        />
-      </div>
+  const toggleCart = () => {
+    setCartVisible(prev => !prev);
+  };
 
-      <div className="w-full md:w-[400px] lg:w-[500px] h-full flex-shrink-0 bg-background border-l dark:bg-neutral-900 dark:border-neutral-800">
-        <div className="h-full flex flex-col">
-          <Cart
-            cartItems={cartItems}
-            cartTotal={cartTotal.toString()}
-            customers={customers}
-            onUpdateQuantity={updateQuantity}
-            onRemoveItem={removeProductFromCart}
-            onClearCart={clearCart}
-            onSubmitSale={handleSaleSubmit}
-            isSubmitting={isSubmitting}
+  return (
+    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-neutral-950 dark:to-neutral-900">
+      {/* Cart toggle button for mobile/tablet */}
+      {isMobileView && (
+        <button 
+          onClick={toggleCart}
+          className="fixed z-50 bottom-6 right-6 bg-blue-600 text-white p-3 rounded-full shadow-lg hover:bg-blue-700 transition-all duration-300 flex items-center justify-center"
+          aria-label={cartVisible ? "Hide cart" : "Show cart"}
+        >
+          {cartVisible ? <ArrowRight size={24} /> : <ArrowLeft size={24} />}
+        </button>
+      )}
+      
+      <motion.div 
+        className="flex-grow h-full overflow-auto p-4 md:p-6 transition-all duration-300"
+        animate={{ 
+          width: isMobileView && cartVisible ? "0%" : "100%",
+          opacity: isMobileView && cartVisible ? 0 : 1,
+          display: isMobileView && cartVisible ? "none" : "block"
+        }}
+      >
+        <div className="max-w-[2000px] mx-auto">
+          <ProductGrid
+            products={products}
+            onAddToCart={addProductToCart}
+            getProductUrl={product => (product.sku ? product.sku.toLowerCase() : '')}
           />
         </div>
-      </div>
+      </motion.div>
+
+      <AnimatePresence>
+        {(cartVisible || !isMobileView) && (
+          <motion.div 
+            className="h-full flex-shrink-0 bg-white dark:bg-neutral-900 shadow-2xl"
+            initial={isMobileView ? { x: "100%" } : { x: 0 }}
+            animate={{ x: 0 }}
+            exit={isMobileView ? { x: "100%" } : {}}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            style={{ 
+              width: isMobileView ? "100%" : "clamp(400px, 30vw, 500px)",
+              position: isMobileView ? "fixed" : "relative",
+              top: 0,
+              right: 0,
+              zIndex: 40
+            }}
+          >
+            <div className="h-full flex flex-col">
+              <Cart
+                cartItems={cartItems}
+                cartTotal={cartTotal.toString()}
+                customers={customers}
+                onUpdateQuantity={updateQuantity}
+                onRemoveItem={removeProductFromCart}
+                onClearCart={clearCart}
+                onSubmitSale={handleSaleSubmit}
+                isSubmitting={isSubmitting}
+                onClose={isMobileView ? toggleCart : undefined}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

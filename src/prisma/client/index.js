@@ -1350,11 +1350,12 @@ const config = {
     "db"
   ],
   "activeProvider": "postgresql",
+  "postinstall": false,
   "inlineDatasources": {
     "db": {
       "url": {
         "fromEnvVar": "DATABASE_URL",
-        "value": "postgresql://ee8jfb:xau_FDHElaGwRg5UbMvf1fme2Fpui8MOU03S3@eu-central-1.sql.xata.sh/Dealio:main?sslmode=require"
+        "value": null
       }
     }
   },

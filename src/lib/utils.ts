@@ -19,8 +19,8 @@ export function cn(...inputs: ClassValue[]) {
  */
 export function formatCurrency(
   amount: number | Prisma.Decimal | string,
-  currency: string = "USD",
-  locale: string = "en-US",
+  currency: string = "ksh",
+  locale: string = "en-KE",
   options: Intl.NumberFormatOptions = {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
