@@ -100,27 +100,7 @@ export async function GET(request: Request, { params }: { params: Params }) {
       (sum, batch) => sum + batch.currentQuantity * Number(batch.purchasePrice),
       0
     );
-console.log({
-  ...location,
-  used: usedCapacity,
-  productCount: uniqueProductIds.size,
-  storageUnits,
-  stockValue,
-  stockItems: location.stockBatches.map(batch => ({
-    id: batch.id,
-    productId: batch.variant.productId,
-    productName: batch.variant.product.name, 
-    quantity: batch.currentQuantity,
-    value: batch.currentQuantity * Number(batch.purchasePrice),
-    location: batch.storageUnit
-      ? {
-          unitId: batch.storageUnit.id,
-          unitName: batch.storageUnit.name,
-          position: batch.position?.identifier || 'Unspecified',
-        }
-      : null,
-  })),
-});
+    
     // Transform to match UI expectations
     return NextResponse.json({
       warehouse: {

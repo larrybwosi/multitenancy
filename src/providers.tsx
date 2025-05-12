@@ -1,28 +1,27 @@
-"use client"
+'use client';
 
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import {CheckCircle, InfoIcon, LoaderPinwheel} from 'lucide-react';
-import { NuqsAdapter } from "nuqs/adapters/next/app";
-import { toast, Toaster } from "sonner";
-
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { CheckCircle, InfoIcon, LoaderPinwheel } from 'lucide-react';
+import { NuqsAdapter } from 'nuqs/adapters/next/app';
+import { toast, Toaster } from 'sonner';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const queryClient = new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 1000 * 60 * 5, // 5 minutes
-            refetchOnWindowFocus: false,
-            gcTime: 1000 * 60 * 60 * 12, // 12 hours
-          },
-          mutations: {
-            networkMode: 'offlineFirst',
-            onError: error => {
-              console.error('Global mutation error:', error);
-              toast.error(error.message);
-            },
-          },
+    defaultOptions: {
+      queries: {
+        staleTime: 1000 * 60 * 5, // 5 minutes
+        refetchOnWindowFocus: false,
+        gcTime: 1000 * 60 * 60 * 12, // 12 hours
+      },
+      mutations: {
+        networkMode: 'offlineFirst',
+        onError: error => {
+          console.error('Global mutation error:', error);
+          toast.error(error.message);
         },
-      })
+      },
+    },
+  });
   return (
     <QueryClientProvider client={queryClient}>
       <Toaster
@@ -40,4 +39,4 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <NuqsAdapter>{children}</NuqsAdapter>
     </QueryClientProvider>
   );
-} 
+}

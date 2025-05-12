@@ -93,21 +93,21 @@ export function SaleDetailsSheet({
   }
 
   // Print function
-  const handlePrint = () => {
-    const printContent = document.getElementById('sale-details-content');
-    if (printContent) {
-      setIsPrinting(true);
-      const originalContents = document.body.innerHTML;
-      document.body.innerHTML = printContent.innerHTML;
-
-      setTimeout(() => {
-        window.print();
-        document.body.innerHTML = originalContents;
-        window.location.reload();
-      }, 500);
-    } else {
-      toast.error('Could not print receipt');
-    }
+  const handlePrint = async() => {
+    
+    const printBuffer = await fetch(`/api/sales/${saleId}/pdf`, {
+      method: 'POST',
+    });
+    const blob = await printBuffer.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'invoice.pdf';
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    
   };
 
   // Download as PDF function

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Edit, Package, Trash2, MoreHorizontal, Grid, List, Plus, Info, Loader2 } from 'lucide-react';
+import { Edit, Package, Trash2, MoreHorizontal, Grid, List, Plus, Info, Loader2, Settings } from 'lucide-react';
 import Image from 'next/image';
 import { FilterControls, FilterControlsProps } from '@/components/file-controls';
 import ProductModal from './product-details-modal';
@@ -27,6 +27,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { EditProductDialog } from './edit-product-dialog';
+import { useRouter } from 'next/navigation';
 
 interface ProductWithDetails extends Product {
   category: Category | null;
@@ -61,6 +62,7 @@ export const ProductTable: React.FC<ProductTableProps> = ({
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [productToEdit, setProductToEdit] = useState<ProductWithDetails | null>(null);
+  const router = useRouter()
   
   const { mutateAsync: deleteProduct, isPending: deletingProduct } = useDeleteProduct();
 
@@ -151,7 +153,7 @@ export const ProductTable: React.FC<ProductTableProps> = ({
           : product.retailPrice?.toFixed(2)}
       </TableCell>
       <TableCell className="text-sm text-gray-500">{product.totalStock || 0}</TableCell>
-      <TableCell className="text-sm text-gray-500">{product.reorderPoint|| 0}</TableCell>
+      <TableCell className="text-sm text-gray-500">{product.reorderPoint || 0}</TableCell>
       <TableCell>{getStatusBadge(product.isActive)}</TableCell>
       <TableCell className="text-right">
         <DropdownMenu>
@@ -161,6 +163,10 @@ export const ProductTable: React.FC<ProductTableProps> = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => router.push(`products/${product.id}`)}>
+              <Settings className="mr-2 h-4 w-4" />
+              <span>Product Config</span>
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleEditClick(product)}>
               <Edit className="mr-2 h-4 w-4" />
               <span>Edit Product</span>
@@ -210,8 +216,12 @@ export const ProductTable: React.FC<ProductTableProps> = ({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleEditClick(product)}>
+              <DropdownMenuItem onClick={() => router.push(`products/${product.id}`)}>
                 <Edit className="mr-2 h-4 w-4" />
+                <span>Product Config</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleEditClick(product)}>
+                <Settings className="mr-2 h-4 w-4" />
                 <span>Edit Product</span>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onRestock(product)}>

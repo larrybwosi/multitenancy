@@ -22,7 +22,6 @@ import { CategoryForm } from "./category-form";
 import { CategoryActions } from "./category-actions";
 import { Pagination } from "@/components/pagination";
 import { FilterControls } from "@/components/file-controls";
-import { exportToPdf, exportToExcel } from "@/lib/export-utils";
 import { useQueryState } from "nuqs";
 import { useState } from "react";
 import { useCategories } from "@/lib/hooks/use-categories";
@@ -84,16 +83,16 @@ export function CategoryTable({
 
   const handleExportPdf = async () => {
     try {
-      const pdfBuffer = await exportToPdf(categories);
-      const blob = new Blob([pdfBuffer], { type: "application/pdf" });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "categories-report.pdf";
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      // const pdfBuffer = await exportToPdf(categories);
+      // const blob = new Blob([pdfBuffer], { type: "application/pdf" });
+      // const url = window.URL.createObjectURL(blob);
+      // const a = document.createElement("a");
+      // a.href = url;
+      // a.download = "categories-report.pdf";
+      // document.body.appendChild(a);
+      // a.click();
+      // window.URL.revokeObjectURL(url);
+      // document.body.removeChild(a);
     } catch (error) {
       console.error("Error exporting to PDF:", error);
     }
@@ -101,18 +100,18 @@ export function CategoryTable({
 
   const handleExportExcel = async () => {
     try {
-      const excelBuffer = await exportToExcel(categories);
-      const blob = new Blob([excelBuffer], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "categories-report.xlsx";
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      // const excelBuffer = await exportToExcel(categories);
+      // const blob = new Blob([excelBuffer], {
+      //   type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      // });
+      // const url = window.URL.createObjectURL(blob);
+      // const a = document.createElement("a");
+      // a.href = url;
+      // a.download = "categories-report.xlsx";
+      // document.body.appendChild(a);
+      // a.click();
+      // window.URL.revokeObjectURL(url);
+      // document.body.removeChild(a);
     } catch (error) {
       console.error("Error exporting to Excel:", error);
     }

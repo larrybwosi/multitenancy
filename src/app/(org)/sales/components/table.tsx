@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Eye, UserRound, Wallet } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 // Note: In a real implementation, you would import the shadcn components from your project.
 // For this example, I'm assuming the components are available from these imports.
@@ -7,6 +8,7 @@ import { Eye, UserRound, Wallet } from "lucide-react";
 
 const EnhancedSalesTable = ({ data, setSelectedSaleId }) => {
   const [hoveredRow, setHoveredRow] = useState(null);
+  const router = useRouter();
 
   // Function to format currency
   const formatCurrency = (amount) => {
@@ -180,7 +182,7 @@ const EnhancedSalesTable = ({ data, setSelectedSaleId }) => {
                           ? "bg-gray-100 text-gray-900"
                           : "hover:bg-gray-100 hover:text-gray-900 text-gray-700"
                       }`}
-                      onClick={() => setSelectedSaleId(sale.id)}
+                      onClick={() => router.push(`/sales/${sale.id}`)}
                     >
                       <Eye size={16} className="mr-1" />
                       View

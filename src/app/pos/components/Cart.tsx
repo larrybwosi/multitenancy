@@ -28,8 +28,8 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { generateAndSaveReceiptPdf } from '@/utils/pdf';
-import Pusher from 'pusher-js';
 import { formatCurrency } from '@/lib/utils';
+import { pusherClient } from '@/utils/pusher';
 
 /**
  * Customer interface represents a customer in the POS system
@@ -188,13 +188,8 @@ export default function Cart({
   const [mpesaPayment, setMpesaPayment] = useState<MpesaPayment | null>(null);
   const [isMpesaProcessing, setIsMpesaProcessing] = useState(false);
 
-  // Initialize Pusher for M-Pesa payment status updates
   useEffect(() => {
-    const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
-      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
-    });
-
-    const channel = pusher.subscribe('mpesa-payments');
+    const channel = pusherClient.subscribe('mpesa-payments');
     channel.bind('payment-status', (data: MpesaPayment) => {
       setMpesaPayment(data);
       if (data.status === 'SUCCESS' || data.status === 'FAILED') {
@@ -288,7 +283,7 @@ export default function Cart({
     try {
       //@ts-expect-error Type 'Promise<unknown>' is not assignable to type 'Blob'. .toFixed
       const pdfBlob = await generateAndSaveReceiptPdf(receipt);
-      const pdfUrl = URL.createObjectURL(pdfBlob);
+      const pdfUrl = URL.createObjectURL(pdfBlob!);
 
       // Create an iframe for printing
       const iframe = document.createElement('iframe');
@@ -530,7 +525,7 @@ export default function Cart({
             <div className="bg-blue-500/30 rounded-xl p-4 backdrop-blur-sm mt-4">
               <div className="flex justify-between items-center">
                 <span className="text-blue-100">Total Amount</span>
-                <span className="text-2xl font-bold">${formatCurrency(cartTotal)}</span>
+                <span className="text-2xl font-bold">{formatCurrency(cartTotal)}</span>
               </div>
               <div className="text-xs text-blue-200 mt-1">
                 {totalItems} {totalItems === 1 ? 'item' : 'items'} in cart

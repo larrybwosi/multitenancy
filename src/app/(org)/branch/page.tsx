@@ -1,3 +1,4 @@
+'use client';
 import BranchDetails from "@/components/organization/warehouse/warehouse-id";
 
 export default function WarehouseDetailsPage() {

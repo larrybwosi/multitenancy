@@ -9,7 +9,7 @@ import {
   PaymentStatus,
   ProductVariant,
   LoyaltyReason,
-} from "@prisma/client";
+} from "@/prisma/client";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 

@@ -1,16 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getServerAuthContext } from '@/actions/auth';
 import { db } from '@/lib/db';
-// import Pusher from 'pusher';
 import { getMpesaToken } from '@/lib/payments/mpesa';
 
-// Initialize Pusher server
-// const pusher = new Pusher({
-//   appId: process.env.PUSHER_APP_ID!,
-//   key: process.env.NEXT_PUBLIC_PUSHER_KEY!,
-//   secret: process.env.PUSHER_SECRET!,
-//   cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
-// });
 
 export async function POST(request: Request) {
   try {

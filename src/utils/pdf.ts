@@ -464,7 +464,7 @@ export function formatDate(
  * Generates PDF from HTML using Puppeteer and uploads to Sanity.
  * Returns the Sanity asset URL.
  */
-export async function generateAndSaveReceiptPdf(saleResponseData: SaleData): Promise<Blob> {
+export async function generateAndSaveReceiptPdf(saleResponseData: SaleData) {
   try {
     const businessInfo: BusinessInfo = {
       name: 'Dealio Inc',
@@ -477,7 +477,7 @@ export async function generateAndSaveReceiptPdf(saleResponseData: SaleData): Pro
       footerMessage: 'Thank you for shopping with us!',
     };
 
-    const receiptProps = convertToReceiptProps(saleResponseData, businessInfo, 'USD', {
+    const receiptProps = convertToReceiptProps(saleResponseData, businessInfo, 'KSH', {
       primary: '#4f46e5',
       secondary: '#818cf8',
       text: '#1f2937',
