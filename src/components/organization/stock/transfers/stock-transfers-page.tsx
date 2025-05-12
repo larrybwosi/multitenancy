@@ -12,7 +12,7 @@ import {CreateStockTransferSheet} from './create-stock-transfer-sheet';
 import {StockTransfersStats} from './stock-transfers-stats';
 import {Loader2, Search, Filter, ArrowUpDown} from 'lucide-react';
 import {toast} from 'sonner';
-import {useLocations} from '@/lib/hooks/use-supplier';
+import { useLocations } from '@/hooks/use-warehouse';
 
 // Define types for our data structures
 interface StockTransferItem {

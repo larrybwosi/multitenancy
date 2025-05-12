@@ -2,7 +2,6 @@
 import { PosClientWrapper } from "./components/PosClientWrapper";
 import { useProducts } from "@/lib/hooks/use-products";
 import { useCustomers } from "@/lib/hooks/use-customers";
-import { Skeleton } from "@/components/ui/skeleton";
 import { ProductGridSkeleton } from "./components/skeleton-loader";
 
 export default function PosPage() {

@@ -144,7 +144,7 @@ export const sidebarSectionsData: SectionItem[] = [
       {
         
         title: "Transactions",
-        path: "/financials/transactions",
+        path: "/finance/transactions",
         icon: <CreditCard size={18} />,
       },
       {

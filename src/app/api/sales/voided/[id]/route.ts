@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
-
+import prisma from "@/lib/db";
 // DELETE - Permanently delete a voided sale
 export async function DELETE(
   request: Request,
@@ -74,7 +71,6 @@ export async function POST(
       where: { id },
       data: {
         paymentStatus: "COMPLETED", // Or whatever status makes sense
-        voidReason: null,
       },
     });
 

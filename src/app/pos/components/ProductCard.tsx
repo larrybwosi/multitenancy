@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ShoppingCart, ChevronLeft, ChevronRight, ImageIcon } from 'lucide-react';
 import Image from 'next/image';
 import { ExtendedProduct } from '../types';
+import { formatCurrency, getLocalCurrencyValues } from '@/lib/utils';
 
 export interface ProductCardProps {
   product: ExtendedProduct;
@@ -17,7 +18,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, 
 
   const hasMultipleImages = imageUrls.length > 1;
   const isInStock = stock > 0;
-  const formattedPrice = typeof sellingPrice === 'number' ? `$${sellingPrice.toFixed(2)}` : `$${sellingPrice}`;
 
   const nextImage = () => {
     setCurrentImageIndex(prev => (prev + 1) % imageUrls.length);
@@ -32,7 +32,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, 
       onAddToCart(id);
     // }
   };
-
+  // const { currency, locale } = getLocalCurrencyValues();
+  // const price = formatCurrency(1234.56, currency, locale); 
+  // console.log(price); // Output: "KSH 1,234.56"
   return (
     <div
       className="relative w-64 rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-300 bg-white"
@@ -98,7 +100,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, 
         {sku && <p className="text-gray-500 text-xs mt-1">SKU: {productUrl || sku}</p>}
 
         <div className="mt-2 flex items-center justify-between">
-          <span className="font-bold text-lg">{formattedPrice}</span>
+          <span className="font-bold text-lg">{formatCurrency(sellingPrice, 'KSH', 'en-KE')}</span>
 
           <button
             onClick={handleAddToCart}

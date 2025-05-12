@@ -7,18 +7,15 @@ type Params = Promise<{ id: string }>;
 
 export async function GET(request: Request, { params }: { params: Params }) {
   try {
-    const { id } = await params;
+    const { id } = await params; // Removed await since params is not a promise
     const { userId, organizationId } = await getServerAuthContext();
 
     if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     if (!organizationId) {
-      return NextResponse.json(
-        { error: "No active organization" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'No active organization' }, { status: 400 });
     }
 
     // Get warehouse with comprehensive data including zones, storage units, and manager
@@ -34,41 +31,35 @@ export async function GET(request: Request, { params }: { params: Params }) {
             storageUnits: true,
           },
         },
-        
+
         // Include direct storage units (not in zones)
         storageUnits: {
           include: {
             stockBatches: {
-              select: {
-                currentQuantity: true,
+              include: {
                 variant: {
-                  select: {
-                    id: true,
-                    productId: true,
+                  include: {
+                    product: true, // Include product directly here
                   },
-                  include:{
-                    product:{
-                      select:{
-                        id:true,
-                        name:true,
-                      }
-                    }
-                  }
                 },
               },
             },
           },
         },
-        
+
         // Include stock batches with product information
         stockBatches: {
           include: {
-            variant: true,
+            variant: {
+              include: {
+                product: true, // Include product with variant
+              },
+            },
             storageUnit: true,
             position: true,
           },
         },
-        
+
         // Include variant stocks
         variantStocks: {
           include: {
@@ -80,47 +71,33 @@ export async function GET(request: Request, { params }: { params: Params }) {
     });
 
     if (!location) {
-      return NextResponse.json(
-        { error: "Warehouse not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Warehouse not found' }, { status: 404 });
     }
 
     // Calculate total capacity used from stock batches
-    const usedCapacity = location.stockBatches.reduce(
-      (sum, batch) => sum + batch.currentQuantity,
-      0
-    );
+    const usedCapacity = location.stockBatches.reduce((sum, batch) => sum + batch.currentQuantity, 0);
 
     // Calculate unique products count
-    const uniqueProductIds = new Set([
-      ...location.variantStocks.map((stock) => stock.productId),
-    ]);
+    const uniqueProductIds = new Set([...location.variantStocks.map(stock => stock.productId)]);
 
     // Process storage units to add usage statistics
     const storageUnits = location.storageUnits.map(unit => {
       // Calculate capacity used based on associated stock batches
-      const capacityUsed = unit.stockBatches.reduce(
-        (sum, batch) => sum + batch.currentQuantity, 
-        0
-      );
-      
+      const capacityUsed = unit.stockBatches.reduce((sum, batch) => sum + batch.currentQuantity, 0);
+
       // Count unique products in this unit
-      const uniqueProductsInUnit = new Set(
-        unit.stockBatches.map(batch => batch.variant.productId)
-      );
-      
+      const uniqueProductsInUnit = new Set(unit.stockBatches.map(batch => batch.variant.productId));
+
       return {
         ...unit,
         capacityUsed,
-        productCount: uniqueProductsInUnit.size
+        productCount: uniqueProductsInUnit.size,
       };
     });
 
     // Calculate total stock value
     const stockValue = location.stockBatches.reduce(
-      (sum, batch) =>
-        sum + batch.currentQuantity * Number(batch.purchasePrice),
+      (sum, batch) => sum + batch.currentQuantity * Number(batch.purchasePrice),
       0
     );
 
@@ -132,26 +109,25 @@ export async function GET(request: Request, { params }: { params: Params }) {
         productCount: uniqueProductIds.size,
         storageUnits,
         stockValue,
-        stockItems: location.stockBatches.map((batch) => ({
+        stockItems: location.stockBatches.map(batch => ({
           id: batch.id,
           productId: batch.variant.productId,
-          productName: batch.variant.product.name,
+          productName: batch.variant.product.name, // Now product is properly included
           quantity: batch.currentQuantity,
           value: batch.currentQuantity * Number(batch.purchasePrice),
-          location: batch.storageUnit ? {
-            unitId: batch.storageUnit.id,
-            unitName: batch.storageUnit.name,
-            position: batch.position?.identifier || 'Unspecified'
-          } : null
+          location: batch.storageUnit
+            ? {
+                unitId: batch.storageUnit.id,
+                unitName: batch.storageUnit.name,
+                position: batch.position?.identifier || 'Unspecified',
+              }
+            : null,
         })),
       },
     });
   } catch (error) {
-    console.error("Error fetching warehouse:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch warehouse" },
-      { status: 500 }
-    );
+    console.error('Error fetching warehouse:', error);
+    return NextResponse.json({ error: 'Failed to fetch warehouse' }, { status: 500 });
   }
 }
 

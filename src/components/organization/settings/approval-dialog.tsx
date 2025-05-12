@@ -44,13 +44,12 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ApprovalWorkflowInputSchema, type ApprovalWorkflowInput } from "@/lib/validations/approval";
-import { ApprovalActionType, ApprovalMode, ConditionType, MemberRole } from "../../../types/prisma";
+import { ApprovalActionType, ApprovalMode, ConditionType, MemberRole } from "@/types/prisma";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 import { useCreateApprovalWorkflow, useUpdateApprovalWorkflow } from "@/lib/hooks/use-approval-workflows";
 import { useExpenseCategories } from "@/lib/hooks/use-expense-categories";
-import { useLocations } from "@/lib/hooks/use-supplier";
-import { on } from "events";
+import { useLocations } from "@/hooks/use-warehouse";
 
 interface WorkflowDialogProps {
   workflowId?: string;

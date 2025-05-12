@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
 
     // Add attachments if provided
     if (attachments && attachments.length > 0) {
-      const attachmentData = attachments.map((attachment: any) => ({
+      const attachmentData = attachments.map((attachment) => ({
         name: attachment.name,
         url: attachment.url,
         taxReturnId: taxReturn.id

@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/db"; 
 import { revalidatePath } from "next/cache";
-import { MeasurementUnit, Prisma } from "@prisma/client";
+import { MeasurementUnit, Prisma } from "@/prisma/client";
 import { getServerAuthContext } from "./auth";
 import { AddProductSchema, EditProductSchema, ProductSupplierInput, ProductVariantInput } from "@/lib/validations/product";
 

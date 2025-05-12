@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { getServerAuthContext } from './auth';
 import { revalidatePath } from 'next/cache';
 import { AuditLogAction, AuditEntityType, LoyaltyReason, PaymentStatus, ProductVariantStock } from '@/prisma/client';
-// import { generateAndSaveReceiptPdf } from '@/lib/receiptGenerator';
 import { createAuditLog } from '@/lib/audits/logger';
 import { db } from '@/lib/db';
 
@@ -100,9 +99,6 @@ export async function processSale(inputData: unknown): Promise<ProcessSaleResult
     }
     memberId = authContext.memberId;
     organizationId = authContext.organizationId;
-    console.log(
-      `Processing sale for Org: ${organizationId}, Member: ${memberId}, Location: ${locationId}, Stock Tracking: ${enableStockTracking}`
-    );
   } catch (authError: unknown) {
     console.error('Authentication context retrieval failed:', authError);
     return {
@@ -126,7 +122,6 @@ export async function processSale(inputData: unknown): Promise<ProcessSaleResult
     const taxRate = orgSettings?.defaultTaxRate ?? new Prisma.Decimal(0); // Use Decimal, default to 0 [cite: 181]
     const allowNegativeStock = orgSettings?.negativeStock ?? false; // [cite: 182]
     const inventoryPolicy = orgSettings?.inventoryPolicy ?? 'FEFO'; // [cite: 182] Default to FEFO
-    console.log(`Inventory Policy: ${inventoryPolicy}, taxRate: ${taxRate}, allowNegativeStock: ${allowNegativeStock}`);
 
     // Start the Prisma transaction
     const result = await db.$transaction(
@@ -140,10 +135,6 @@ export async function processSale(inputData: unknown): Promise<ProcessSaleResult
 
         // --- 3a. Item Processing Loop ---
         for (const item of cartItems) {
-          console.log(
-            `Processing Item: Product ${item.productId}, Variant ${item.variantId ?? 'N/A'}, Qty ${item.quantity}`
-          );
-
           // Fetch the product and its specific variant (if applicable)
           const product = await tx.product.findUnique({
             where: {
@@ -503,8 +494,6 @@ export async function processSale(inputData: unknown): Promise<ProcessSaleResult
           }
         }
 
-        // --- 3i. Transaction Success ---
-        console.log(`Transaction completed successfully for Sale ID: ${sale.id}`);
         // Cast to the detailed type before returning
         return sale as SaleWithDetails;
       },

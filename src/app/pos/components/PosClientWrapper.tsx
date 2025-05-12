@@ -10,9 +10,7 @@ import Cart, { SaleData as CartSaleData, SaleResult } from "./cart";
 import { ExtendedProduct } from "../types";
 import { toast } from "sonner";
 import { useSubmitSale } from "@/hooks/use-sales";
-import { Button } from "@/components/ui/button";
-import { Printer } from "lucide-react";
-// Use the project's CartItem interface with additional required fields
+
 type CartItem = Omit<ProjectCartItem, "sku"> & {
   unitPrice: string | number;
   totalPrice: number;
@@ -176,7 +174,6 @@ export function PosClientWrapper({
 
       setIsSubmitting(true);
       try {
-        // Create our internal SaleData with items
         const saleData: SaleData = {
           ...cartSaleData,
           items: cartItems,
@@ -214,16 +211,8 @@ export function PosClientWrapper({
     [cartItems, warehouse?.id, clearCart]
   );
 
-  const handlePrint = async () => {
-
-  };
-
   return (
     <div className="flex h-screen overflow-hidden bg-muted/20 dark:bg-neutral-900/50">
-      <Button className="fixed top-4 right-4 z-50" onClick={() => handlePrint()}>
-        <Printer className="h-5 w-5 mr-2" />
-        Test Receipt
-      </Button>
       <div className="flex-grow h-full overflow-auto p-4 md:p-6">
         <ProductGrid
           products={products}

@@ -1,16 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { getOrganizationById } from '@/actions/organization';
+// import { getServerAuthContext } from '@/actions/auth';
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const organizationId = searchParams.get('organizationId');
     const month = searchParams.get('month');
+    // const { organizationId} = await getServerAuthContext()
     
     if (!organizationId) {
       return NextResponse.json({ error: 'Organization ID is required' }, { status: 400 });
     }
 
+    const org = await getOrganizationById(organizationId);
     let dateFilter = {};
     
     if (month) {
@@ -26,7 +30,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Calculate VAT from sales/invoices
-    const invoices = await prisma.invoice.findMany({
+    const invoices = await prisma.sale.findMany({
       where: {
         organizationId,
         ...dateFilter
@@ -42,12 +46,10 @@ export async function GET(request: NextRequest) {
     // Calculate VAT based on invoice items
     invoices.forEach(invoice => {
       invoice.items.forEach(item => {
-        const itemTotal = item.quantity * item.unitPrice;
+        const itemTotal = item.quantity * parseInt(item.unitPrice.toString());
         totalSales += itemTotal;
         
-        // Calculate VAT (assuming standard rate is 20%, but this should be configured per country)
-        const vatRate = 0.20;
-        totalVAT += itemTotal * vatRate;
+        totalVAT = parseInt(item.taxAmount.toString())
       });
     });
 
@@ -69,7 +71,7 @@ export async function GET(request: NextRequest) {
       totalVAT,
       totalVatPaid,
       vatDue,
-      vatRate: '20%' // This should be configurable
+      vatRate: org?.settings?.defaultTaxRate
     });
   } catch (error) {
     console.error('Error calculating VAT:', error);

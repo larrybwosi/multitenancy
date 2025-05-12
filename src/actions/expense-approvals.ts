@@ -1,6 +1,5 @@
 import { getWorkflowDetails } from './approval';
 import {
-  PrismaClient,
   Prisma,
   MemberRole,
   ApprovalWorkflow,
@@ -8,8 +7,7 @@ import {
   InventoryLocation,
   ApprovalWorkflowStep,
 } from '@/prisma/client'; 
-
-const prisma = new PrismaClient();
+import prisma from '@/lib/db';
 
 // Define a type for the expense data needed for checks
 export interface ExpenseCheckData {

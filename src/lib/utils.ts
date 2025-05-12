@@ -119,3 +119,59 @@ export function formatShortDate(date: Date | string): string {
     day: "numeric",
   }).format(d);
 }
+
+
+/**
+ * Helper function to get currency code for a region
+ * Note: This is a simplified version - you might want to expand it
+ * or use a proper library like currency-codes
+ */
+function getCurrencyCodeForRegion(region: string): string {
+  const regionToCurrency: Record<string, string> = {
+    US: "USD",
+    GB: "GBP",
+    EU: "EUR",
+    DE: "EUR",
+    FR: "EUR",
+    JP: "JPY",
+    IN: "INR",
+    CN: "CNY",
+    BR: "BRL",
+    CA: "CAD",
+    AU: "AUD",
+    MX: "MXN",
+    KE: "KSH",
+    NG: "NGN",
+    ZA: "ZAR",
+    // Add more regions and their corresponding currencies as needed
+  };
+
+  return regionToCurrency[region] || "USD";
+}
+
+/**
+ * Get the user's local currency and locale from browser
+ * @returns { currency: string, locale: string } The detected currency and locale
+ */
+export function getLocalCurrencyValues(): { currency: string; locale: string } {
+  // Default values
+  let locale = "en-US";
+  let currency = "USD";
+
+  // Try to detect from browser if available
+  if (typeof window !== 'undefined' && window.navigator) {
+    try {
+      locale = window.navigator.language;
+      
+      // Get the currency for the detected locale
+      const region = locale.split('-')[1] || 'US';
+      
+      currency = getCurrencyCodeForRegion(region);
+    } catch (e) {
+      console.warn("Could not detect local currency values", e);
+    }
+  }
+
+  return { currency, locale };
+}
+

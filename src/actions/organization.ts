@@ -216,11 +216,14 @@ export async function getOrganizationBySlug(
  */
 export async function getOrganizationById(
   id: string
-): Promise<Organization | null> {
+){
   // const { role } = await getServerAuthContext();
   try {
     const organization = await prisma.organization.findUnique({
       where: { id },
+      include:{
+        settings:true
+      }
     });
 
     return organization;
@@ -270,12 +273,9 @@ export async function getUserOrganizations(): Promise<Organization[]> {
  */
 export async function updateOrganization(
   organizationId: string,
-  rawData: unknown // Accept unknown to validate first
-): Promise<any> { // Replace any with Prisma.OrganizationGetPayload including settings
-  // 1. Authorization/Permission Check (Conceptual)
-  // ... (as in previous version, ensure user has rights)
-
-  // 2. Validation
+  rawData: unknown 
+){
+  
   let validatedData: UpdateOrganizationInput;
   try {
     validatedData = UpdateOrganizationInputSchema.parse(rawData);
@@ -394,7 +394,7 @@ export async function updateOrganization(
       where: { id: organizationId },
       data: organizationUpdateData,
       include: {
-        settings: true, // Ensure settings are included in the response
+        settings: true,
       },
     });
     return updatedOrganization;
@@ -507,7 +507,7 @@ export async function saveOrganizationCategories(
       });
     });
 
-    revalidatePath(`/organizations/${organizationId}`); // Revalidate org page/tabs
+    revalidatePath(`/organizations/${organizationId}`);
 
     return { success: true, message: "Categories saved successfully." };
   } catch (error) {
