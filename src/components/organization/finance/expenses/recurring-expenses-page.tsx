@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { RecurringExpensesList } from "./recurring-expenses-list"
-import { ExpensesNavigation } from "./expenses-navigation"
 
 export function RecurringExpensesPage() {
 
@@ -24,7 +23,6 @@ export function RecurringExpensesPage() {
   const [categories, setCategories] = useState<string[]>([])
   const [departments, setDepartments] = useState<string[]>([])
   const [vendors, setVendors] = useState<string[]>([])
-  const [isCreateSheetOpen, setIsCreateSheetOpen] = useState(false)
   const [isFilterExpanded, setIsFilterExpanded] = useState(false)
 
   // Replace useSearchParams with nuqs
@@ -101,10 +99,6 @@ export function RecurringExpensesPage() {
     await setPage(newPage)
   }
 
-  const handleExpenseCreated = () => {
-    setIsCreateSheetOpen(false)
-    fetchRecurringExpenses()
-  }
 
   const getActiveFiltersCount = () => {
     let count = 0
@@ -147,13 +141,11 @@ export function RecurringExpensesPage() {
           <h1 className="text-3xl font-bold tracking-tight">Recurring Expenses</h1>
           <p className="text-muted-foreground mt-1">Manage your recurring expenses and subscriptions</p>
         </div>
-        <Button onClick={() => setIsCreateSheetOpen(true)} className="sm:w-auto w-full">
+        <Button className="sm:w-auto w-full">
           <PlusIcon className="mr-2 h-4 w-4" />
           Add Recurring Expense
         </Button>
       </div>
-
-      <ExpensesNavigation />
 
       {isLoading ? (
         <div className="space-y-6">

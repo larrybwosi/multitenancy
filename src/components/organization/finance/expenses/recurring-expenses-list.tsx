@@ -5,14 +5,6 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
 import { toast } from "sonner"
 
 interface RecurringExpense {
@@ -244,31 +236,6 @@ export function RecurringExpensesList({
         </div>
       </div>
 
-      {safePagination && safePagination.totalPages > 1 && (
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                onClick={() => onPageChange(Math.max(1, safePagination.page - 1))}
-                disabled={safePagination.page === 1}
-              />
-            </PaginationItem>
-            {Array.from({ length: safePagination.totalPages }, (_, i) => i + 1).map((page) => (
-              <PaginationItem key={page}>
-                <PaginationLink onClick={() => onPageChange(page)} isActive={page === safePagination.page}>
-                  {page}
-                </PaginationLink>
-              </PaginationItem>
-            ))}
-            <PaginationItem>
-              <PaginationNext
-                onClick={() => onPageChange(Math.min(safePagination.totalPages, safePagination.page + 1))}
-                disabled={safePagination.page === safePagination.totalPages}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      )}
     </div>
   )
 }

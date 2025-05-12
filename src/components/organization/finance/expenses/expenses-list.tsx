@@ -44,6 +44,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Expense } from '@/lib/hooks/use-expenses';
 import ExpenseDetails from './details-modal';
+import { CreateExpenseSheet } from './create-expense-sheet';
+import { parseAsBoolean, useQueryState } from 'nuqs';
 
 interface ExpensesListProps {
   expenses: Expense[];
@@ -62,6 +64,11 @@ export function ExpensesList({ expenses = [], isLoading, pagination, onPageChang
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+    const [ isCreateOpen, setIsCreateOpen ] = useQueryState('create', parseAsBoolean.withDefault(false).withOptions({
+        history: 'push',
+        shallow: false,
+      })
+    )
 
   const formatCurrency = (value: number | string) => {
     const numValue = typeof value === 'string' ? parseFloat(value) : value;
@@ -282,10 +289,8 @@ export function ExpensesList({ expenses = [], isLoading, pagination, onPageChang
           <Button variant="outline" size="icon">
             <FilterIcon className="h-4 w-4" />
           </Button>
-          <Button>
-            <PlusIcon className="h-4 w-4 mr-2" />
-            <span>New Expense</span>
-          </Button>
+
+          <CreateExpenseSheet open={isCreateOpen as boolean} setOpen={setIsCreateOpen} />
         </div>
       </div>
 
@@ -421,11 +426,7 @@ export function ExpensesList({ expenses = [], isLoading, pagination, onPageChang
       </div>
 
       {/* Details Modal */}
-      <ExpenseDetails
-       expense={selectedExpense}
-       isOpen={isDetailsOpen}
-       onClose={()=>setIsDetailsOpen(false)}
-      />
+      <ExpenseDetails expense={selectedExpense} isOpen={isDetailsOpen} onClose={() => setIsDetailsOpen(false)} />
 
       {/* Quick View Slide-over Panel */}
       <Sheet open={isQuickViewOpen} onOpenChange={setIsQuickViewOpen}>

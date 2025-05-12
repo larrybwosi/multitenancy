@@ -1,43 +1,41 @@
-import { client } from "@/lib/sanity/client"
-import { NextResponse } from "next/server"
-import { v4 as uuidv4 } from "uuid"
+import { client } from '@/lib/sanity/client';
+import { NextResponse } from 'next/server';
+import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(request: Request) {
   try {
-    const formData = await request.formData()
-    const file = formData.get("file") as File
+    const { searchParams } = new URL(request.url);
+    const uploadAsFile = searchParams.get('file') === 'true'; // Get from URL search params
+
+    const formData = await request.formData();
+    const file = formData.get('file') as File;
 
     if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 })
+      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    const fileType = file.type
-    const buffer = Buffer.from(await file.arrayBuffer())
+    const fileType = file.type;
+    const buffer = Buffer.from(await file.arrayBuffer());
 
     // Generate a unique filename
-    const fileExtension = file.name.split(".").pop()
-    const fileName = `${uuidv4()}.${fileExtension}`
+    const fileExtension = file.name.split('.').pop();
+    const fileName = `${uuidv4()}.${fileExtension}`;
 
-    // Determine asset type based on file type
-    let assetType = "image"
-    if (fileType.startsWith("application/")) {
-      assetType = "file"
-    }
+    // Determine asset type - simplified logic
+    const assetType = uploadAsFile ? 'file' : 'image';
 
     // Upload to Sanity
-    //@ts-expect-error this is fine
     const result = await client.assets.upload(assetType, buffer, {
       filename: fileName,
       contentType: fileType,
     });
 
     return NextResponse.json({
-      url: `${result.url}?fm=webp&q=75&auto=format`,
+      url: assetType === 'file' ? result.url : `${result.url}?fm=webp&q=75&auto=format`,
       id: result._id,
     });
   } catch (error) {
-    console.error("Error uploading file:", error)
-    return NextResponse.json({ error: "Failed to upload file" }, { status: 500 })
+    console.error('Error uploading file:', error);
+    return NextResponse.json({ error: 'Failed to upload file' }, { status: 500 });
   }
 }
-

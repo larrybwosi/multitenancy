@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarIcon, Receipt, Map, Loader2 } from 'lucide-react';
+import { CalendarIcon, Map, Loader2, Plus } from 'lucide-react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
@@ -41,30 +41,8 @@ import { useSuppliers } from '@/lib/hooks/use-supplier';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLocations } from '@/hooks/use-warehouse';
-
-const dateSchema = z
-  .union([z.date(), z.string().datetime(), z.string().regex(/^\d{4}-\d{2}-\d{2}$/)])
-  .transform(val => new Date(val));
-
-const CreateExpenseSchema = z
-  .object({
-    description: z.string().min(1, 'Description is required').max(255),
-    amount: z.coerce.number().positive('Amount must be a positive number'),
-    expenseDate: dateSchema,
-    categoryId: z.string().min(1, 'Category ID is required'),
-    paymentMethod: z.nativeEnum(PaymentMethod),
-    receiptUrl: z.string().url('Invalid URL format').optional().nullable(),
-    notes: z.string().optional().nullable(),
-    isReimbursable: z.boolean().optional().default(false),
-    locationId: z.string().cuid('Invalid location ID'),
-    supplierId: z.string().uuid('Invalid supplier ID').optional().nullable(),
-    budgetId: z.string().uuid('Invalid budget ID').optional().nullable(),
-    tags: z.array(z.string()).optional().default([]),
-    taxAmount: z.coerce.number().min(0).optional().nullable(),
-    mileage: z.coerce.number().min(0).optional().nullable(),
-    isBillable: z.boolean().optional().default(false),
-  })
-  .strict();
+import { CreateExpenseSchema } from '@/lib/validations/expenses';
+import FileUpload from '@/components/file-upload';
 
 type ExpenseFormValues = z.infer<typeof CreateExpenseSchema>;
 
@@ -89,19 +67,21 @@ const fieldVariants = {
   },
 };
 
-export function CreateExpense() {
-  const [open, setOpen] = useState(false);
+interface CreateExpenseProps {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+}
+
+export function CreateExpenseSheet({ open, setOpen }: CreateExpenseProps) {
   const [isClient, setIsClient] = useState(false);
 
   const { mutateAsync: createExpense, isPending: creatingExpense } = useCreateExpense();
   const { data: categories, isLoading: loadingCategories, error: categoriesError } = useExpenseCategories();
-
   const { data: locationsResult, error: locationsError, isLoading: isLoadingLocations } = useLocations();
-
   const { data: suppliersResult, error: suppliersError, isLoading: isLoadingSuppliers } = useSuppliers();
 
   const locations = locationsResult?.warehouses || [];
-  const suppliers = suppliersResult?.suppliers || [];
+  const suppliers = suppliersResult?.data?.suppliers || [];
 
   const form = useForm({
     resolver: zodResolver(CreateExpenseSchema),
@@ -131,6 +111,7 @@ export function CreateExpense() {
     }
   }, [isLoadingLocations, form]);
 
+
   const onSubmit = async (data: ExpenseFormValues) => {
     try {
       await createExpense(data);
@@ -138,6 +119,10 @@ export function CreateExpense() {
       setOpen(false);
       toast.success('Expense created successfully!', {
         description: `Your expense for ${data.description} has been recorded.`,
+        action: {
+          label: 'View',
+          onClick: () => console.log('View expense'),
+        },
       });
     } catch (error) {
       console.error('Error creating expense:', error);
@@ -150,7 +135,7 @@ export function CreateExpense() {
   if (!isClient) {
     return (
       <Button
-        className="px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md"
+        className="px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
         disabled
       >
         New Expense
@@ -164,15 +149,17 @@ export function CreateExpense() {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <MotionDiv whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-          <Button className="px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md hover:shadow-lg transition-all">
+        <MotionDiv whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="relative overflow-hidden group">
+          <Button className="px-6 items-center text-white shadow-lg hover:shadow-xl transition-all duration-300 ">
+            <Plus className="mr-2 h-4 w-4" />
             New Expense
+            <span className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity duration-300"></span>
           </Button>
         </MotionDiv>
       </SheetTrigger>
       <SheetContent className="sm:max-w-lg w-full overflow-y-auto bg-gradient-to-b from-gray-50 to-gray-100">
         <SheetHeader className="mb-8">
-          <SheetTitle className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+          <SheetTitle className="text-3xl font-bold bg-clip-text text-transparent">
             Create New Expense
           </SheetTitle>
           <SheetDescription className="text-gray-600">
@@ -181,7 +168,7 @@ export function CreateExpense() {
         </SheetHeader>
 
         {hasError && (
-          <Alert variant="destructive" className="mb-6">
+          <Alert variant="destructive" className="mb-6 animate-pulse">
             <AlertTitle>Error loading data</AlertTitle>
             <AlertDescription>
               {categoriesError?.message || locationsError?.message || suppliersError?.message}
@@ -399,20 +386,16 @@ export function CreateExpense() {
                 <FormField
                   control={form.control}
                   name="receiptUrl"
-                  render={({ field }) => (
+                  render={() => (
                     <FormItem>
-                      <FormLabel className="text-gray-700">Receipt URL</FormLabel>
-                      <FormControl>
-                        <div className="flex items-center">
-                          <Receipt className="h-4 w-4 text-gray-500 mr-2" />
-                          <Input
-                            placeholder="https://receipts.example.com/123"
-                            className="border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                            {...field}
-                            value={field.value || ''}
-                          />
+                      <FormLabel className="text-gray-700">Receipt</FormLabel>
+                      <div className="space-y-4">
+                        <div className="flex items-center space-x-4">
+                          <FormControl>
+                            <FileUpload description="Upload images for your content" onUploadSuccess={(url) => form.setValue('receiptUrl', url)} />
+                          </FormControl>
                         </div>
-                      </FormControl>
+                      </div>
                       <FormMessage className="text-xs" />
                     </FormItem>
                   )}
@@ -438,7 +421,7 @@ export function CreateExpense() {
                             </FormControl>
                             <SelectContent className="bg-white shadow-lg rounded-md">
                               <SelectGroup>
-                                <SelectLabel >None</SelectLabel>
+                                <SelectLabel>None</SelectLabel>
                                 {suppliers?.map(supplier => (
                                   <SelectItem key={supplier.id} value={supplier.id}>
                                     {supplier.name}
@@ -470,7 +453,6 @@ export function CreateExpense() {
                           <SelectContent className="bg-white shadow-lg rounded-md">
                             <SelectGroup>
                               <SelectLabel>None</SelectLabel>
-                              {/* Replace with your actual budgets data */}
                               <SelectItem value="budget1">Marketing</SelectItem>
                               <SelectItem value="budget2">Operations</SelectItem>
                               <SelectItem value="budget3">Travel</SelectItem>
@@ -614,7 +596,9 @@ export function CreateExpense() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setOpen(false)}
+                  onClick={() => {
+                    setOpen(false);
+                  }}
                   className="w-full sm:w-auto border-gray-300 hover:bg-gray-100"
                 >
                   Cancel
@@ -623,8 +607,8 @@ export function CreateExpense() {
               <MotionDiv whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
                 <Button
                   type="submit"
-                  disabled={creatingExpense || isLoading}
-                  className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md hover:shadow-lg transition-all"
+                  disabled={creatingExpense || isLoading }
+                  className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md hover:shadow-lg transition-all relative overflow-hidden"
                 >
                   {creatingExpense ? (
                     <>
@@ -632,7 +616,10 @@ export function CreateExpense() {
                       Submitting...
                     </>
                   ) : (
-                    'Submit Expense'
+                    <>
+                      Submit Expense
+                      <span className="absolute inset-0 bg-white opacity-0 hover:opacity-10 transition-opacity duration-300"></span>
+                    </>
                   )}
                 </Button>
               </MotionDiv>

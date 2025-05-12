@@ -6,7 +6,7 @@ import {zodResolver} from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import {cn} from '@/lib/utils';
 import {useRouter} from 'next/navigation';
-import {Upload, DollarSign, Box, Ruler, Plus, Info, Loader2, Check, X} from 'lucide-react';
+import {Upload, DollarSign, Box, Ruler, Check, X, Loader2} from 'lucide-react';
 import Image from 'next/image';
 
 import {Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage} from '@/components/ui/form';
@@ -19,19 +19,11 @@ import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/c
 import {Switch} from '@/components/ui/switch';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import {Badge} from '@/components/ui/badge';
-import {
-  Dialog,
-  DialogTrigger,
-} from '@/components/ui/dialog';
 import {InventoryPolicy, MeasurementUnit} from '@/prisma/client';
 import {toast} from 'sonner';
 import {useOrganization} from '@/hooks/use-organization';
 import {useUpdateOrganization} from '@/lib/hooks/use-org';
-import {Alert, AlertDescription, AlertTitle} from '@/components/ui/alert';
-import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
-import { useExpenseCategories } from '@/lib/hooks/use-expense-categories';
-import { AddCategoryModal } from './add-expense-category-modal';
-import { DeleteCategoryModal } from './delete-category-modal';
+import {Alert } from '@/components/ui/alert';
 import { UpdateOrganizationInputSchema } from '@/lib/validations/organization';
 
 // Define the timezone options
@@ -68,15 +60,9 @@ export function EditOrganizationForm({onSuccess}: EditOrganizationFormProps) {
   const [tagInput, setTagInput] = useState('');
   const [activeTab, setActiveTab] = useState('general');
 
-  // Category management states
-  const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
-  const [isDeleteCategoryOpen, setIsDeleteCategoryOpen] = useState(false);
-  const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
-
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { organization, isLoading } = useOrganization();
   
-  const { data: expenseCategories, isLoading: loadingExpenseCategories } = useExpenseCategories(true,activeTab === 'expenses');
   const { mutateAsync: updateOrganization, isPending: isSubmitting } = useUpdateOrganization();
   const router = useRouter();
 
@@ -889,148 +875,6 @@ const onSubmit = async (data: OrganizationFormValues) => {
                     )}
                   />
 
-                  <Card className="border-2">
-                    <CardHeader className="bg-muted/30">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <CardTitle className="flex items-center text-lg">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              className="h-4 w-4 mr-2"
-                            >
-                              <path d="M3 6h18" />
-                              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                              <line x1="10" y1="11" x2="10" y2="17" />
-                              <line x1="14" y1="11" x2="14" y2="17" />
-                            </svg>
-                            Expense Categories
-                          </CardTitle>
-                          <CardDescription>Manage categories for organizing and reporting on expenses</CardDescription>
-                        </div>
-                        <Dialog open={isAddCategoryOpen} onOpenChange={setIsAddCategoryOpen}>
-                          <DialogTrigger asChild>
-                            <Button className="gap-1">
-                              <Plus className="h-4 w-4" />
-                              Add Category
-                            </Button>
-                          </DialogTrigger>
-                          <AddCategoryModal
-                            open={isAddCategoryOpen}
-                            onOpenChange={setIsAddCategoryOpen}
-                            onSuccess={() => {}}
-                          />
-                        </Dialog>
-
-                        <DeleteCategoryModal
-                          open={isDeleteCategoryOpen}
-                          onOpenChange={setIsDeleteCategoryOpen}
-                          categoryId={categoryToDelete}
-                          onSuccess={() => {}}
-                        />
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-6">
-                      {loadingExpenseCategories ? (
-                        <div className="space-y-3">
-                          {Array(3)
-                            .fill(0)
-                            .map((_, i) => (
-                              <Skeleton key={i} className="h-12 w-full" />
-                            ))}
-                        </div>
-                      ) : !!expenseCategories?.length ? (
-                        <div className="rounded-md border-2">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Code</TableHead>
-                                <TableHead>Description</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {expenseCategories?.map(category => (
-                                <TableRow key={category.id} className="hover:bg-muted/50">
-                                  <TableCell className="font-medium">{category.name}</TableCell>
-                                  <TableCell>
-                                    {category.code ? (
-                                      <Badge variant="outline" className="font-mono">
-                                        {category.code}
-                                      </Badge>
-                                    ) : (
-                                      <span className="text-muted-foreground">—</span>
-                                    )}
-                                  </TableCell>
-                                  <TableCell className="max-w-md truncate">
-                                    {category.description || (
-                                      <span className="text-muted-foreground italic">No description</span>
-                                    )}
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
-                                      onClick={() => {
-                                        setCategoryToDelete(category.id);
-                                        setIsDeleteCategoryOpen(true);
-                                      }}
-                                    >
-                                      Delete
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      ) : (
-                        <div className="text-center py-12 space-y-4 border-2 border-dashed rounded-lg">
-                          <svg
-                            className="mx-auto h-12 w-12 text-muted-foreground"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            aria-hidden="true"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={1}
-                              d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"
-                            />
-                          </svg>
-                          <h3 className="text-sm font-medium">No categories defined</h3>
-                          <p className="text-sm text-muted-foreground">
-                            Create expense categories to organize and analyze your spending.
-                          </p>
-                          <div className="mt-6">
-                            <Button onClick={() => setIsAddCategoryOpen(true)}>
-                              <Plus className="-ml-1 mr-2 h-5 w-5" />
-                              Create New Category
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-
-                      <Alert className="mt-6 border-2 border-muted bg-muted/20">
-                        <Info className="h-4 w-4" />
-                        <AlertTitle>About Expense Categories</AlertTitle>
-                        <AlertDescription>
-                          Categories help organize expenses and generate accurate financial reports. Each category can
-                          have an optional code for accounting systems and reporting purposes.
-                        </AlertDescription>
-                      </Alert>
-                    </CardContent>
-                  </Card>
                 </CardContent>
               </Card>
             </TabsContent>

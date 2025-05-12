@@ -1,5 +1,5 @@
 'use client';
-import { PosClientWrapper } from "./components/PosClientWrapper";
+import { PosClientWrapper } from "./components/client-page";
 import { useProducts } from "@/lib/hooks/use-products";
 import { useCustomers } from "@/lib/hooks/use-customers";
 import { ProductGridSkeleton } from "./components/skeleton-loader";

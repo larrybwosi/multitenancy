@@ -4,12 +4,24 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQueryState, parseAsArrayOf, parseAsString } from "nuqs";
 import { ProductGrid } from "./ProductGrid";
 import { Customer, PaymentMethod } from "@/prisma/client";
-import { CartItem as ProjectCartItem } from "@/app/point-of-sale/types";
 import { useAppStore } from "@/store/app";
 import Cart, { SaleData as CartSaleData, SaleResult } from "./cart";
 import { ExtendedProduct } from "../types";
 import { toast } from "sonner";
 import { useSubmitSale } from "@/hooks/use-sales";
+
+interface ProjectCartItem {
+  id: string;
+  productId: string;
+  variantId: string | null;
+  name: string;
+  productName: string;
+  variantName?: string;
+  price: number; // This will be calculated from string basePrice + string priceModifier
+  quantity: number;
+  imageUrls?: string[] | null;
+  sku?: string | null;
+}
 
 type CartItem = Omit<ProjectCartItem, "sku"> & {
   unitPrice: string | number;

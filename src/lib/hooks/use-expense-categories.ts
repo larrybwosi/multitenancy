@@ -10,7 +10,7 @@ interface ExpenseCategory {
   isActive?: boolean;
 }
 // Fetch expense categories for an organization
-export const useExpenseCategories = ( onlyActive?: boolean, enabled?: boolean) => {
+export const useExpenseCategories = ( onlyActive?: boolean ) => {
   return useQuery<ExpenseCategory[]>({
     queryKey: ['expense-categories', onlyActive],
     queryFn: async () => {
@@ -19,7 +19,6 @@ export const useExpenseCategories = ( onlyActive?: boolean, enabled?: boolean) =
       });
       return res.data;
     },
-    enabled,
   });
 };
 

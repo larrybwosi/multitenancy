@@ -1,6 +1,5 @@
 import { FileTextIcon } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
-import { ExpensesNavigation } from "@/components/organization/finance/expenses/expenses-navigation"
 
 export default function ExpenseReports() {
   return (
@@ -11,9 +10,7 @@ export default function ExpenseReports() {
           <p className="text-muted-foreground mt-1">Generate and download expense reports</p>
         </div>
       </div>
-
-      <ExpensesNavigation />
-
+      
       <Card className="flex items-center justify-center h-[500px]">
         <CardContent className="text-center">
           <FileTextIcon className="h-16 w-16 mx-auto text-muted-foreground" />

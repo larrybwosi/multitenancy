@@ -12,7 +12,6 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ExpenseAnalytics } from "./expense-analytics"
-import { ExpensesNavigation } from "./expenses-navigation"
 import { useQueryState } from "nuqs"
 import { useQuery } from "@tanstack/react-query"
 
@@ -135,7 +134,7 @@ export function ExpenseAnalyticsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-4 py-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Expense Analytics</h1>
@@ -146,9 +145,6 @@ export function ExpenseAnalyticsPage() {
           Export Report
         </Button>
       </div>
-
-      <ExpensesNavigation />
-
       {isLoading ? (
         <div className="space-y-6">
           <Skeleton className="h-[200px] w-full" />
