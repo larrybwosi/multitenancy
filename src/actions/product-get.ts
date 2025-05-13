@@ -3,11 +3,11 @@ import {
   Product,
   ProductVariant,
   ProductSupplier,
-  Supplier, // Import Supplier if needed when including suppliers
-  InventoryLocation, // Import InventoryLocation for default location
+  Supplier,
+  InventoryLocation,
 } from '@/prisma/client';
-import { getServerAuthContext } from './auth'; // Assuming this path is correct
-import { db } from '@/lib/db'; // Assuming this is your prisma client instance path
+import { getServerAuthContext } from './auth'; 
+import { db } from '@/lib/db';
 import { GetProductsOptions } from '@/lib/hooks/use-products';
 
 // --- 2. Define the Enhanced Result Structure ---
@@ -23,6 +23,7 @@ export type ProductWithDetails = Product & {
   defaultLocation?: InventoryLocation | null;
   reorderPoint?: number | null;
   sellingPrice?: Prisma.Decimal | null;
+  totalStock?: number | null; // Total stock across all variants
 };
 
 // Updated main result structure
@@ -54,17 +55,16 @@ export async function getProducts(
 
   // --- Destructure options with defaults ---
   const {
-    includeVariants = true, // Default to include variants
-    includeCategory = true, // Default to include category
-    includeSuppliers = false,
+    includeVariants = true,
+    includeCategory = true, 
     includeDefaultLocation = false,
     page = 1,
     limit = 10,
     search,
     categoryId,
     isActive,
-    sortBy = 'createdAt', // Default sort field
-    sortOrder = 'desc', // Default sort order
+    sortBy = 'createdAt', 
+    sortOrder = 'desc', 
   } = options;
 
   // --- Calculate pagination ---
@@ -73,7 +73,7 @@ export async function getProducts(
 
   // --- Build WHERE clause ---
   const whereClause: Prisma.ProductWhereInput = {
-    organizationId: organizationId, // Filter by the user's organization [cite: 38]
+    organizationId, // Filter by the user's organization [cite: 38]
     ...(isActive !== undefined && { isActive: isActive }), // Filter by active status [cite: 30]
     ...(categoryId && { categoryId: categoryId }), // Filter by category [cite: 30]
     ...(search && {
@@ -97,7 +97,7 @@ export async function getProducts(
       // [cite: 32]
       where: {
         // Optionally filter included variants further if needed (e.g., isActive)
-        // isActive: true,
+        isActive: true,
       },
       select: {
         id: true,
@@ -118,15 +118,7 @@ export async function getProducts(
       },
     };
   }
-  if (includeSuppliers) {
-    // Includes the ProductSupplier junction record and the actual Supplier record
-    includeClause.suppliers = {
-      // [cite: 32]
-      include: {
-        supplier: true, // Include details of the related Supplier [cite: 46]
-      },
-    };
-  }
+  
   if (includeDefaultLocation) {
     includeClause.defaultLocation = true; // Include the InventoryLocation object [cite: 37]
   }
@@ -151,53 +143,63 @@ export async function getProducts(
     db.product.count({ where: whereClause }),
   ]);
 
-  // --- Map results (especially variants for sellingPrice) ---
-  // The structure largely matches ProductWithDetails due to Prisma's include logic
-  // We just need to ensure the sellingPrice mapping is done if variants are included
-
+  //Get the total variant stock for each product
   
-const data: ProductWithDetails[] = productsData.map(product => {
-  // Extract prices from the first variant (if it exists)
-  const firstVariant = product.variants?.[0];
-  const retailPrice = firstVariant?.retailPrice ?? null;
-  const wholesalePrice = firstVariant?.wholesalePrice ?? null;
-  const buyingPrice = firstVariant?.buyingPrice ?? null;
-  const reorderPoint = firstVariant?.reorderPoint ?? null;
+  const data: Promise<ProductWithDetails[]> = productsData.map(async product => {
+    // Extract prices from the first variant (if it exists)
+    const firstVariant = product.variants?.[0];
+    const retailPrice = firstVariant?.retailPrice ?? null;
+    const wholesalePrice = firstVariant?.wholesalePrice ?? null;
+    const buyingPrice = firstVariant?.buyingPrice ?? null;
+    const reorderPoint = firstVariant?.reorderPoint ?? null;
 
-  // Construct the final product object
-  const productDetail: ProductWithDetails = {
-    ...product, // Spread the base product fields
-    sellingPrice: retailPrice,
-    retailPrice,
-    wholesalePrice,
-    buyingPrice,
-    reorderPoint,
-    // Conditionally include the full variants array ONLY if requested
-    variants: includeVariants
-      ? (product.variants?.map(variant => ({
-          ...variant,
-          // Ensure sellingPrice alias is added if full variants are included
-          sellingPrice: variant.retailPrice,
-        })) ?? []) // Use empty array if variants somehow weren't fetched but includeVariants was true
-      : undefined, // Set variants to undefined if not requested
-    // Remove the variants property fetched solely for price extraction if includeVariants is false
-    ...(!includeVariants && { variants: undefined }),
-  };
+    const stockRecords = await db.productVariantStock.findMany({
+      where: {
+        productId: product.id,
+      },
+      select: {
+        currentStock: true,
+      },
+    });
 
-  // Clean up the temporary variants array if it was only for price extraction
-  if (!includeVariants) {
-    delete (productDetail).variants; // Necessary because TS doesn't know we conditionally added/removed it
-  }
+    // Sum the currentStock values
+    const totalStock = stockRecords.reduce((sum, record) => sum + record.currentStock, 0);
 
-  return productDetail;
-});
+    // Construct the final product object
+    const productDetail: ProductWithDetails = {
+      ...product, // Spread the base product fields
+      sellingPrice: retailPrice,
+      retailPrice,
+      wholesalePrice,
+      buyingPrice,
+      reorderPoint,
+      totalStock,
+      // Conditionally include the full variants array ONLY if requested
+      variants: includeVariants
+        ? (product.variants?.map(variant => ({
+            ...variant,
+            // Ensure sellingPrice alias is added if full variants are included
+            sellingPrice: variant.retailPrice,
+          })) ?? []) // Use empty array if variants somehow weren't fetched but includeVariants was true
+        : undefined, // Set variants to undefined if not requested
+      // Remove the variants property fetched solely for price extraction if includeVariants is false
+      ...(!includeVariants && { variants: undefined }),
+    };
+
+    // Clean up the temporary variants array if it was only for price extraction
+    if (!includeVariants) {
+      delete productDetail.variants; // Necessary because TS doesn't know we conditionally added/removed it
+    }
+
+    return productDetail;
+  });
 
   // --- Calculate pagination details ---
   const totalPages = Math.ceil(totalCount / limit);
 
   // --- Return results ---
   return {
-    data,
+    data: await Promise.all(data), // Await the mapped promises to resolve
     totalCount,
     currentPage: page,
     totalPages,

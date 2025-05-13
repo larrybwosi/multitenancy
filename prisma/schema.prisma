@@ -219,7 +219,6 @@ model Product {
   imageUrls    String[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  customFields Json? // For customization
 
   // Physical dimensions for space calculation
   width            Float?

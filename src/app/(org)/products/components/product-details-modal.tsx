@@ -17,6 +17,7 @@ const ProductModal: React.FC<{
   onClose: () => void;
   open: boolean;
 }> = ({ product, onClose, open }) => {
+  console.log(product)
   return (
     <Sheet open={open} onOpenChange={onClose}>
       <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
@@ -105,10 +106,9 @@ const ProductModal: React.FC<{
                   Price
                 </h3>
                 <p className="mt-1 text-sm font-medium text-gray-900">
-                  $
-                  {typeof product.retailProducts === "string"
+                  {/* {typeof product.retailProducts === "string"
                     ? parseFloat(product.retailProducts).toFixed(2)
-                    : product.retailProducts.toFixed(2)}
+                    : product.retailProducts.toFixed(2)} */}
                 </p>
               </div>
               <div className="bg-gray-50 p-3 rounded-lg">

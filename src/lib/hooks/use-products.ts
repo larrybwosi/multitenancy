@@ -153,3 +153,64 @@ export function useUpdateProduct() {
     },
   });
 }
+
+
+export const restockFormSchema = z.object({
+  unit: z.string().min(1, 'Unit is required'),
+  unitQuantity: z.number().min(1, 'Quantity must be at least 1'),
+  locationId: z.string().min(1, 'Location is required'),
+  supplierId: z.string().optional(),
+  purchasePrice: z.number().min(0, 'Price cannot be negative').optional(),
+  expiryDate: z.date().optional(),
+  notes: z.string().optional(),
+  actualDeliveryDate: z.date().optional(),
+});
+
+export type RestockFormValues = z.infer<typeof restockFormSchema>;
+
+interface RestockPayload extends Omit<RestockFormValues, 'expiryDate' | 'actualDeliveryDate'> {
+  productId: string;
+  variantId?: string;
+  expiryDate?: string;
+  actualDeliveryDate?: string;
+}
+
+export function useRestock({ onSuccess }: { onSuccess?: () => void } = {}) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: RestockPayload) => {
+      const response = await fetch('/api/stock/restock', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to restock product');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      toast.success('Product restocked', {
+        description: 'The product has been successfully restocked.',
+      });
+
+      // Invalidate relevant queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+
+      // Call the custom success callback if provided
+      onSuccess?.();
+    },
+    onError: error => {
+      toast.error('Error', {
+        description: error instanceof Error ? error.message : 'Something went wrong',
+      });
+    },
+  });
+}

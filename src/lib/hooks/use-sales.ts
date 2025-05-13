@@ -1,6 +1,7 @@
 
 import { Sale } from "@/prisma/client";
 import { useQuery } from "@tanstack/react-query";
+import axios from "axios";
 
 interface SaleWithCustomer extends Sale {
   customer?: {
@@ -29,6 +30,23 @@ const fetchSaleDetails = async (id: string): Promise<SaleWithCustomer> => {
   }
   return response.json();
 };
+
+interface SalesResponse {
+  sales: SaleWithCustomer[];
+  totalCount: number;
+}
+
+export function useGetSales(params?:string| null) {
+  return useQuery({
+    queryKey: ['sales'],
+    queryFn: async (): Promise<SalesResponse> => {
+      const res = await axios.get(`/api/sales?${params}`);
+      return res.data;
+    },
+    staleTime: 10 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false,
+  });
+}
 
 export function useGetSale(saleId?: string | null) {
   return useQuery({

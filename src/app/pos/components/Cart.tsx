@@ -35,7 +35,7 @@ import { CartItem, Customer, SaleData, SaleResult } from '../types';
 /**
  * Props for the Cart component
  */
-export interface CartProps {
+interface CartProps {
   cartItems: CartItem[];
   cartTotal: string;
   customers: Customer[];
@@ -63,7 +63,7 @@ interface MpesaPayment {
 /**
  * Cart component for managing shopping cart items and checkout
  */
-export default function Cart({
+function CartComponent({
   cartItems,
   cartTotal,
   customers,
@@ -827,3 +827,5 @@ export default function Cart({
     </div>
   );
 }
+
+export default CartComponent;

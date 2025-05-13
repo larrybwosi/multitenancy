@@ -7,8 +7,6 @@ import {
   Truck,
   Boxes,
   CreditCard,
-  DollarSign,
-  Percent,
   FileText,
   User,
   Settings,
@@ -18,10 +16,12 @@ import {
   ClipboardEdit,
   ArrowLeftRight,
   Layers3,
-  PackagePlus,
   ClipboardList,
   FileLineChart,
   Repeat2,
+  TrendingUpDown,
+  ReceiptEuro,
+  Banknote,
 } from "lucide-react";
 import { SectionItem } from "./sidebar";
 
@@ -150,20 +150,25 @@ export const sidebarSectionsData: SectionItem[] = [
       {
         
         title: "Expenses",
-        icon: <DollarSign size={18} />,
+        icon: <ReceiptEuro size={18} />,
         children:[
+          {
+            title:"Overview",
+            path:"/finance/expenses",
+            icon: <TrendingUpDown size={18} />,
+          },
           {
             title:"Analytics",
             path:"/finance/expenses/analytics",
             icon: <FileLineChart size={18} />,
           },
           {
-            title:"Recurring",
-            // path:"/finance/expenses/recurring",
+            title:"Categories",
+            path:"/finance/expenses/categories",
             icon: <Repeat2 size={18} />,
           },
           {
-            title: "Expense Settings",
+            title: "Settings",
             path:"/finance/expenses/settings",
             icon: <Settings size={18} />,
           }
@@ -173,7 +178,7 @@ export const sidebarSectionsData: SectionItem[] = [
         
         title: "Taxes",
         // path: "/financials/taxes",
-        icon: <Percent size={18} />,
+        icon: <Banknote size={18} />,
       },
       {
         

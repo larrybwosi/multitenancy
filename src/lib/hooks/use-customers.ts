@@ -57,7 +57,7 @@ export function useCreateCustomer(customer?: { id?: string; name: string }) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (data: CustomerFormValues) => {
-      const response = await fetch('/api/customers', {
+      const response = await fetch(!customer?.id ? '/api/customers' : `/api/customers/${customer?.id}`, {
         method: customer?.id ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'multipart/form-data',

@@ -211,9 +211,9 @@ export async function restockProduct(unsafeParams: unknown): Promise<object> {
           organizationId, // Ensure operating within the correct organization
         },
         create: {
-          productId: product.id, // Link to parent product [cite: 130]
-          variantId: targetVariantId, // Link to specific variant [cite: 130]
-          locationId, // Link to location [cite: 130]
+          productId: product.id, 
+          variantId: targetVariantId,
+          locationId, 
           currentStock: quantityInBaseUnits,
           reservedStock: 0, // New stock is not reserved
           availableStock: quantityInBaseUnits, // available = current - reserved [cite: 131]
@@ -358,6 +358,10 @@ export async function restockProduct(unsafeParams: unknown): Promise<object> {
           sku: targetVariant.sku,
         },
       };
+    },{
+      timeout: 10000, // Optional: Set a timeout for the transaction
+      isolationLevel: 'Serializable', // Optional: Set isolation level for the transaction
+      maxWait: 5000, // Optional: Set max wait time for acquiring locks
     }); // End Transaction
 
     // 9. Revalidate Cache (if using Next.js App Router)
@@ -401,34 +405,3 @@ function calculateSpaceOccupied(product: ProductWithVariants, quantity: number):
   const unitVolume = product.width * product.height * product.length;
   return unitVolume * quantity;
 }
-
-// --- Example Usage (requires async context) ---
-/*
-async function runRestockExample() {
-  try {
-    const restockData = {
-      variantId: 'clerk_variant_id_456', // Optional, replace with actual ID
-      unit: 'CASE', // Must exist in UNIT_DEFINITIONS
-      unitQuantity: 5,
-      locationId: 'clerk_location_id_789', // Replace with actual ID
-      supplierId: 'clerk_supplier_id_abc', // Optional
-      purchaseItemId: 'clerk_purchaseitem_id_def', // Optional
-      purchasePrice: 50.00, // Price per CASE
-      expiryDate: new Date('2025-12-31'), // Optional
-      notes: 'Received shipment ABC-123', // Optional
-    };
-
-    // Assume restockProduct is called within an authenticated context
-    const result = await restockProduct(restockData);
-    console.log('Restock successful:', result);
-
-  } catch (error) {
-    console.error('Restock failed:', error instanceof Error ? error.message : String(error));
-    if (error instanceof RestockError) {
-      // Handle specific restock errors
-    }
-  }
-}
-
-// runRestockExample();
-*/

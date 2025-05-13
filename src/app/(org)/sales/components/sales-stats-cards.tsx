@@ -2,6 +2,7 @@
 
 import { Card, CardContent } from '@/components/ui/card';
 import { useSalesSummary } from '@/lib/hooks/use-sales';
+import { formatCurrency } from '@/lib/utils';
 import { CreditCard, DollarSign, Package, Users, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface SalesStatsCardsProps {
@@ -11,14 +12,6 @@ interface SalesStatsCardsProps {
 export function SalesStatsCards({ dateRange }: SalesStatsCardsProps) {
   const { data: summary, isLoading, isError } = useSalesSummary(dateRange);
 
-  // Function to format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
 
   // Loading state
   if (isLoading) {

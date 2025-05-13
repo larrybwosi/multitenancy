@@ -29,7 +29,6 @@ import {
   User,
   Mail,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
 
 import { CustomerActions } from "./CustomerActions";
 import { formatDate } from "@/lib/utils";
@@ -42,7 +41,7 @@ import { CustomerModal } from "./CustomerForm";
 import CustomersLoading from "../loading";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { useCustomers } from "@/lib/hooks/use-customers";
-import { parseAsInteger, parseAsString, useQueryState } from "nuqs";
+import { parseAsBoolean, parseAsInteger, parseAsString, useQueryState } from "nuqs";
 
 type SearchParams = {
   [key: string]: string | undefined;
@@ -87,7 +86,16 @@ export function CustomerTable({ searchParams: initialSearchParams }: { searchPar
   const [viewingCustomer, setViewingCustomer] = useState<Customer | null>(null);
 
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
-  const [pageSize, setPageSize] = useState(10);
+  
+  const [pageSize, setPageSize] = useQueryState(
+    'pageSize',
+    parseAsString.withDefault(initialSearchParams.pageSize || '10')
+  );
+
+  const [isCreate, setIsCreate] = useQueryState(
+    'create',
+    parseAsBoolean.withDefault(false)
+  );
 
   const { data, isLoading } = useCustomers({
     // query: searchParams.query,
@@ -96,6 +104,7 @@ export function CustomerTable({ searchParams: initialSearchParams }: { searchPar
     sortOrder,
     page: currentPage || 1,
   });
+
   const handleSearch = (value: string) => {
     setSearchTerm(value);
   };
@@ -122,6 +131,7 @@ export function CustomerTable({ searchParams: initialSearchParams }: { searchPar
 
   const handleOpenSheet = (customer: Customer | null = null) => {
     setEditingCustomer(customer);
+    setIsCreate(true);
   };
 
   const handleViewCustomer = (customer: Customer) => {
@@ -180,7 +190,7 @@ const { customers, totalCount, totalPages } = data?.data
   return (
     <div className="w-full space-y-6">
       <div className="flex justify-end">
-        <CustomerModal customer={editingCustomer} />
+        <CustomerModal customer={editingCustomer} isOpen={isCreate} onClose={()=>setIsCreate(false)} />
       </div>
 
       <FilterControls

@@ -268,7 +268,7 @@ export async function saveCustomer(
       successMessage = "Customer created successfully.";
     }
 
-    revalidatePath("/customers"); // Revalidate customer list page
+    revalidatePath("/customers"); 
 
     return {
       success: true,
@@ -505,31 +505,6 @@ export async function addManualLoyaltyTransaction(
       // errors: { pointsChange: [errorMessage] }
     };
   }
-}
-
-/**
- * Get Authentication Information for the current session.
- * Useful for initializing pages or components with user/org context.
- */
-export async function getAuthInfo(): Promise<
-  ActionResponse<{ userId: string; organizationId: string }>
-> {
-  const authContext = await getServerAuthContext();
-  if (!authContext) {
-    return {
-      success: false,
-      message: "User not authenticated or no active organization.",
-    };
-  }
-
-  // No db call needed here, just return the context retrieved earlier
-  return {
-    success: true,
-    data: {
-      userId: authContext.userId,
-      organizationId: authContext.organizationId,
-    },
-  };
 }
 
 

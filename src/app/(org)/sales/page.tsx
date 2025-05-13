@@ -3,8 +3,7 @@
 import { Suspense, useState } from "react";
 import { useQueryState } from "nuqs";
 import { Download, ExternalLink, Eye, FilePlus2 } from "lucide-react";
-import useSWR from "swr";
-import { Sale, PaymentMethod, PaymentStatus } from "@/prisma/client";
+import { PaymentMethod, PaymentStatus } from "@/prisma/client";
 
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { FilterControls } from "@/components/file-controls";
@@ -20,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SaleDetailsSheet } from "./components/sheet";
 import { SalesStatsCards } from "./components/sales-stats-cards";
 import { formatCurrency } from "@/lib/utils";
+import { useGetSales } from "@/lib/hooks/use-sales";
 
 interface FilterOption {
   value: string;
@@ -31,25 +31,6 @@ interface ExportAction {
   icon: React.ReactNode;
   onClick: () => void;
 }
-
-interface Customer {
-  id: string;
-  name: string;
-}
-
-interface SaleWithCustomer extends Sale {
-  customer?: Customer;
-  items?: {
-    product: {
-      name: string;
-      price: number;
-    };
-    quantity: number;
-    price: number;
-  }[];
-}
-
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 
 export function SalesLoadingSkeleton() {
@@ -148,11 +129,7 @@ export default function SalesPage() {
   if (paymentStatus) params.append("paymentStatus", paymentStatus);
   if (dateRange) params.append("dateRange", dateRange);
 
-  // Fetch sales data with SWR
-  const { data, error, isLoading } = useSWR<{
-    sales: SaleWithCustomer[];
-    totalCount: number;
-  }>(`/api/sales?${params.toString()}`, fetcher);
+  const { data, error, isLoading } = useGetSales(params.toString());
 
   // Payment method options
   const paymentMethodOptions: FilterOption[] = Object.values(PaymentMethod).map(

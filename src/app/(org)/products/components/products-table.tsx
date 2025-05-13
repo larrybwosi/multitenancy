@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { EditProductDialog } from './edit-product-dialog';
 import { useRouter } from 'next/navigation';
+import { formatCurrency } from '@/lib/utils';
 
 interface ProductWithDetails extends Product {
   category: Category | null;
@@ -56,6 +57,7 @@ export const ProductTable: React.FC<ProductTableProps> = ({
   filterControlsProps,
   categories,
 }) => {
+  
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -147,10 +149,7 @@ export const ProductTable: React.FC<ProductTableProps> = ({
       <TableCell className="text-sm text-gray-500">{product.sku}</TableCell>
       <TableCell className="text-sm text-gray-500">{product.category?.name}</TableCell>
       <TableCell className="text-sm font-medium text-gray-900">
-        $
-        {typeof product.retailPrice === 'string'
-          ? parseFloat(product.retailPrice).toFixed(2)
-          : product.retailPrice?.toFixed(2)}
+        {formatCurrency(product?.retailPrice?.toString()|| '0')}
       </TableCell>
       <TableCell className="text-sm text-gray-500">{product.totalStock || 0}</TableCell>
       <TableCell className="text-sm text-gray-500">{product.reorderPoint || 0}</TableCell>
@@ -246,10 +245,7 @@ export const ProductTable: React.FC<ProductTableProps> = ({
         </div>
         <div className="mt-3 flex items-center justify-between">
           <div className="text-lg font-semibold text-gray-900">
-            $
-            {typeof product.retailPrice === 'string'
-              ? parseFloat(product.retailPrice).toFixed(2)
-              : product?.retailPrice?.toFixed(2)}
+            {formatCurrency(product?.retailPrice?.toString() || '0')}
           </div>
           <div className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">SKU: {product.sku}</div>
         </div>

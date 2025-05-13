@@ -152,17 +152,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
             <span className="flex-1 truncate">{route.title}</span>
 
-            {/* Checkbox for items that have isChecked property */}
-            {route.isChecked !== undefined && (
-              <input
-                type="checkbox"
-                checked={route.isChecked}
-                className="ml-2 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                onClick={(e) => e.stopPropagation()}
-                readOnly
-              />
-            )}
-
             {route.badge != null && (
               <div className="ml-2 rounded-full bg-red-500 text-white w-5 h-5 flex items-center justify-center text-xs flex-shrink-0">
                 {route.badge}
@@ -277,12 +266,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                 {isSectionExpanded ? (
                   <Minus
                     size={16}
-                    className="text-neutral-400 group-hover:text-neutral-600"
+                    className="text-neutral-400 group-hover:text-neutral-600 cursor-pointer"
                   />
                 ) : (
                   <Plus
                     size={16}
-                    className="text-neutral-400 group-hover:text-neutral-600"
+                    className="text-neutral-400 group-hover:text-neutral-600 cursor-pointer"
                   />
                 )}
               </div>

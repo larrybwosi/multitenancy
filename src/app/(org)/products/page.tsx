@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Package, Package2 } from 'lucide-react';
+import {AlertCircle, Package } from 'lucide-react';
 import ProductsTab from './components/products-tab';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { useCategories } from '@/lib/hooks/use-categories';
@@ -9,7 +9,6 @@ import { useProducts } from '@/lib/hooks/use-products';
 import { useQueryState } from 'nuqs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle } from 'lucide-react';
 import { Pagination } from '@/components/pagination';
 
 export default function ProductsPage() {
@@ -42,7 +41,7 @@ export default function ProductsPage() {
     sortBy: sortBy,
     sortOrder: sortOrder,
   });
-
+  
   // Fetch categories
   const { data: categoriesData, isLoading: isLoadingCategories, error: categoriesError } = useCategories();
 
@@ -73,7 +72,7 @@ export default function ProductsPage() {
       <Card className="border-none shadow-lg flex-1 overflow-hidden bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900">
         <CardHeader>
           <SectionHeader
-            title="Products"
+            title="Products Management"
             subtitle="Manage your products efficiently and effectively"
             icon={<Package className="h-8 w-8 text-blue-800" />}
           />
@@ -103,9 +102,9 @@ export default function ProductsPage() {
       <Card className="border-none shadow-lg flex-1 overflow-hidden">
         <CardHeader>
           <SectionHeader
-            title="Products"
+            title="Products Management"
             subtitle="Manage your products efficiently and effectively"
-            icon={<Package2 className="h-8 w-8 text-blue-800" />}
+            icon={<Package className="h-8 w-8 text-blue-800" />}
           />
         </CardHeader>
         <CardContent className="px-6">

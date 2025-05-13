@@ -1,5 +1,4 @@
 import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas-pro';
 import { toast } from 'sonner';
 
 /**
@@ -513,6 +512,7 @@ export async function generateAndSaveReceiptPdf(saleResponseData: SaleData) {
         };
       });
     });
+    const html2canvas = await require('html2canvas-pro');
 
     const canvas = await html2canvas(element, {
       width: 300, // 80mm ≈ 300px
@@ -641,24 +641,3 @@ interface LineItem {
   unitPrice: number;
   totalAmount: number;
 }
-
-// Example usage:
-/*
-const businessInfo: BusinessInfo = {
-  name: "Dealio Inc",
-  address: "123 Main St, City, Country",
-  phone: "+1234567890",
-  website: "www.dealioinc.com",
-  email: "info@dealioinc.com",
-  logo: "https://i.pinimg.com/736x/af/63/0d/af630de0e36a6ebb056478328941a175.jpg",
-  tagline: "Quality products at affordable prices",
-  footerMessage: "Thank you for shopping with us!"
-};
-
-const receiptProps = convertToReceiptProps(saleResponseData, businessInfo, "USD", {
-  primary: "#4f46e5",
-  secondary: "#818cf8",
-  text: "#1f2937",
-  background: "#ffffff"
-});
-*/
