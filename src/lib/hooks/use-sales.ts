@@ -35,7 +35,8 @@ export function useGetSale(saleId?: string | null) {
     queryKey: ['sale', saleId],
     queryFn: () => (saleId ? fetchSaleDetails(saleId) : Promise.reject('No sale ID')),
     enabled: !!saleId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 10 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false
   });
 }
 

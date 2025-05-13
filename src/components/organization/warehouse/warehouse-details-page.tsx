@@ -116,7 +116,7 @@ const fetcher = (url: string) =>
 export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
   const router = useRouter();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-    const [showEditSheet, setShowEditSheet] = useQueryState('modal', {
+    const [showEditSheet, setShowEditSheet] = useQueryState('eddit', {
       parse: v => v === 'true',
       serialize: v => (v ? 'true' : 'false'),
     });
@@ -987,97 +987,6 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
                 )}
               </div>
             </Card>
-            
-            {/* Low Stock Alerts Card */}
-            <Card>
-              <CardHeader className="border-b bg-muted/40">
-                <CardTitle className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-amber-600" />
-                  Low Stock Alerts
-                </CardTitle>
-                <CardDescription>
-                  Products that are running low and need to be replenished
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                <table className="w-full text-sm">
-                  <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                    <tr className="border-b">
-                      <th scope="col" className="px-6 py-3 text-left font-medium">
-                        Product
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-center font-medium">
-                        Quantity
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-center font-medium">
-                        Threshold
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-right font-medium">
-                        Status
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-right font-medium">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {/* Sample low stock items */}
-                    <tr className="bg-white hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-8 w-8 bg-red-100 rounded-md flex items-center justify-center">
-                            <Package className="h-4 w-4 text-red-600" />
-                          </div>
-                          <div className="ml-3">
-                            <div className="font-medium text-gray-900">Widget XYZ</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center font-medium text-red-600">
-                        2
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-gray-500">
-                        10
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                          Critical
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <Button variant="outline" className="h-7 text-xs">Order</Button>
-                      </td>
-                    </tr>
-                    <tr className="bg-white hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-8 w-8 bg-amber-100 rounded-md flex items-center justify-center">
-                            <Package className="h-4 w-4 text-amber-600" />
-                          </div>
-                          <div className="ml-3">
-                            <div className="font-medium text-gray-900">Gadget ABC</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center font-medium text-amber-600">
-                        8
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center text-gray-500">
-                        15
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                          Low
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <Button variant="outline" className="h-7 text-xs">Order</Button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
           </div>
         </TabsContent>
 
@@ -1117,7 +1026,7 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
       <WarehouseEditSheet
         open={showEditSheet as boolean}
         onOpenChange={setShowEditSheet}
-        warehouse={warehouse  as any}
+        warehouse={warehouse}
         onSave={handleUpdate}
       />
 

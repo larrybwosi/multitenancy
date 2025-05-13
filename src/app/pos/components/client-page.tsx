@@ -5,12 +5,13 @@ import { useQueryState, parseAsArrayOf, parseAsString } from "nuqs";
 import { ProductGrid } from "./ProductGrid";
 import { Customer, PaymentMethod } from "@/prisma/client";
 import { useAppStore } from "@/store/app";
-import Cart, { SaleData as CartSaleData, SaleResult } from "./cart";
-import { ExtendedProduct } from "../types";
+import { SaleData, SaleResult } from "../types";
 import { toast } from "sonner";
 import { useSubmitSale } from "@/hooks/use-sales";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import { ArrowLeft, ArrowRight } from "lucide-react";
+import { MotionDiv } from "@/components/motion";
+import Cart from "./cart";
 
 interface ProjectCartItem {
   id: string;
@@ -31,10 +32,6 @@ type CartItem = Omit<ProjectCartItem, "sku"> & {
   sku: string; // Make SKU non-nullable
 };
 
-// Our component's internal SaleData interface 
-interface SaleData extends CartSaleData {
-  items: CartItem[]; // Add items that our component needs internally
-}
 
 interface ProcessSaleInput {
   cartItems: Array<{
@@ -266,7 +263,7 @@ export function PosClientWrapper({
         </button>
       )}
       
-      <motion.div 
+      <MotionDiv 
         className="flex-grow h-full overflow-auto p-4 md:p-6 transition-all duration-300"
         animate={{ 
           width: isMobileView && cartVisible ? "0%" : "100%",
@@ -281,11 +278,11 @@ export function PosClientWrapper({
             getProductUrl={product => (product.sku ? product.sku.toLowerCase() : '')}
           />
         </div>
-      </motion.div>
+      </MotionDiv>
 
       <AnimatePresence>
         {(cartVisible || !isMobileView) && (
-          <motion.div 
+          <MotionDiv 
             className="h-full flex-shrink-0 bg-white dark:bg-neutral-900 shadow-2xl"
             initial={isMobileView ? { x: "100%" } : { x: 0 }}
             animate={{ x: 0 }}
@@ -312,7 +309,7 @@ export function PosClientWrapper({
                 onClose={isMobileView ? toggleCart : undefined}
               />
             </div>
-          </motion.div>
+          </MotionDiv>
         )}
       </AnimatePresence>
     </div>

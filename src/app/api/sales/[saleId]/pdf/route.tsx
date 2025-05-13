@@ -3,7 +3,7 @@ import { renderToStream } from '@react-pdf/renderer';
 import { InvoiceDocument } from '@/utils/invoices/template2';
 import { db } from '@/lib/db';
 
-export async function POST(
+export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ saleId: string }> }
 ) {
@@ -47,25 +47,10 @@ export async function POST(
     }
 
     // Render the PDF document to a stream
-    const pdfStream = await renderToStream(
-        <InvoiceDocument sale={sale as any} /> // Cast needed if TS complains about Prisma types vs component props
-    );
-
-    // Convert stream to buffer (required for Next.js Response)
-    const chunks: Uint8Array[] = [];
-     for await (const chunk of pdfStream as any) { // Type assertion might be needed
-       chunks.push(chunk);
-     }
-    const pdfBuffer = Buffer.concat(chunks);
-
+    const stream = await renderToStream( <InvoiceDocument sale={sale} />);
+    
     // Return the PDF stream in the response
-    return new NextResponse(pdfBuffer, {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="invoice_${sale.saleNumber || sale.id}.pdf"`, // Suggest filename
-      },
-    });
+    return new NextResponse(stream as unknown as ReadableStream);
 
   } catch (error) {
     console.error('Error generating PDF:', error);

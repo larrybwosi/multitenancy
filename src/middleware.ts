@@ -16,6 +16,7 @@ const publicPaths = new Set([
   "/api/attendance/check-in",
   "/api/attendance/check-out",
   "/api/attendance/check-out/all",
+  "/api/pdf",
 ]);
 
 export default async function middleware(request: NextRequest) {

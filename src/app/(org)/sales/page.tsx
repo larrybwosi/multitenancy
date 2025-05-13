@@ -4,7 +4,7 @@ import { Suspense, useState } from "react";
 import { useQueryState } from "nuqs";
 import { Download, ExternalLink, Eye, FilePlus2 } from "lucide-react";
 import useSWR from "swr";
-import { Sale, PaymentMethod, PaymentStatus, Prisma } from "@/prisma/client";
+import { Sale, PaymentMethod, PaymentStatus } from "@/prisma/client";
 
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { FilterControls } from "@/components/file-controls";
@@ -19,6 +19,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { SaleDetailsSheet } from "./components/sheet";
 import { SalesStatsCards } from "./components/sales-stats-cards";
+import { formatCurrency } from "@/lib/utils";
 
 interface FilterOption {
   value: string;
@@ -79,13 +80,6 @@ export default function SalesPage() {
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
 
-  // Function to format currency
-  const formatCurrency = (amount: number| Prisma.Decimal) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(parseInt(amount.toString()));
-  };
 
   // Simple date formatter function without date-fns
   const formatDate = (dateString: string | Date) => {
@@ -322,7 +316,7 @@ export default function SalesPage() {
                             <span className="text-gray-500">Walk-in</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-right font-medium">{formatCurrency(sale.finalAmount)}</td>
+                        <td className="px-4 py-3 text-right font-medium">{formatCurrency(sale.finalAmount, 'KSH', 'en-KE')}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center">
                             <div

@@ -1,17 +1,3 @@
-import { PaymentMethod, ProductVariant } from "@prisma/client";
-
-/**
- * Product interface represents a product in the POS system
- */
-export interface Product {
-  id: string;
-  name: string;
-  sku: string;
-  barcode: string | null;
-  basePrice: string; // Stored as string for decimal precision
-  imageUrls: string[];
-}
-
 /**
  * Customer interface represents a customer in the POS system
  */
@@ -37,87 +23,78 @@ export interface CartItem {
 }
 
 /**
- * Props for the Cart component
- */
-export interface CartProps {
-  cartItems: CartItem[];
-  cartTotal: string;
-  customers: Customer[];
-  onUpdateQuantity: (productId: string, quantity: number) => void;
-  onRemoveItem: (productId: string) => void;
-  onClearCart: () => void;
-  onSubmitSale: (saleData: SaleData) => Promise<SaleResult>;
-}
-
-/**
- * Props for the CartItem component
- */
-export interface CartItemProps {
-  item: CartItem;
-  onUpdateQuantity: (productId: string, quantity: number) => void;
-  onRemoveItem: (productId: string) => void;
-}
-
-/**
- * Data structure for submitting a sale
+ * Sale data interface for submitting a sale
  */
 export interface SaleData {
   customerId: string | null;
-  paymentMethod: PaymentMethod;
+  paymentMethod: string;
   notes: string;
-  items: Array<{
-    productId: string;
-    variantId: string | null;
-    quantity: number;
-  }>;
-  taxAmount: string;
-  totalAmount: string;
-  phoneNumber?: string; // For MPESA payments
 }
 
 /**
- * Props for the PosClientWrapper component
- */
-export interface PosClientWrapperProps {
-  products: Product[];
-  customers: Customer[];
-}
-
-/**
- * Result from submitting a sale
+ * Sale result interface for receipt data
  */
 export interface SaleResult {
-  success: boolean;
-  message: string;
-  errors?: string[];
-}
-
-/**
- * Order interface for managing completed orders
- */
-export interface Order {
   id: string;
+  saleNumber: string;
   customerId: string | null;
-  items: CartItem[];
-  total: string;
+  memberId: string;
+  saleDate: Date;
+  totalAmount: number;
+  discountAmount: number;
+  taxAmount: number;
+  finalAmount: number;
+  paymentMethod: string;
+  paymentStatus: string;
+  locationId: string;
+  notes: string;
+  cashDrawerId: string | null;
+  receiptUrl: string | null;
   createdAt: Date;
-  status: OrderStatus;
+  updatedAt: Date;
+  organizationId: string;
+  items: SaleResultItem[];
+  customer: Customer | null;
+  member: {
+    id: string;
+    user: {
+      name: string;
+    };
+  };
+  organization: {
+    id: string;
+    name: string;
+    logo: string;
+  };
 }
 
 /**
- * Enum representing the possible statuses of an order
+ * Sale result item interface
  */
-export enum OrderStatus {
-  PENDING = 'PENDING',
-  COMPLETED = 'COMPLETED',
-  CANCELLED = 'CANCELLED',
-} 
-
-
-export type ExtendedProduct = {
-  sellingPrice: string | number;
-  wholesalePrice: string;
-  buyingPrice: string;
-  variants: ProductVariant[];
-  stock?: number;
-} & Product; 
+export interface SaleResultItem {
+  id: string;
+  saleId: string;
+  productId: string;
+  variantId: string;
+  stockBatchId: string;
+  quantity: number;
+  unitPrice: number;
+  unitCost: number;
+  discountAmount: number;
+  taxRate: number;
+  taxAmount: number;
+  totalAmount: number;
+  createdAt: Date;
+  updatedAt: Date;
+  product?: {
+    name: string;
+    sku: string;
+  };
+  variant: {
+    name: string;
+    product?: {
+      name: string;
+      sku: string;
+    };
+  };
+}

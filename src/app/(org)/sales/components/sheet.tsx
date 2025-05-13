@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas-pro';
 import Image from 'next/image';
 import { Calendar, CreditCard, Download, Package, Printer, Receipt, User } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
@@ -17,6 +16,7 @@ import { Separator } from '@/components/ui/separator';
 
 import { useGetSale } from '@/lib/hooks/use-sales';
 import { MotionDiv, MotionSpan } from '@/components/motion';
+import { formatCurrency } from '@/lib/utils';
 
 // Color palette
 const COLORS = {
@@ -62,14 +62,6 @@ const formatDate = (dateString: string | Date) => {
     date: `${month} ${day}, ${year}`,
     time: `${hours}:${minutes} ${ampm}`,
   };
-};
-
-const formatCurrency = (amount: number | null | undefined) => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-  }).format(amount || 0);
 };
 
 export function SaleDetailsSheet({
@@ -119,8 +111,9 @@ export function SaleDetailsSheet({
     }
 
     try {
+      // const res = await fetch(`/api/sales/${saleId}/pdf`);
       toast.loading('Generating PDF...');
-
+      const html2canvas = await require('html2canvas-pro');
       const canvas = await html2canvas(content, {
         scale: 2,
         logging: false,
@@ -440,13 +433,24 @@ export function SaleDetailsSheet({
                             <div className="col-span-1">
                               {item.variant?.product.imageUrls ? (
                                 <MotionDiv whileHover={{ scale: 1.1 }} className="relative h-10 w-10">
-                                  <Image
+                                  {item.variant.product.imageUrls?.[0] ?
+                                    <Image
                                     src={item?.variant.product.imageUrls?.[0]}
                                     alt={item?.variant?.product.name}
                                     fill
                                     className="rounded-md object-cover border"
                                     style={{ borderColor: COLORS.muted + '30' }}
-                                  />
+                                  />:(
+                                    <div
+                                      className="h-10 w-10 rounded-md flex items-center justify-center border"
+                                      style={{
+                                        backgroundColor: COLORS.muted + '10',
+                                        borderColor: COLORS.muted + '30',
+                                      }}
+                                    >
+                                      <Package className="h-5 w-5" style={{ color: COLORS.muted }} />
+                                    </div>
+                                  )}
                                 </MotionDiv>
                               ) : (
                                 <div

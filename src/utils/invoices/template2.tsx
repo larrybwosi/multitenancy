@@ -1,7 +1,6 @@
 // components/pdf/InvoiceDocument.tsx
-import React from 'react';
-import { Page, Text, View, Document, StyleSheet, Font } from '@react-pdf/renderer';
-import { Sale, SaleItem, Customer, Organization, ProductVariant } from '@prisma/client'; // Assuming Prisma client types
+import { Page, Text, View, Document, StyleSheet } from '@react-pdf/renderer';
+import { Sale, SaleItem, Customer, Organization, ProductVariant } from '@/prisma/client'; // Assuming Prisma client types
 
 // --- Types ---
 // Extend Prisma types if necessary or create a specific type for props
@@ -87,7 +86,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: 24,
     textAlign: 'center',
-    fontStyle: 'bold',
+    fontStyle: 'normal',
     fontSize: 10,
   },
   tableRow: {
@@ -269,7 +268,7 @@ export const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({ sale }) => {
               <Text style={styles.summaryValue}>
                 {currency}
                 {(sale.totalAmount?.toNumber() ?? 0).toFixed(2)}
-              </Text>{' '}
+              </Text>
               {/* [cite: 56] */}
             </View>
             {/* Show discount if applicable */}
@@ -279,7 +278,7 @@ export const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({ sale }) => {
                 <Text style={styles.summaryValue}>
                   -{currency}
                   {sale.discountAmount.toFixed(2)}
-                </Text>{' '}
+                </Text>
                 {/* [cite: 56] */}
               </View>
             )}
@@ -291,7 +290,7 @@ export const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({ sale }) => {
               <Text style={styles.summaryValue}>
                 {currency}
                 {(sale.taxAmount?.toNumber() ?? 0).toFixed(2)}
-              </Text>{' '}
+              </Text>
               {/* [cite: 56] */}
             </View>
             <View
@@ -301,7 +300,7 @@ export const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({ sale }) => {
               <Text style={styles.summaryTotalValue}>
                 {currency}
                 {(sale.finalAmount?.toNumber() ?? 0).toFixed(2)}
-              </Text>{' '}
+              </Text>
               {/* [cite: 56] */}
             </View>
           </View>

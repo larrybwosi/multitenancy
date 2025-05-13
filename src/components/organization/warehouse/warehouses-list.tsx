@@ -14,6 +14,7 @@ import {
 import { formatCurrency } from '@/lib/utils';
 import { Avatar } from '@/components/ui/avatar';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface Warehouse {
   id: string;
@@ -37,6 +38,7 @@ interface WarehouseListProps {
 }
 
 export function WarehouseList({ warehouses }: WarehouseListProps) {
+  const router = useRouter()
   // Function to get icon based on location type
   const getLocationIcon = (type: string) => {
     switch (type) {
@@ -186,14 +188,20 @@ export function WarehouseList({ warehouses }: WarehouseListProps) {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-[180px]">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem className="cursor-pointer">
+                          <DropdownMenuItem
+                            className="cursor-pointer"
+                            onClick={() => router.push(`/warehouses/${warehouse.id}`)}
+                          >
                             <Link href={`/warehouses/${warehouse.id}`} className="flex items-center gap-2">
                               <Eye className="mr-2 h-4 w-4" />
                               <span>View</span>
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="cursor-pointer">
-                            <Link href={`/warehouses/${warehouse.id}?modal=true`} className="flex items-center gap-2">
+                          <DropdownMenuItem
+                            className="cursor-pointer"
+                            onClick={() => router.push(`/warehouses/${warehouse.id}eddit=true`)}
+                          >
+                            <Link href={`/warehouses/${warehouse.id}?eddit=true`} className="flex items-center gap-2">
                               <Edit className="mr-2 h-4 w-4" />
                               <span>Edit</span>
                             </Link>
