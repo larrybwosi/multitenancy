@@ -1,6 +1,7 @@
+
 generator client {
-  provider = "prisma-client-js"
-  output   = "../src/prisma/client"
+  provider        = "prisma-client-js"
+  output          = "../src/prisma/client"
   previewFeatures = ["driverAdapters"]
 }
 
@@ -35,6 +36,9 @@ model User {
   activeOrganizationId String?
   notifications        Notification[]
   expenseNotifications Notification[] @relation("UserExpenseNotifications")
+
+  displayUsername String?
+  apikeys         Apikey[]
 
   @@unique([username])
   @@map("user")
@@ -83,11 +87,7 @@ model Member {
   processedReturns     Return[]
   expenseApprovals     ExpenseApproval[]    @relation("ApproverMember")
 
-  // Optional: Track current status
-  isCheckedIn       Boolean            @default(false)
-  lastCheckInTime   DateTime?
-
-  notifications     Notification[]
+  notifications          Notification[]
   approvalStepConditions ApprovalStepCondition[] @relation("LocationConditions")
   approvalStepActions    ApprovalStepAction[]    @relation("ApprovalStepActionMember")
 
@@ -100,10 +100,20 @@ model Member {
 
   mpesaPaymentRequests MpesaPaymentRequest[]
 
+  // --- Attendance Tracking Fields ---
+  isCheckedIn              Boolean            @default(false)
+  lastCheckInTime          DateTime?
+  currentCheckInLocationId String? // References InventoryLocation
+  currentCheckInLocation   InventoryLocation? @relation(fields: [currentCheckInLocationId], references: [id], onDelete: SetNull)
+  currentAttendanceLogId   String?            @unique // Link to the active AttendanceLog record
+  currentAttendanceLog     AttendanceLog?     @relation("ActiveCheckIn", fields: [currentAttendanceLogId], references: [id], onDelete: SetNull)
+  attendanceLogs           AttendanceLog[]
+  // --- End Attendance Tracking Fields ---
+
   @@unique([organizationId, userId])
   @@index([userId])
   @@index([organizationId])
-  @@index([isCheckedIn]) // New index to quickly find active members
+  @@index([isCheckedIn])
   @@map("member")
 }
 
@@ -171,6 +181,7 @@ model Organization {
   expenseTagOptions        String[]
 
   mpesaPaymentRequests MpesaPaymentRequest[]
+  attendanceLogs       AttendanceLog[]
 
   @@map("organization")
 }
@@ -194,17 +205,17 @@ model Category {
 }
 
 model Product {
-  id           String   @id @default(cuid())
-  name         String
-  description  String?
-  sku          String   @unique
-  barcode      String?  @unique
-  categoryId   String
-  category     Category @relation(fields: [categoryId], references: [id])
-  isActive     Boolean  @default(true)
-  imageUrls    String[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  sku         String   @unique
+  barcode     String?  @unique
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+  isActive    Boolean  @default(true)
+  imageUrls   String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Physical dimensions for space calculation
   width            Float?
@@ -292,8 +303,10 @@ model Supplier {
   recurringExpenses RecurringExpense[]
   stockBatches      StockBatch[]
 
-  @@unique([organizationId, name]) // Enforce uniqueness per organization
-  @@index([name]) // Keep general index if needed, maybe remove if @@unique above is sufficient
+  // Enforce uniqueness per organization
+  // Keep general index if needed, maybe remove if @@unique above is sufficient
+  @@unique([organizationId, name])
+  @@index([name])
   @@index([organizationId])
 }
 
@@ -337,10 +350,13 @@ model Customer {
   createdBy           Member               @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete: Restrict) // Prevent deleting member if they created customers
   updatedBy           Member?              @relation("CustomerUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull) // Allow setting null if updater deleted
 
-  @@unique([organizationId, email]) // Email should be unique per organization
+  // Email should be unique per organization
+  // Keep general index if needed
+  // Index for filtering by org
+  @@unique([organizationId, email])
   @@index([name])
-  @@index([email]) // Keep general index if needed
-  @@index([organizationId]) // Index for filtering by org
+  @@index([email])
+  @@index([organizationId])
 }
 
 // --- Transactional Models ---
@@ -377,7 +393,8 @@ model Sale {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
 
-  @@unique([organizationId, saleNumber]) // Enforce uniqueness per organization
+  // Enforce uniqueness per organization
+  @@unique([organizationId, saleNumber])
   @@index([memberId])
   @@index([saleDate])
   @@index([customerId])
@@ -438,7 +455,8 @@ model Purchase {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
 
-  @@unique([organizationId, purchaseNumber]) // Enforce uniqueness per organization
+  // Enforce uniqueness per organization
+  @@unique([organizationId, purchaseNumber])
   @@index([orderDate])
   @@index([supplierId])
   @@index([status])
@@ -505,7 +523,8 @@ model Return {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
 
-  @@unique([organizationId, returnNumber]) // Enforce uniqueness per organization
+  // Enforce uniqueness per organization
+  @@unique([organizationId, returnNumber])
   @@index([saleId])
   @@index([status])
   @@index([createdAt])
@@ -560,6 +579,7 @@ enum ReturnReason {
 }
 
 // --- Inventory & Stock Models ---
+
 model InventoryLocation {
   id                  String                  @id @default(cuid())
   name                String
@@ -583,20 +603,25 @@ model InventoryLocation {
   managerId           String?
   manager             Member?                 @relation("LocationManager", fields: [managerId], references: [id], onDelete: SetNull)
   sales               Sale[] // Sales made from this location
-  // Existing relations
-  organizationId      String
-  organization        Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  stockBatches        StockBatch[]
-  stockAdjustments    StockAdjustment[]
-  variantStocks       ProductVariantStock[]
-  outgoingMovements   StockMovement[]         @relation("FromLocationMovements")
-  incomingMovements   StockMovement[]         @relation("ToLocationMovements")
+
+  organizationId    String
+  organization      Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  stockBatches      StockBatch[]
+  stockAdjustments  StockAdjustment[]
+  variantStocks     ProductVariantStock[]
+  outgoingMovements StockMovement[]       @relation("FromLocationMovements")
+  incomingMovements StockMovement[]       @relation("ToLocationMovements")
 
   // New storage management relations
   zones        StorageZone[]
   storageUnits StorageUnit[] // Direct storage units (not in zones)
+  // Relations for Attendance
 
-  defaultProducts   Product[]      @relation("ProductDefaultLocation")
+  checkedInMembers       Member[]
+  checkInAttendanceLogs  AttendanceLog[] @relation("CheckInLocationLogs")
+  checkOutAttendanceLogs AttendanceLog[] @relation("CheckOutLocationLogs")
+
+  defaultProducts Product[] @relation("ProductDefaultLocation")
 
   // Expense relations
   expenses Expense[]
@@ -768,7 +793,8 @@ model ProductVariantStock {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@unique([variantId, locationId]) // Only one stock record per variant per location
+  // Only one stock record per variant per location
+  @@unique([variantId, locationId])
   @@index([productId])
   @@index([locationId])
   @@index([organizationId])
@@ -933,11 +959,13 @@ model CashDrawer {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
 
-  @@unique([organizationId, name]) // Drawer names unique per org
+  // Drawer names unique per org
+  // Changed from userId
+  // @@index([locationId]) 
+  @@unique([organizationId, name])
   @@index([openedAt])
   @@index([closedAt])
-  @@index([memberId]) // Changed from userId
-  // @@index([locationId]) 
+  @@index([memberId])
   @@index([organizationId])
 }
 
@@ -949,6 +977,7 @@ enum DrawerStatus {
 }
 
 // --- Audit Log Model --- (Generally good as is)
+
 enum AuditLogAction {
   CREATE
   UPDATE
@@ -1055,6 +1084,7 @@ enum PurchaseStatus {
 }
 
 // Added: Specific settings for an organization
+
 model OrganizationSettings {
   id                String          @id @default(cuid())
   organizationId    String          @unique // Enforces one-to-one
@@ -1073,6 +1103,11 @@ model OrganizationSettings {
   defaultMeasurementUnit    MeasurementUnit? // Default measurement unit for the org
   defaultDimensionUnit      String? // e.g., "cm", "inches"
   defaultWeightUnit         String? // e.g., "kg", "lbs"
+
+  // --- Attendance Auto-Checkout Settings ---
+  enableAutoCheckout Boolean @default(false)
+  autoCheckoutTime   String? // Store as "HH:mm" in organization's local timezone (e.g., "17:00")
+  // --- End Attendance Auto-Checkout Settings ---
 
   @@map("organization_settings")
 }
@@ -1115,6 +1150,7 @@ enum LocationType {
 }
 
 // Added: Enum for inventory policy setting
+
 enum InventoryPolicy {
   FIFO // First-In, First-Out (Based on receivedDate)
   LIFO // Last-In, First-Out (Based on receivedDate)
@@ -1339,6 +1375,7 @@ enum ConditionType {
 }
 
 // Defines the required action (who needs to approve) for a step
+
 model ApprovalStepAction {
   id     String               @id @default(cuid())
   stepId String
@@ -1372,6 +1409,7 @@ enum ApprovalMode {
 }
 
 // Consider refining ApprovalStatus if needed, e.g., adding REQUEST_INFO
+
 enum ApprovalStatus {
   PENDING // Awaiting approver action.
   APPROVED // Approver granted approval.
@@ -1417,8 +1455,8 @@ model Budget {
   // Add alerts relation
   alerts  BudgetAlert[]
 
-  @@unique([organizationId, name, periodStart, periodEnd])
   // Add index
+  @@unique([organizationId, name, periodStart, periodEnd])
   @@index([fiscalYear])
   @@index([department])
   @@index([organizationId])
@@ -1497,7 +1535,6 @@ model Invitation {
   @@map("invitation")
 }
 
-
 // --- Customer Loyalty ---
 
 model LoyaltyTransaction {
@@ -1560,6 +1597,7 @@ enum ActionType {
 }
 
 // Logs for automation executions
+
 model ExecutionLog {
   id           String          @id @default(cuid())
   executedAt   DateTime        @default(now())
@@ -1619,13 +1657,18 @@ model Notification {
   details        Json?
 
   // --- Indexes for Performance ---
-  @@index([userId]) // Index for quickly finding notifications for a specific user
-  @@index([recipientEmail]) // Index for finding notifications sent to a specific email
-  @@index([read]) // Index for filtering read/unread notifications
-  @@index([createdAt]) // Index for sorting by creation time
+  // Index for quickly finding notifications for a specific user
+  // Index for finding notifications sent to a specific email
+  // Index for filtering read/unread notifications
+  // Index for sorting by creation time
+  @@index([userId])
+  @@index([recipientEmail])
+  @@index([read])
+  @@index([createdAt])
 }
 
 // Enum for Notification Types
+
 enum NotificationType {
   INVITATION
   MENTION
@@ -1645,7 +1688,90 @@ enum NotificationType {
   BUDGET_THRESHOLD
 }
 
-// --- Authentication & Authorization Models --- (Mostly standard, added Organization links)
+model MpesaPaymentRequest {
+  id                 String    @id @default(cuid())
+  organizationId     String
+  memberId           String
+  checkoutRequestId  String
+  merchantRequestId  String
+  amount             Decimal
+  phoneNumber        String
+  reference          String
+  status             String // PENDING, SUCCESS, FAILED
+  resultCode         Int?
+  resultDescription  String?
+  mpesaReceiptNumber String?
+  transactionDate    DateTime?
+  saleData           Json? // Store the sale data for processing after successful payment
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  member       Member       @relation(fields: [memberId], references: [id])
+
+  @@index([organizationId])
+  @@index([memberId])
+  @@index([checkoutRequestId])
+  @@index([merchantRequestId])
+  @@index([reference])
+}
+
+model AttendanceLog {
+  id                 String             @id @default(cuid())
+  memberId           String
+  member             Member             @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  organizationId     String
+  organization       Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  checkInTime        DateTime
+  checkOutTime       DateTime?
+  checkInLocationId  String // Now references InventoryLocation
+  checkInLocation    InventoryLocation  @relation("CheckInLocationLogs", fields: [checkInLocationId], references: [id], onDelete: Restrict)
+  checkOutLocationId String? // Optional: if checkout can happen at a different location
+  checkOutLocation   InventoryLocation? @relation("CheckOutLocationLogs", fields: [checkOutLocationId], references: [id], onDelete: Restrict)
+  durationMinutes    Int? // Calculated when member checks out
+  notes              String?
+  isAutoCheckout     Boolean            @default(false) // To flag if this was an auto checkout
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  activeMemberCheckIn Member? @relation("ActiveCheckIn") // Link to Member's current active log
+
+  @@index([memberId])
+  @@index([organizationId])
+  @@index([checkInTime])
+  @@index([checkOutTime])
+  @@index([checkInLocationId])
+  @@map("attendance_log")
+}
+
+model Apikey {
+  id                  String    @id
+  name                String?
+  start               String?
+  prefix              String?
+  key                 String
+  userId              String
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refillInterval      Int?
+  refillAmount        Int?
+  lastRefillAt        DateTime?
+  enabled             Boolean?
+  rateLimitEnabled    Boolean?
+  rateLimitTimeWindow Int?
+  rateLimitMax        Int?
+  requestCount        Int?
+  remaining           Int?
+  lastRequest         DateTime?
+  expiresAt           DateTime?
+  createdAt           DateTime
+  updatedAt           DateTime
+  permissions         String?
+  metadata            String?
+
+  @@map("apikey")
+}
+
+// --- Authentication & Authorization Models --- (Mostly standard)
 
 model Account {
   id                    String    @id
@@ -1692,32 +1818,4 @@ model Session {
   activeOrganizationId String?
 
   @@map("session")
-}
-
-model MpesaPaymentRequest {
-  id                String   @id @default(cuid())
-  organizationId    String
-  memberId         String
-  checkoutRequestId String
-  merchantRequestId String
-  amount           Decimal
-  phoneNumber      String
-  reference        String
-  status           String   // PENDING, SUCCESS, FAILED
-  resultCode       Int?
-  resultDescription String?
-  mpesaReceiptNumber String?
-  transactionDate   DateTime?
-  saleData         Json?    // Store the sale data for processing after successful payment
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  organization     Organization @relation(fields: [organizationId], references: [id])
-  member          Member       @relation(fields: [memberId], references: [id])
-
-  @@index([organizationId])
-  @@index([memberId])
-  @@index([checkoutRequestId])
-  @@index([merchantRequestId])
-  @@index([reference])
 }

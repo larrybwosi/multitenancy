@@ -100,6 +100,11 @@ model Member {
 
   mpesaPaymentRequests MpesaPaymentRequest[]
 
+  departmentMemberships          DepartmentMember[]
+  submittedWorkflowInstances   WorkflowInstance[] @relation("SubmittedWorkflowInstances")
+  assignedWorkflowTasks        WorkflowInstance[] @relation("AssignedWorkflowTasks")
+  workflowActionHistory        WorkflowInstanceHistory[] @relation("WorkflowActorHistory")
+
   // --- Attendance Tracking Fields ---
   isCheckedIn              Boolean            @default(false)
   lastCheckInTime          DateTime?
@@ -164,6 +169,7 @@ model Organization {
   recurringExpenses RecurringExpense[]
   expenseApprovals  ExpenseApproval[]
   budgetAlerts      BudgetAlert[]
+  departments Department[]
 
   expenseCategories        ExpenseCategory[]
   expenseApprovalRequired  Boolean           @default(false) // Whether expenses require approval
@@ -176,6 +182,7 @@ model Organization {
 
   // Relation to all workflows defined for this org
   approvalWorkflows        ApprovalWorkflow[] @relation("OrgWorkflows")
+  workflows     Workflow[]  
   expenseApprovalWorkflows ApprovalWorkflow[] @relation("ExpenseApprovalWorkflows")
   defaultExpenseCurrency   String             @default("USD")
   expenseTagOptions        String[]
@@ -185,6 +192,63 @@ model Organization {
 
   @@map("organization")
 }
+
+
+// --- Department Models (Department, DepartmentMember, DepartmentMemberRole - as previously defined) ---
+model Department {
+  id                String    @id @default(cuid())
+  name              String
+  description       String?
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  departmentMembers DepartmentMember[]
+  activeBudgetId    String?   @unique
+  activeBudget      Budget?   @relation("DepartmentBudget", fields: [activeBudgetId], references: [id], onDelete: SetNull)
+  budgets           Budget[]  @relation("DepartmentBudgets")
+
+  // --- Generic Workflow Relations ---
+  // Department can have multiple generic workflows defined for various processes
+  workflows         Workflow[] @relation("DepartmentWorkflows")
+  // Default generic workflow for new tasks/processes initiated in this department
+  defaultWorkflowId String? @unique
+  defaultWorkflow   Workflow? @relation("DefaultDepartmentWorkflow", fields: [defaultWorkflowId], references: [id], onDelete: SetNull)
+
+  customFields Json?
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("department")
+}
+
+
+model DepartmentMember {
+  id             String        @id @default(cuid())
+  departmentId   String
+  department     Department    @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  memberId       String
+  member         Member        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  role           DepartmentMemberRole @default(MEMBER) // Role within the department
+  canApproveExpenses Boolean   @default(false) // Specific flag if this member can approve expenses for the dept
+  canManageBudget  Boolean   @default(false) // Specific flag for budget management permissions
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([departmentId, memberId]) // A member can only be in a department once
+  @@index([memberId])
+  @@index([departmentId])
+  @@map("department_member")
+}
+
+enum DepartmentMemberRole {
+  HEAD     // Department Head with full control over the department
+  MANAGER  // Managerial role within the department
+  MEMBER   // Regular member of the department
+  VIEWER   // Read-only access to department information
+}
+
 
 model Category {
   id            String     @id @default(cuid())
@@ -1315,9 +1379,11 @@ model ApprovalWorkflow {
 
   // Relation for tracking which orgs have this as active (optional, but useful)
   activeForOrganizations Organization[] @relation("ActiveOrgWorkflow")
-
-  // Add the missing relation for expense approval workflows
   expenseApprovalOrganizations Organization[] @relation("ExpenseApprovalWorkflows")
+
+  // departmentId String?
+  // department   Department? @relation("DepartmentWorkflows", fields: [departmentId], references: [id], onDelete:SetNull)
+  // defaultForDepartment Department? @relation("DefaultDepartmentWorkflow") // If this workflow is a default for a department
 
   @@unique([organizationId, name])
   @@index([organizationId, isActive])
@@ -1365,6 +1431,105 @@ model ApprovalStepCondition {
   @@index([stepId])
   @@index([expenseCategoryId])
   @@index([locationId])
+}
+
+
+
+model Workflow {
+  id                String    @id @default(cuid())
+  name              String    // e.g., "Content Publishing", "New Client Onboarding", "Software Feature Proposal"
+  description       String?
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Link to a department if this workflow is specific to one
+  departmentId      String?
+  department        Department? @relation("DepartmentWorkflows", fields: [departmentId], references: [id], onDelete:SetNull)
+  defaultForDepartment Department? @relation("DefaultDepartmentWorkflow") // If this workflow is a default for a department
+
+  triggerType       WorkflowTriggerType @default(MANUAL) // How this workflow is initiated
+  definition        Json      // Stores the actual workflow structure (e.g., steps, conditions, actions, forms)
+                                // This JSON will be designed to be flexible and can be generated by Gemini.
+                                // Example: { "steps": [ { "id": "step1", "name": "Drafting", "assignee": "submitter", "formSchema": {...}, "nextSteps": [{"condition": "...", "targetStepId": "step2"}] } ] }
+  version           Int       @default(1) // For versioning workflow definitions
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  instances         WorkflowInstance[] // Instances of this workflow that are running or completed
+
+  @@unique([organizationId, name, version]) // Allow different versions of the same workflow name
+  @@index([departmentId])
+  @@index([organizationId, isActive])
+  @@map("workflow")
+}
+
+model WorkflowInstance {
+  id                  String    @id @default(cuid())
+  workflowId          String
+  workflow            Workflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade) // If workflow def changes, old instances use old def (captured in 'context' or 'workflowVersion' if needed)
+  status              WorkflowInstanceStatus @default(PENDING) // e.g., PENDING, IN_PROGRESS, COMPLETED, FAILED, CANCELLED
+  context             Json?     // Data relevant to this particular instance (e.g., submitted form data, current state variables)
+  currentStepId       String?   // Identifier for the current step in the workflow.definition
+  assignedToId        String?   // Member ID if a specific user is assigned to the current step
+  assignedTo          Member?   @relation("AssignedWorkflowTasks", fields: [assignedToId], references: [id], onDelete: SetNull)
+  submittedById       String
+  submittedBy         Member    @relation("SubmittedWorkflowInstances", fields: [submittedById], references: [id], onDelete: Restrict)
+  organizationId      String    // Denormalized for easier querying
+  departmentId        String?   // Denormalized for easier querying
+
+  // For tracking deadlines or escalations
+  dueDate             DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  // Relation to track history of steps taken (optional, but good for audit)
+  historyEntries      WorkflowInstanceHistory[]
+
+  @@index([workflowId])
+  @@index([status])
+  @@index([submittedById])
+  @@index([assignedToId])
+  @@index([organizationId])
+  @@index([departmentId])
+  @@map("workflow_instance")
+}
+
+// Optional: For detailed logging of each step transition within a workflow instance
+model WorkflowInstanceHistory {
+  id                 String    @id @default(cuid())
+  workflowInstanceId String
+  workflowInstance   WorkflowInstance @relation(fields: [workflowInstanceId], references: [id], onDelete: Cascade)
+  stepId             String    // The ID of the step from Workflow.definition
+  enteredAt          DateTime  @default(now())
+  exitedAt           DateTime?
+  actorId            String?   // Member who actioned this step
+  actor              Member?   @relation("WorkflowActorHistory", fields: [actorId], references: [id], onDelete: SetNull)
+  actionTaken        String?   // e.g., "Submitted", "Approved", "Rejected", "Commented"
+  comments           String?
+  dataSnapshot       Json?     // Snapshot of WorkflowInstance.context at this point
+
+  @@index([workflowInstanceId])
+  @@map("workflow_instance_history")
+}
+
+
+enum WorkflowTriggerType {
+  MANUAL      // User initiates the workflow
+  EVENT_BASED // Triggered by an application event (e.g., new customer created, document uploaded)
+  SCHEDULED   // Runs on a predefined schedule (e.g., daily report generation)
+  API_CALL    // Triggered by an external system via API
+}
+
+enum WorkflowInstanceStatus {
+  PENDING     // Workflow has been initiated but not started
+  IN_PROGRESS // Workflow is actively being worked on
+  COMPLETED   // Workflow finished successfully
+  FAILED      // Workflow terminated due to an error
+  CANCELLED   // Workflow was manually cancelled
+  ON_HOLD     // Workflow is paused
+  AWAITING_INPUT // Workflow is waiting for external input or a condition to be met
 }
 
 enum ConditionType {
@@ -1436,6 +1601,10 @@ model Budget {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdById    String
   createdBy      Member       @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  departmentId    String?            // Link to a specific department
+  department      Department?        @relation("DepartmentBudgets", fields: [departmentId], references: [id], onDelete: SetNull)
+  activeForDepartment Department?   @relation("DepartmentBudget") // If this budget is the 'active' one for a department
   expenses       Expense[]
   auditLogs      AuditLog[]
 
@@ -1447,7 +1616,6 @@ model Budget {
   amountRemaining Decimal @db.Decimal(10, 2) // Calculated: amount - amountUsed
 
   fiscalYear Int? // Fiscal year this budget applies to
-  department String? // Department/team this budget belongs to
   variance   Decimal? @db.Decimal(10, 2) // Calculated variance (actual vs budget)
 
   // Add these relations
@@ -1458,7 +1626,7 @@ model Budget {
   // Add index
   @@unique([organizationId, name, periodStart, periodEnd])
   @@index([fiscalYear])
-  @@index([department])
+  @@index([departmentId])
   @@index([organizationId])
   @@index([isActive])
 }
