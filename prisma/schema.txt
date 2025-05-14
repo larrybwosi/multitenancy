@@ -1,7 +1,7 @@
 generator client {
   provider = "prisma-client-js"
   output   = "../src/prisma/client"
-
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
@@ -83,18 +83,11 @@ model Member {
   processedReturns     Return[]
   expenseApprovals     ExpenseApproval[]    @relation("ApproverMember")
 
-  // New relations for attendance tracking
-  attendanceRecords Attendance[]
-  workSchedules     WorkSchedule[]
-
   // Optional: Track current status
   isCheckedIn       Boolean            @default(false)
   lastCheckInTime   DateTime?
-  currentLocationId String?
-  notifications     Notification[]
-  currentLocation   InventoryLocation? @relation("MemberCurrentLocation", fields: [currentLocationId], references: [id], onDelete: SetNull)
 
-  // Fix relations for ApprovalStepCondition and ApprovalStepAction
+  notifications     Notification[]
   approvalStepConditions ApprovalStepCondition[] @relation("LocationConditions")
   approvalStepActions    ApprovalStepAction[]    @relation("ApprovalStepActionMember")
 
@@ -155,10 +148,6 @@ model Organization {
   storageUnits     StorageUnit[]
   storagePositions StoragePosition[]
 
-  // Relations for attendance tracking  
-  attendance    Attendance[]
-  workSchedules WorkSchedule[]
-
   // Expense management relations
   expenses          Expense[]
   budgets           Budget[]
@@ -180,9 +169,6 @@ model Organization {
   expenseApprovalWorkflows ApprovalWorkflow[] @relation("ExpenseApprovalWorkflows")
   defaultExpenseCurrency   String             @default("USD")
   expenseTagOptions        String[]
-  taxrecords                  TaxRecord[]
-  taxReturns                TaxReturn[]
-  taxSchedule             TaxSchedule[]
 
   mpesaPaymentRequests MpesaPaymentRequest[]
 
@@ -219,7 +205,6 @@ model Product {
   imageUrls    String[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  customFields Json? // For customization
 
   // Physical dimensions for space calculation
   width            Float?
@@ -611,10 +596,6 @@ model InventoryLocation {
   zones        StorageZone[]
   storageUnits StorageUnit[] // Direct storage units (not in zones)
 
-  // Attendance related
-  attendanceRecords Attendance[]
-  workSchedules     WorkSchedule[]
-  currentMembers    Member[]       @relation("MemberCurrentLocation")
   defaultProducts   Product[]      @relation("ProductDefaultLocation")
 
   // Expense relations
@@ -1516,63 +1497,6 @@ model Invitation {
   @@map("invitation")
 }
 
-// Add these models to your existing schema.prisma file
-
-model Attendance {
-  id           String             @id @default(cuid())
-  memberId     String
-  member       Member             @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  locationId   String?
-  location     InventoryLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  checkInTime  DateTime           @default(now())
-  checkOutTime DateTime?
-  hoursWorked  Decimal?           @db.Decimal(10, 2) // Calculated field, null until checked out
-  status       AttendanceStatus   @default(CHECKED_IN)
-  notes        String?
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
-
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@index([memberId])
-  @@index([checkInTime])
-  @@index([organizationId])
-  @@index([locationId])
-  @@index([status])
-}
-
-enum AttendanceStatus {
-  CHECKED_IN // Member is currently checked in
-  CHECKED_OUT // Member has properly checked out
-  AUTO_CHECKOUT // System forced checkout (e.g., forgot to checkout)
-  ABSENT // Member was scheduled but didn't show up
-  LATE // Member checked in late
-  LEFT_EARLY // Member checked out before scheduled time
-}
-
-// Optional: Add a schedule model if you want to track expected working hours
-model WorkSchedule {
-  id            String             @id @default(cuid())
-  memberId      String
-  member        Member             @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  locationId    String?
-  location      InventoryLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  startTime     DateTime
-  endTime       DateTime
-  isRecurring   Boolean            @default(false)
-  recurringDays Int[] // 0=Sunday, 1=Monday, etc. (for recurring schedules)
-  notes         String?
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@index([memberId])
-  @@index([startTime])
-  @@index([organizationId])
-}
 
 // --- Customer Loyalty ---
 
@@ -1796,65 +1720,4 @@ model MpesaPaymentRequest {
   @@index([checkoutRequestId])
   @@index([merchantRequestId])
   @@index([reference])
-}
-
-// Tax Record Model
-model TaxRecord {
-  id            String    @id @default(cuid())
-  type          String    // VAT, Income Tax, Corporate Tax, etc.
-  amount        Float
-  status        String    // Paid, Pending, Overdue
-  date          DateTime
-  description   String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  
-  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  organizationId String
-}
-
-// Tax Return Model
-model TaxReturn {
-  id           String    @id @default(cuid())
-  period       String    // e.g., "Q1 2024", "FY 2023-2024"
-  type         String    // VAT Return, Income Tax Return, etc.
-  amount       Float
-  filingDate   DateTime
-  dueDate      DateTime
-  status       String    // Draft, Filed, Approved, Rejected
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  
-  attachments  TaxReturnAttachment[]
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  organizationId String
-}
-
-// Tax Return Attachment Model
-model TaxReturnAttachment {
-  id           String    @id @default(cuid())
-  name         String
-  url          String
-  createdAt    DateTime  @default(now())
-  
-  taxReturn    TaxReturn @relation(fields: [taxReturnId], references: [id], onDelete: Cascade)
-  taxReturnId  String
-}
-
-// Tax Payment Schedule Model
-model TaxSchedule {
-  id                 String    @id @default(cuid())
-  type               String    // VAT, Income Tax, Corporate Tax, etc.
-  amount             Float
-  dueDate            DateTime
-  description        String?
-  isRecurring        Boolean   @default(false)
-  recurringFrequency String?   // Monthly, Quarterly, Annually
-  notificationDate   DateTime?
-  status             String    @default("Pending") // Pending, Processed, Cancelled
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  
-  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  organizationId     String
 }

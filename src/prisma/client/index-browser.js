@@ -148,7 +148,8 @@ exports.Prisma.MemberScalarFieldEnum = {
   updatedAt: 'updatedAt',
   isCheckedIn: 'isCheckedIn',
   lastCheckInTime: 'lastCheckInTime',
-  currentLocationId: 'currentLocationId'
+  currentCheckInLocationId: 'currentCheckInLocationId',
+  currentAttendanceLogId: 'currentAttendanceLogId'
 };
 
 exports.Prisma.OrganizationScalarFieldEnum = {
@@ -192,7 +193,6 @@ exports.Prisma.ProductScalarFieldEnum = {
   imageUrls: 'imageUrls',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  customFields: 'customFields',
   width: 'width',
   height: 'height',
   length: 'length',
@@ -587,7 +587,9 @@ exports.Prisma.OrganizationSettingsScalarFieldEnum = {
   enableProductDimensions: 'enableProductDimensions',
   defaultMeasurementUnit: 'defaultMeasurementUnit',
   defaultDimensionUnit: 'defaultDimensionUnit',
-  defaultWeightUnit: 'defaultWeightUnit'
+  defaultWeightUnit: 'defaultWeightUnit',
+  enableAutoCheckout: 'enableAutoCheckout',
+  autoCheckoutTime: 'autoCheckoutTime'
 };
 
 exports.Prisma.ExpenseScalarFieldEnum = {
@@ -759,34 +761,6 @@ exports.Prisma.InvitationScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
-exports.Prisma.AttendanceScalarFieldEnum = {
-  id: 'id',
-  memberId: 'memberId',
-  locationId: 'locationId',
-  checkInTime: 'checkInTime',
-  checkOutTime: 'checkOutTime',
-  hoursWorked: 'hoursWorked',
-  status: 'status',
-  notes: 'notes',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt',
-  organizationId: 'organizationId'
-};
-
-exports.Prisma.WorkScheduleScalarFieldEnum = {
-  id: 'id',
-  memberId: 'memberId',
-  locationId: 'locationId',
-  startTime: 'startTime',
-  endTime: 'endTime',
-  isRecurring: 'isRecurring',
-  recurringDays: 'recurringDays',
-  notes: 'notes',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt',
-  organizationId: 'organizationId'
-};
-
 exports.Prisma.LoyaltyTransactionScalarFieldEnum = {
   id: 'id',
   customerId: 'customerId',
@@ -885,52 +859,19 @@ exports.Prisma.MpesaPaymentRequestScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
-exports.Prisma.TaxRecordScalarFieldEnum = {
+exports.Prisma.AttendanceLogScalarFieldEnum = {
   id: 'id',
-  type: 'type',
-  amount: 'amount',
-  status: 'status',
-  date: 'date',
-  description: 'description',
+  memberId: 'memberId',
+  organizationId: 'organizationId',
+  checkInTime: 'checkInTime',
+  checkOutTime: 'checkOutTime',
+  checkInLocationId: 'checkInLocationId',
+  checkOutLocationId: 'checkOutLocationId',
+  durationMinutes: 'durationMinutes',
+  notes: 'notes',
+  isAutoCheckout: 'isAutoCheckout',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt',
-  organizationId: 'organizationId'
-};
-
-exports.Prisma.TaxReturnScalarFieldEnum = {
-  id: 'id',
-  period: 'period',
-  type: 'type',
-  amount: 'amount',
-  filingDate: 'filingDate',
-  dueDate: 'dueDate',
-  status: 'status',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt',
-  organizationId: 'organizationId'
-};
-
-exports.Prisma.TaxReturnAttachmentScalarFieldEnum = {
-  id: 'id',
-  name: 'name',
-  url: 'url',
-  createdAt: 'createdAt',
-  taxReturnId: 'taxReturnId'
-};
-
-exports.Prisma.TaxScheduleScalarFieldEnum = {
-  id: 'id',
-  type: 'type',
-  amount: 'amount',
-  dueDate: 'dueDate',
-  description: 'description',
-  isRecurring: 'isRecurring',
-  recurringFrequency: 'recurringFrequency',
-  notificationDate: 'notificationDate',
-  status: 'status',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt',
-  organizationId: 'organizationId'
+  updatedAt: 'updatedAt'
 };
 
 exports.Prisma.SortOrder = {
@@ -1207,15 +1148,6 @@ exports.InvitationStatus = exports.$Enums.InvitationStatus = {
   EXPIRED: 'EXPIRED'
 };
 
-exports.AttendanceStatus = exports.$Enums.AttendanceStatus = {
-  CHECKED_IN: 'CHECKED_IN',
-  CHECKED_OUT: 'CHECKED_OUT',
-  AUTO_CHECKOUT: 'AUTO_CHECKOUT',
-  ABSENT: 'ABSENT',
-  LATE: 'LATE',
-  LEFT_EARLY: 'LEFT_EARLY'
-};
-
 exports.LoyaltyReason = exports.$Enums.LoyaltyReason = {
   SALE_EARNED: 'SALE_EARNED',
   REDEMPTION: 'REDEMPTION',
@@ -1296,8 +1228,6 @@ exports.Prisma.ModelName = {
   BudgetReport: 'BudgetReport',
   BudgetAlert: 'BudgetAlert',
   Invitation: 'Invitation',
-  Attendance: 'Attendance',
-  WorkSchedule: 'WorkSchedule',
   LoyaltyTransaction: 'LoyaltyTransaction',
   ExecutionLog: 'ExecutionLog',
   Notification: 'Notification',
@@ -1305,10 +1235,7 @@ exports.Prisma.ModelName = {
   Verification: 'Verification',
   Session: 'Session',
   MpesaPaymentRequest: 'MpesaPaymentRequest',
-  TaxRecord: 'TaxRecord',
-  TaxReturn: 'TaxReturn',
-  TaxReturnAttachment: 'TaxReturnAttachment',
-  TaxSchedule: 'TaxSchedule'
+  AttendanceLog: 'AttendanceLog'
 };
 
 /**

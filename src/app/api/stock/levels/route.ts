@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import prisma from "@/lib/db"
-import { Prisma } from "@prisma/client"
+import { Prisma } from "@/prisma/client"
 import { getServerAuthContext } from "@/actions/auth"
 
 // Define types for stock levels response
@@ -63,10 +63,10 @@ export async function GET(request: NextRequest) {
       where: productWhere,
       include: {
         category: true,
-          stockBatches: {
-            select: { currentQuantity: true },
-            where: { variantId: null, currentQuantity: { gt: 0 } },
-          },
+          // stockBatches: {
+          //   select: { currentQuantity: true },
+          //   where: { variantId: null, currentQuantity: { gt: 0 } },
+          // },
         variants: {
           include: {
             variantStocks: {
@@ -100,15 +100,11 @@ export async function GET(request: NextRequest) {
       // Calculate totals across all variants and locations
       const variantStocksRaw = product.variants.flatMap(v => v.variantStocks)
       
-      const baseStock = product.stockBatches.reduce(
-        (sum, batch) => sum + batch.currentQuantity,
-        0
-      );
       const variantStocksTotal = variantStocksRaw.reduce(
         (sum: number, vs) => sum + vs.currentStock,
         0
       )
-      const totalQuantity = baseStock + variantStocksTotal
+      const totalQuantity = variantStocksTotal
 
       const variantStocks = locations.map(location => {
         const variantStocksInLocation = variantStocksRaw
@@ -136,9 +132,6 @@ export async function GET(request: NextRequest) {
         }
       })
 
-      // Calculate total value based on base price
-      const totalValue = product.basePrice.toNumber() * totalQuantity
-
       return {
         productId: product.id,
         productName: product.name,
@@ -148,7 +141,6 @@ export async function GET(request: NextRequest) {
         variantStocks,
         totalQuantity,
         unitCost: product.basePrice.toNumber(),
-        totalValue,
         lastUpdated: product.updatedAt.toISOString(),
         status: totalQuantity <= 0 ? "out_of_stock" :
                variantStocks.some(vs => vs.quantity > 0 && vs.quantity <= vs.minLevel) ? "low_stock" :

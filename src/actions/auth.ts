@@ -1,10 +1,10 @@
 'use server';
 
-import {auth} from '@/lib/auth';
-import {db} from '@/lib/db';
+import { auth } from '@/lib/auth';
+import { db } from '@/lib/db';
 import redis from '@/lib/redis';
-import {MemberRole} from '@prisma/client';
-import {headers} from 'next/headers';
+import { MemberRole } from '@/prisma/client';
+import { headers } from 'next/headers';
 
 // Cache TTL constants
 const AUTH_CONTEXT_TTL = 1800; // 30 minutes
@@ -32,13 +32,13 @@ export async function getMemberAndOrgDetails(
   organizationDescription?: string | null;
 }> {
   if (!userId || !organizationId) {
-    return {memberId: null};
+    return { memberId: null };
   }
 
   try {
     const member = await db.member.findUnique({
       where: {
-        organizationId_userId: {organizationId, userId},
+        organizationId_userId: { organizationId, userId },
       },
       select: {
         id: true,
@@ -54,7 +54,7 @@ export async function getMemberAndOrgDetails(
     });
 
     if (!member) {
-      return {memberId: null};
+      return { memberId: null };
     }
 
     return {
@@ -65,7 +65,7 @@ export async function getMemberAndOrgDetails(
     };
   } catch (error) {
     console.error('Error fetching member/org details:', error);
-    return {memberId: null};
+    return { memberId: null };
   }
 }
 
@@ -107,7 +107,7 @@ async function getServerAuthContext(): Promise<ServerAuthContextResult> {
     // 2. Fetch session if not in cache or cache invalid
     let session;
     try {
-      session = sessionForCacheKey || (await auth.api.getSession({headers: await headers()}));
+      session = sessionForCacheKey || (await auth.api.getSession({ headers: await headers() }));
     } catch (sessionError) {
       //@ts-expect-error ignore
       console.error('Error fetching session:', sessionError.message);
@@ -121,18 +121,18 @@ async function getServerAuthContext(): Promise<ServerAuthContextResult> {
 
     // 3. Determine Active Organization ID
     let activeOrgId: string | null = null;
-      try {
-        const userPrefs = await db.user.findUnique({
-          where: {id: userId},
-          select: {activeOrganizationId: true},
-        });
-        activeOrgId = userPrefs?.activeOrganizationId || null;
-      } catch (dbError) {
-        //@ts-expect-error ignore
-        console.error('Error fetching user preferences:', dbError.message);
-        activeOrgId = null;
-      }
-    
+    try {
+      const userPrefs = await db.user.findUnique({
+        where: { id: userId },
+        select: { activeOrganizationId: true },
+      });
+      activeOrgId = userPrefs?.activeOrganizationId || null;
+    } catch (dbError) {
+      //@ts-expect-error ignore
+      console.error('Error fetching user preferences:', dbError.message);
+      activeOrgId = null;
+    }
+
     // 4. Fetch Member ID, Role, and Org Details
     let authContextData: ServerAuthContextResult;
 
@@ -201,7 +201,7 @@ async function checkUserAuthorization(userId: string, organizationId: string): P
           organizationId,
         },
       },
-      select: {userId: true},
+      select: { userId: true },
     });
 
     const isAuthorized = !!member;
@@ -244,4 +244,4 @@ async function invalidateAuthCache(
   }
 }
 
-export {getServerAuthContext, checkUserAuthorization, invalidateAuthCache};
+export { getServerAuthContext, checkUserAuthorization, invalidateAuthCache };

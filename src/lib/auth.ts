@@ -58,22 +58,23 @@ export const auth = betterAuth({
     },
   },
   plugins: [
+    apiKey(),
     username(),
     multiSession(),
-    passkey({
-      rpID: "localhost", // Use 'localhost' for local development
-      rpName: "Dealio POS",
-      origin: "http://localhost:3000", // Use 'http://localhost:3000' for local development
-      // Optional authenticator selection criteria
-      authenticatorSelection: {
-        // Determines the type of authenticator
-        authenticatorAttachment: "platform", // 'platform' or 'cross-platform'
-        // Controls credential storage behavior
-        residentKey: "preferred", // 'required', 'preferred', or 'discouraged'
-        // Controls biometric/PIN verification
-        userVerification: "preferred", // 'required', 'preferred', or 'discouraged'
-      },
-    }),
+    // passkey({
+    //   rpID: "localhost", // Use 'localhost' for local development
+    //   rpName: "Dealio POS",
+    //   origin: "http://localhost:3000", // Use 'http://localhost:3000' for local development
+    //   // Optional authenticator selection criteria
+    //   authenticatorSelection: {
+    //     // Determines the type of authenticator
+    //     authenticatorAttachment: "platform", // 'platform' or 'cross-platform'
+    //     // Controls credential storage behavior
+    //     residentKey: "preferred", // 'required', 'preferred', or 'discouraged'
+    //     // Controls biometric/PIN verification
+    //     userVerification: "preferred", // 'required', 'preferred', or 'discouraged'
+    //   },
+    // }),
     nextCookies(),
   ],
 

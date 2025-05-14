@@ -1,24 +1,35 @@
-import { checkOutMember } from "@/actions/attendance";
-import { getServerAuthContext } from "@/actions/auth";
-import { handleApiError } from "@/lib/api-utils";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from 'next/server';
+import { ValidationError, NotFoundError, NotCheckedInError, AppError } from '@/utils/errors';
+import { checkOutMember } from '@/actions/attendance';
 
-export async function POST(req: Request) {
-  const { memberId, organizationId } = await getServerAuthContext();
-
-  const { notes } = await req.json();
-
-  if (!memberId || !organizationId) {
-    return NextResponse.json(
-      { error: "Missing required fields" },
-      { status: 400 }
-    );
-  }
-
+export async function POST(request: NextRequest) {
   try {
-    const attendance = await checkOutMember(memberId, organizationId, notes);
-    return NextResponse.json(attendance);
+    const body = await request.json();
+    const { actingMemberId, memberToCheckoutId, organizationId, notes, checkoutInventoryLocationId } = body;
+
+    if (!actingMemberId || !memberToCheckoutId || !organizationId) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    const attendanceLog = await checkOutMember(
+      actingMemberId,
+      memberToCheckoutId,
+      organizationId,
+      notes,
+      checkoutInventoryLocationId
+    );
+
+    return NextResponse.json(attendanceLog, { status: 200 });
   } catch (error) {
-    return handleApiError(error);
+    if (error instanceof ValidationError || error instanceof NotCheckedInError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    if (error instanceof NotFoundError) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+    if (error instanceof AppError) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

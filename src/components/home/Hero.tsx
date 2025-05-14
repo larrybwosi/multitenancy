@@ -24,7 +24,7 @@ const Hero: React.FC = () => {
             Expenses Management and Accounting automation.
           </p>
           <MotionA
-            href="#"
+            href="/create"
             className="inline-block bg-orange-500 text-white px-6 py-3 rounded-md font-medium hover:bg-orange-600 transition duration-300"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}

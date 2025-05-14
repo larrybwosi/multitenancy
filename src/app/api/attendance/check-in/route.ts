@@ -1,31 +1,35 @@
-import {checkInMember, getOrganizationAndDefaultLocation} from '@/actions/attendance';
-import {getServerAuthContext} from '@/actions/auth';
-import {handleApiError} from '@/lib/api-utils';
-import {NextResponse} from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { ValidationError, NotFoundError, AlreadyCheckedInError, AppError } from '@/utils/errors';
+import { checkInMember } from '@/actions/attendance';
 
-export async function POST(req: Request) {
-  const {locationId, notes} = await req.json();
-  const {memberId, organizationId} = await getServerAuthContext();
-
+export async function POST(request: NextRequest) {
   try {
-    // If no locationId is provided, return organization and default warehouse details
-    if (!locationId) {
-      const orgDetails = await getOrganizationAndDefaultLocation(organizationId);
-      const attendance = await checkInMember(memberId, organizationId, orgDetails.warehouse?.id, notes);
-      return NextResponse.json({
-        organization: orgDetails.organization,
-        warehouse: orgDetails.warehouse,
-        requiresLocationSelection: true,
-        attendance,
-      });
+    const body = await request.json();
+    const { actingMemberId, memberToCheckInId, organizationId, inventoryLocationId, notes } = body;
+
+    if (!actingMemberId || !memberToCheckInId || !organizationId || !inventoryLocationId) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Proceed with check-in if location is provided
-    const attendance = await checkInMember(memberId, organizationId, locationId, notes);
+    const attendanceLog = await checkInMember(
+      actingMemberId,
+      memberToCheckInId,
+      organizationId,
+      inventoryLocationId,
+      notes
+    );
 
-    return NextResponse.json(attendance);
+    return NextResponse.json(attendanceLog, { status: 201 });
   } catch (error) {
-    console.error('Check-in error:', error);
-    return handleApiError(error);
+    if (error instanceof ValidationError || error instanceof AlreadyCheckedInError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    if (error instanceof NotFoundError) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+    if (error instanceof AppError) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
