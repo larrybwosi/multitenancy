@@ -1,6 +1,7 @@
 import { createAuthClient } from "better-auth/react";
 import {
   adminClient,
+  apiKeyClient,
   customSessionClient,
   organizationClient,
 } from "better-auth/client/plugins";
@@ -15,10 +16,12 @@ export const {
   admin,
   changePassword,
   organization,
+  apiKey
 } = createAuthClient({
   baseURL: process.env.BETTER_AUTH_URL,
   plugins: [
     customSessionClient<typeof auth>(),
+    apiKeyClient(),
     adminClient({
       ac,
       roles: {

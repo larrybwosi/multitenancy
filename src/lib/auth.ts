@@ -1,15 +1,15 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { multiSession, username } from "better-auth/plugins";
+import { apiKey, multiSession, username } from "better-auth/plugins";
 import { db } from "./db";
 import redis from "./redis";
-import { passkey } from "better-auth/plugins/passkey";
+// import { passkey } from "better-auth/plugins/passkey";
 import { nextCookies } from "better-auth/next-js";
 
 
 export const auth = betterAuth({
   database: prismaAdapter(db, {
-    provider: "postgresql",
+    provider: 'postgresql',
   }),
   emailAndPassword: {
     enabled: true,
@@ -23,11 +23,11 @@ export const auth = betterAuth({
     },
   },
   secret: process.env.BETTER_AUTH_SECRET,
-  appName: "Dealio POS",
+  appName: 'Dealio ',
   account: {
     accountLinking: {
       enabled: true,
-      trustedProviders: ["google", "github"],
+      trustedProviders: ['google', 'github'],
     },
   },
   session: {
@@ -42,7 +42,7 @@ export const auth = betterAuth({
   databaseHooks: {
     session: {
       create: {
-        before: async (session) => {
+        before: async session => {
           const user = await db.user.findUnique({
             where: { id: session.userId },
           });
@@ -58,7 +58,9 @@ export const auth = betterAuth({
     },
   },
   plugins: [
-    apiKey(),
+    apiKey({
+      enableMetadata: true,
+    }),
     username(),
     multiSession(),
     // passkey({
@@ -79,7 +81,7 @@ export const auth = betterAuth({
   ],
 
   secondaryStorage: {
-    get: async (key) => {
+    get: async key => {
       const value = (await redis.get(key)) as string | null;
       return value ? JSON.stringify(value) : null;
     },
@@ -87,13 +89,13 @@ export const auth = betterAuth({
       if (ttl) await redis.setex(key, ttl, value);
       else await redis.set(key, value);
     },
-    delete: async (key) => {
+    delete: async key => {
       await redis.del(key);
     },
   },
   rateLimit: {
     window: 60,
     max: 100,
-    storage: "secondary-storage",
+    storage: 'secondary-storage',
   },
 });

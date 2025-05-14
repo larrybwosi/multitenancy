@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { Document, Page, Text, View, StyleSheet, Font, renderToStream } from '@react-pdf/renderer';
+import { auth } from '@/lib/auth';
+import { headers } from 'next/headers';
 
 // Validation schema using zod
 const InvoiceItemSchema = z.object({
@@ -120,6 +122,8 @@ const InvoicePDF = ({ data }: { data: z.infer<typeof InvoiceSchema> }) => {
 // POST Route Handler
 export async function GET(request: Request) {
   try {
+    const session = await auth.api.getSession({headers: await headers()})
+    console.log(session)
     // const body = await request.json();
 
     // Validate the request body

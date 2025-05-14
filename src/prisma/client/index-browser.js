@@ -135,7 +135,8 @@ exports.Prisma.UserScalarFieldEnum = {
   banReason: 'banReason',
   banExpires: 'banExpires',
   username: 'username',
-  activeOrganizationId: 'activeOrganizationId'
+  activeOrganizationId: 'activeOrganizationId',
+  displayUsername: 'displayUsername'
 };
 
 exports.Prisma.MemberScalarFieldEnum = {
@@ -874,6 +875,30 @@ exports.Prisma.AttendanceLogScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.ApikeyScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  start: 'start',
+  prefix: 'prefix',
+  key: 'key',
+  userId: 'userId',
+  refillInterval: 'refillInterval',
+  refillAmount: 'refillAmount',
+  lastRefillAt: 'lastRefillAt',
+  enabled: 'enabled',
+  rateLimitEnabled: 'rateLimitEnabled',
+  rateLimitTimeWindow: 'rateLimitTimeWindow',
+  rateLimitMax: 'rateLimitMax',
+  requestCount: 'requestCount',
+  remaining: 'remaining',
+  lastRequest: 'lastRequest',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  permissions: 'permissions',
+  metadata: 'metadata'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -1235,7 +1260,8 @@ exports.Prisma.ModelName = {
   Verification: 'Verification',
   Session: 'Session',
   MpesaPaymentRequest: 'MpesaPaymentRequest',
-  AttendanceLog: 'AttendanceLog'
+  AttendanceLog: 'AttendanceLog',
+  Apikey: 'Apikey'
 };
 
 /**

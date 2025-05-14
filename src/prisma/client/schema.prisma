@@ -36,6 +36,9 @@ model User {
   notifications        Notification[]
   expenseNotifications Notification[] @relation("UserExpenseNotifications")
 
+  displayUsername String?
+  apikeys         Apikey[]
+
   @@unique([username])
   @@map("user")
 }
@@ -299,8 +302,10 @@ model Supplier {
   recurringExpenses RecurringExpense[]
   stockBatches      StockBatch[]
 
-  @@unique([organizationId, name]) // Enforce uniqueness per organization
-  @@index([name]) // Keep general index if needed, maybe remove if @@unique above is sufficient
+  // Enforce uniqueness per organization
+  // Keep general index if needed, maybe remove if @@unique above is sufficient
+  @@unique([organizationId, name])
+  @@index([name])
   @@index([organizationId])
 }
 
@@ -344,10 +349,13 @@ model Customer {
   createdBy           Member               @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete: Restrict) // Prevent deleting member if they created customers
   updatedBy           Member?              @relation("CustomerUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull) // Allow setting null if updater deleted
 
-  @@unique([organizationId, email]) // Email should be unique per organization
+  // Email should be unique per organization
+  // Keep general index if needed
+  // Index for filtering by org
+  @@unique([organizationId, email])
   @@index([name])
-  @@index([email]) // Keep general index if needed
-  @@index([organizationId]) // Index for filtering by org
+  @@index([email])
+  @@index([organizationId])
 }
 
 // --- Transactional Models ---
@@ -384,7 +392,8 @@ model Sale {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
 
-  @@unique([organizationId, saleNumber]) // Enforce uniqueness per organization
+  // Enforce uniqueness per organization
+  @@unique([organizationId, saleNumber])
   @@index([memberId])
   @@index([saleDate])
   @@index([customerId])
@@ -445,7 +454,8 @@ model Purchase {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
 
-  @@unique([organizationId, purchaseNumber]) // Enforce uniqueness per organization
+  // Enforce uniqueness per organization
+  @@unique([organizationId, purchaseNumber])
   @@index([orderDate])
   @@index([supplierId])
   @@index([status])
@@ -512,7 +522,8 @@ model Return {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
 
-  @@unique([organizationId, returnNumber]) // Enforce uniqueness per organization
+  // Enforce uniqueness per organization
+  @@unique([organizationId, returnNumber])
   @@index([saleId])
   @@index([status])
   @@index([createdAt])
@@ -567,6 +578,7 @@ enum ReturnReason {
 }
 
 // --- Inventory & Stock Models ---
+
 model InventoryLocation {
   id                  String                  @id @default(cuid())
   name                String
@@ -780,7 +792,8 @@ model ProductVariantStock {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@unique([variantId, locationId]) // Only one stock record per variant per location
+  // Only one stock record per variant per location
+  @@unique([variantId, locationId])
   @@index([productId])
   @@index([locationId])
   @@index([organizationId])
@@ -945,11 +958,13 @@ model CashDrawer {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
 
-  @@unique([organizationId, name]) // Drawer names unique per org
+  // Drawer names unique per org
+  // Changed from userId
+  // @@index([locationId]) 
+  @@unique([organizationId, name])
   @@index([openedAt])
   @@index([closedAt])
-  @@index([memberId]) // Changed from userId
-  // @@index([locationId]) 
+  @@index([memberId])
   @@index([organizationId])
 }
 
@@ -961,6 +976,7 @@ enum DrawerStatus {
 }
 
 // --- Audit Log Model --- (Generally good as is)
+
 enum AuditLogAction {
   CREATE
   UPDATE
@@ -1067,6 +1083,7 @@ enum PurchaseStatus {
 }
 
 // Added: Specific settings for an organization
+
 model OrganizationSettings {
   id                String          @id @default(cuid())
   organizationId    String          @unique // Enforces one-to-one
@@ -1132,6 +1149,7 @@ enum LocationType {
 }
 
 // Added: Enum for inventory policy setting
+
 enum InventoryPolicy {
   FIFO // First-In, First-Out (Based on receivedDate)
   LIFO // Last-In, First-Out (Based on receivedDate)
@@ -1356,6 +1374,7 @@ enum ConditionType {
 }
 
 // Defines the required action (who needs to approve) for a step
+
 model ApprovalStepAction {
   id     String               @id @default(cuid())
   stepId String
@@ -1389,6 +1408,7 @@ enum ApprovalMode {
 }
 
 // Consider refining ApprovalStatus if needed, e.g., adding REQUEST_INFO
+
 enum ApprovalStatus {
   PENDING // Awaiting approver action.
   APPROVED // Approver granted approval.
@@ -1434,8 +1454,8 @@ model Budget {
   // Add alerts relation
   alerts  BudgetAlert[]
 
-  @@unique([organizationId, name, periodStart, periodEnd])
   // Add index
+  @@unique([organizationId, name, periodStart, periodEnd])
   @@index([fiscalYear])
   @@index([department])
   @@index([organizationId])
@@ -1576,6 +1596,7 @@ enum ActionType {
 }
 
 // Logs for automation executions
+
 model ExecutionLog {
   id           String          @id @default(cuid())
   executedAt   DateTime        @default(now())
@@ -1635,13 +1656,18 @@ model Notification {
   details        Json?
 
   // --- Indexes for Performance ---
-  @@index([userId]) // Index for quickly finding notifications for a specific user
-  @@index([recipientEmail]) // Index for finding notifications sent to a specific email
-  @@index([read]) // Index for filtering read/unread notifications
-  @@index([createdAt]) // Index for sorting by creation time
+  // Index for quickly finding notifications for a specific user
+  // Index for finding notifications sent to a specific email
+  // Index for filtering read/unread notifications
+  // Index for sorting by creation time
+  @@index([userId])
+  @@index([recipientEmail])
+  @@index([read])
+  @@index([createdAt])
 }
 
 // Enum for Notification Types
+
 enum NotificationType {
   INVITATION
   MENTION
@@ -1764,4 +1790,31 @@ model AttendanceLog {
   @@index([checkOutTime])
   @@index([checkInLocationId])
   @@map("attendance_log")
+}
+
+model Apikey {
+  id                  String    @id
+  name                String?
+  start               String?
+  prefix              String?
+  key                 String
+  userId              String
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refillInterval      Int?
+  refillAmount        Int?
+  lastRefillAt        DateTime?
+  enabled             Boolean?
+  rateLimitEnabled    Boolean?
+  rateLimitTimeWindow Int?
+  rateLimitMax        Int?
+  requestCount        Int?
+  remaining           Int?
+  lastRequest         DateTime?
+  expiresAt           DateTime?
+  createdAt           DateTime
+  updatedAt           DateTime
+  permissions         String?
+  metadata            String?
+
+  @@map("apikey")
 }
