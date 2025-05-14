@@ -1,6 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
-  output   = "../src/prisma/client"
+  provider        = "prisma-client-js"
+  output          = "../src/prisma/client"
   previewFeatures = ["driverAdapters"]
 }
 
@@ -83,7 +83,7 @@ model Member {
   processedReturns     Return[]
   expenseApprovals     ExpenseApproval[]    @relation("ApproverMember")
 
-  notifications     Notification[]
+  notifications          Notification[]
   approvalStepConditions ApprovalStepCondition[] @relation("LocationConditions")
   approvalStepActions    ApprovalStepAction[]    @relation("ApprovalStepActionMember")
 
@@ -97,15 +97,14 @@ model Member {
   mpesaPaymentRequests MpesaPaymentRequest[]
 
   // --- Attendance Tracking Fields ---
-  isCheckedIn             Boolean            @default(false)
-  lastCheckInTime         DateTime?
-  currentCheckInLocationId String?            // References InventoryLocation
-  currentCheckInLocation  InventoryLocation? @relation(fields: [currentCheckInLocationId], references: [id], onDelete: SetNull)
-  currentAttendanceLogId  String?            @unique // Link to the active AttendanceLog record
-  currentAttendanceLog    AttendanceLog?     @relation("ActiveCheckIn", fields: [currentAttendanceLogId], references: [id], onDelete: SetNull)
-  attendanceLogs          AttendanceLog[]
+  isCheckedIn              Boolean            @default(false)
+  lastCheckInTime          DateTime?
+  currentCheckInLocationId String? // References InventoryLocation
+  currentCheckInLocation   InventoryLocation? @relation(fields: [currentCheckInLocationId], references: [id], onDelete: SetNull)
+  currentAttendanceLogId   String?            @unique // Link to the active AttendanceLog record
+  currentAttendanceLog     AttendanceLog?     @relation("ActiveCheckIn", fields: [currentAttendanceLogId], references: [id], onDelete: SetNull)
+  attendanceLogs           AttendanceLog[]
   // --- End Attendance Tracking Fields ---
-
 
   @@unique([organizationId, userId])
   @@index([userId])
@@ -178,7 +177,7 @@ model Organization {
   expenseTagOptions        String[]
 
   mpesaPaymentRequests MpesaPaymentRequest[]
-  attendanceLogs        AttendanceLog[]
+  attendanceLogs       AttendanceLog[]
 
   @@map("organization")
 }
@@ -202,17 +201,17 @@ model Category {
 }
 
 model Product {
-  id           String   @id @default(cuid())
-  name         String
-  description  String?
-  sku          String   @unique
-  barcode      String?  @unique
-  categoryId   String
-  category     Category @relation(fields: [categoryId], references: [id])
-  isActive     Boolean  @default(true)
-  imageUrls    String[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  sku         String   @unique
+  barcode     String?  @unique
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+  isActive    Boolean  @default(true)
+  imageUrls   String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Physical dimensions for space calculation
   width            Float?
@@ -591,25 +590,25 @@ model InventoryLocation {
   managerId           String?
   manager             Member?                 @relation("LocationManager", fields: [managerId], references: [id], onDelete: SetNull)
   sales               Sale[] // Sales made from this location
-  
-  organizationId      String
-  organization        Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  stockBatches        StockBatch[]
-  stockAdjustments    StockAdjustment[]
-  variantStocks       ProductVariantStock[]
-  outgoingMovements   StockMovement[]         @relation("FromLocationMovements")
-  incomingMovements   StockMovement[]         @relation("ToLocationMovements")
+
+  organizationId    String
+  organization      Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  stockBatches      StockBatch[]
+  stockAdjustments  StockAdjustment[]
+  variantStocks     ProductVariantStock[]
+  outgoingMovements StockMovement[]       @relation("FromLocationMovements")
+  incomingMovements StockMovement[]       @relation("ToLocationMovements")
 
   // New storage management relations
   zones        StorageZone[]
   storageUnits StorageUnit[] // Direct storage units (not in zones)
   // Relations for Attendance
 
-  checkedInMembers  Member[]
+  checkedInMembers       Member[]
   checkInAttendanceLogs  AttendanceLog[] @relation("CheckInLocationLogs")
   checkOutAttendanceLogs AttendanceLog[] @relation("CheckOutLocationLogs")
 
-  defaultProducts   Product[]      @relation("ProductDefaultLocation")
+  defaultProducts Product[] @relation("ProductDefaultLocation")
 
   // Expense relations
   expenses Expense[]
@@ -1088,8 +1087,8 @@ model OrganizationSettings {
   defaultWeightUnit         String? // e.g., "kg", "lbs"
 
   // --- Attendance Auto-Checkout Settings ---
-  enableAutoCheckout      Boolean         @default(false)
-  autoCheckoutTime        String?         // Store as "HH:mm" in organization's local timezone (e.g., "17:00")
+  enableAutoCheckout Boolean @default(false)
+  autoCheckoutTime   String? // Store as "HH:mm" in organization's local timezone (e.g., "17:00")
   // --- End Attendance Auto-Checkout Settings ---
 
   @@map("organization_settings")
@@ -1515,7 +1514,6 @@ model Invitation {
   @@map("invitation")
 }
 
-
 // --- Customer Loyalty ---
 
 model LoyaltyTransaction {
@@ -1713,25 +1711,25 @@ model Session {
 }
 
 model MpesaPaymentRequest {
-  id                String   @id @default(cuid())
-  organizationId    String
-  memberId         String
-  checkoutRequestId String
-  merchantRequestId String
-  amount           Decimal
-  phoneNumber      String
-  reference        String
-  status           String   // PENDING, SUCCESS, FAILED
-  resultCode       Int?
-  resultDescription String?
+  id                 String    @id @default(cuid())
+  organizationId     String
+  memberId           String
+  checkoutRequestId  String
+  merchantRequestId  String
+  amount             Decimal
+  phoneNumber        String
+  reference          String
+  status             String // PENDING, SUCCESS, FAILED
+  resultCode         Int?
+  resultDescription  String?
   mpesaReceiptNumber String?
-  transactionDate   DateTime?
-  saleData         Json?    // Store the sale data for processing after successful payment
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  transactionDate    DateTime?
+  saleData           Json? // Store the sale data for processing after successful payment
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  organization     Organization @relation(fields: [organizationId], references: [id])
-  member          Member       @relation(fields: [memberId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+  member       Member       @relation(fields: [memberId], references: [id])
 
   @@index([organizationId])
   @@index([memberId])
@@ -1740,26 +1738,25 @@ model MpesaPaymentRequest {
   @@index([reference])
 }
 
-
 model AttendanceLog {
-  id                  String            @id @default(cuid())
-  memberId            String
-  member              Member            @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  organizationId      String
-  organization        Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  checkInTime         DateTime
-  checkOutTime        DateTime?
-  checkInLocationId   String            // Now references InventoryLocation
-  checkInLocation     InventoryLocation @relation("CheckInLocationLogs", fields: [checkInLocationId], references: [id], onDelete: Restrict)
-  checkOutLocationId  String?           // Optional: if checkout can happen at a different location
-  checkOutLocation    InventoryLocation? @relation("CheckOutLocationLogs", fields: [checkOutLocationId], references: [id], onDelete:Restrict)
-  durationMinutes     Int?              // Calculated when member checks out
-  notes               String?
-  isAutoCheckout      Boolean           @default(false) // To flag if this was an auto checkout
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
+  id                 String             @id @default(cuid())
+  memberId           String
+  member             Member             @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  organizationId     String
+  organization       Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  checkInTime        DateTime
+  checkOutTime       DateTime?
+  checkInLocationId  String // Now references InventoryLocation
+  checkInLocation    InventoryLocation  @relation("CheckInLocationLogs", fields: [checkInLocationId], references: [id], onDelete: Restrict)
+  checkOutLocationId String? // Optional: if checkout can happen at a different location
+  checkOutLocation   InventoryLocation? @relation("CheckOutLocationLogs", fields: [checkOutLocationId], references: [id], onDelete: Restrict)
+  durationMinutes    Int? // Calculated when member checks out
+  notes              String?
+  isAutoCheckout     Boolean            @default(false) // To flag if this was an auto checkout
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
-  activeMemberCheckIn Member?           @relation("ActiveCheckIn") // Link to Member's current active log
+  activeMemberCheckIn Member? @relation("ActiveCheckIn") // Link to Member's current active log
 
   @@index([memberId])
   @@index([organizationId])
