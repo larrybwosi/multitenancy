@@ -36,6 +36,7 @@ const CheckInPage = () => {
         password,
         rememberMe: true
       })
+      const user = session?.user
       if (error || !session) {
         console.error("Login failed:", error);
         toast.error("Login failed. Please check your credentials.", {
@@ -44,12 +45,16 @@ const CheckInPage = () => {
         throw error;
       }
 
-      const result = await fetch("/api/attendance/check-in", {
-        method: "POST",
+      const result = await fetch('/api/attendance/check-in', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ locationId: currentWarehouse?.id }),
+        body: JSON.stringify({
+          inventoryLocationId: currentWarehouse?.id,
+          memberToCheckInId: user?.id,
+          actingMemberId: user?.id,
+        }),
       });
       const data = await result.json();
       console.log(data);

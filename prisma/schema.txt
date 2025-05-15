@@ -90,7 +90,7 @@ model Member {
   notifications          Notification[]
   approvalStepConditions ApprovalStepCondition[] @relation("LocationConditions")
   approvalStepActions    ApprovalStepAction[]    @relation("ApprovalStepActionMember")
-
+  headedDepartments    Department[]       @relation("DepartmentHead")
   // Expense relations
   submittedExpenses        Expense[]          @relation("ExpenseSubmitter")
   approvedExpenses         Expense[]          @relation("ExpenseApprover")
@@ -198,12 +198,16 @@ model Organization {
 model Department {
   id                String    @id @default(cuid())
   name              String
+  image             String?
+  banner            String?
   description       String?
   organizationId    String
   organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
-
+  
+  headId            String? // References the Member who is the head
+  head              Member? @relation("DepartmentHead", fields: [headId], references: [id], onDelete: SetNull)
   departmentMembers DepartmentMember[]
   activeBudgetId    String?   @unique
   activeBudget      Budget?   @relation("DepartmentBudget", fields: [activeBudgetId], references: [id], onDelete: SetNull)

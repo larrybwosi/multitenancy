@@ -32,9 +32,6 @@ export interface ReportDataInput {
   data: PrismaSalesData[] | PrismaExpensesData[];
 }
 
-// This would be the expected structured output from the Gemini API
-// For simplicity, we'll assume Gemini returns a string (e.g., Markdown) which can be rendered.
-// Or it could be a more structured JSON object.
 export interface GeneratedReport {
   title: string;
   period: {
@@ -65,44 +62,45 @@ export async function generateReportWithGeminiAPI(
     .replace('{{startDate}}', input.startDate)
     .replace('{{endDate}}', input.endDate);
 
-  // Construct the full prompt including the data
-  const fullPrompt = `${populatedPrompt}\n\n**Actual Data (JSON):**\n\`\`\`json\n${JSON.stringify(input.data, null, 2)}\n\`\`\``;
-
   // Simulate API call latency & conceptual call
   console.log(`--- Sending to Conceptual Gemini API for ${reportType} report ---`);
-  console.log('Data snippet:', JSON.stringify(input.data[0], null, 2)); // Log a sample
-  await new Promise(resolve => setTimeout(resolve, 1500));
 
-    const genAI = getGeminiClient();
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
-    
-  
-    const result = await model.generateContent(fullPrompt);
-    const response = result.response.text();
-console.log('Response:', response);
-  // For this example, we'll return a mock response.
-//   const mockReportContent = `
-// # ${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report for ${input.organizationId}
-// ## Period: ${input.startDate} to ${input.endDate}
+  const genAI = getGeminiClient();
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash', systemInstruction: populatedPrompt });
+  // Stringify the data to include in the content generation
+  const dataString = JSON.stringify(input.data, null, 2);
+  // Call the Gemini API
+  const result = await model.generateContent(dataString);
 
-// This is a **mock-generated ${reportType} report**.
-// The AI would analyze the provided data based on the detailed prompt and generate content here.
-// It would include sections like:
-// - Executive Summary
-// - Detailed Breakdowns (as per the prompt)
-// - Key Insights
-// - Recommendations
+  // Safely access the response text
+  let responseText: string;
+  try {
+    responseText = result.response.text();
+    if (!responseText) {
+      throw new Error('Empty response from Gemini API');
+    }
+  } catch (error) {
+    throw new Error(`Failed to parse Gemini API response: ${error.message}`);
+  }
 
-// *The actual content would be many pages long and very detailed based on the prompt and data.*
-// `;
-
+  // Optionally, validate or parse the response if structured data is expected
+  // Example: If Gemini returns JSON, parse it and map to GeneratedReport
+    let structuredContent: any;
+    try {
+      structuredContent = JSON.parse(responseText);
+      console.log(structuredContent)
+      // Map structuredContent to GeneratedReport fields if needed
+    } catch {
+      console.log('Failed to parse')
+      // Fallback to treating response as plain text
+    }
   return {
     title: `${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report (Gemini Generated)`,
     period: {
       from: input.startDate,
       to: input.endDate,
     },
-    content: response, // In reality, this comes from Gemini
+    content: responseText,
     generatedAt: new Date(),
   };
 }

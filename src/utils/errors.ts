@@ -1,3 +1,5 @@
+import { Prisma } from "@/prisma/client";
+
 // utils/errors.ts
 export class AppError extends Error {
   public readonly statusCode: number;
@@ -69,3 +71,36 @@ export class ForbiddenError extends AppError {
     super(message, 403);
   }
 }
+
+
+export const handlePrismaError = (
+  error: unknown
+): { error: string; fieldErrors?: Record<string, string> } => {
+  console.error("Prisma Error:", error);
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === "P2002") {
+      const target = error.meta?.target as string[] | undefined;
+      const field = target ? target.join(", ") : "field";
+      return {
+        error: `A record with this ${field} already exists. Please use a unique value.`,
+        fieldErrors: target
+          ? { [target[0]]: `This ${target[0]} is already taken.` }
+          : undefined,
+      };
+    }
+    if (error.code === "P2025") {
+      return {
+        error: "The record you tried to update or delete does not exist.",
+      };
+    }
+    return {
+      error: `Database error occurred (Code: ${error.code}). Please try again.`,
+    };
+  } else if (error instanceof Prisma.PrismaClientValidationError) {
+    return { error: "Invalid data format submitted. Please check your input." };
+  }
+  return {
+    error:
+      "An unexpected error occurred. Please contact support if the problem persists.",
+  };
+};

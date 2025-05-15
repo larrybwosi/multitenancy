@@ -2,21 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 
 const publicPaths = new Set([
-  "/sign-in",
-  "/api/auth",
-  "/about",
-  "/api/auth/get-session",
-  "/",
-  "/login",
-  "/signup/",
-  "/api/auth/",
-  "/about/",
-  "/api/test-email",
-  "/check-in",
-  "/api/attendance/check-in",
-  "/api/attendance/check-out",
-  "/api/attendance/check-out/all",
-  "/api/pdf",
+  '/sign-in',
+  '/api/auth',
+  '/about',
+  '/api/auth/get-session',
+  '/',
+  '/login',
+  '/signup/',
+  '/api/auth/',
+  '/about/',
+  '/api/test-email',
+  '/check-in',
+  '/api/attendance/check-in',
+  '/api/attendance/check-out',
+  '/api/attendance/check-out/all',
+  '/api/pdf',
+  '/api/attendance/auto-checkout',
+  '/api/reports',
 ]);
 
 export default async function middleware(request: NextRequest) {

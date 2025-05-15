@@ -1,5 +1,6 @@
 // src/services/workflowService.ts
 import prisma from "@/lib/db";
+import { DepartmentMemberRole } from "@/prisma/client";
 /**
  * Initiates an instance of a generic workflow.
  */

@@ -1,0 +1,196 @@
+import React from 'react';
+import { Document, Page, Text, View, StyleSheet, Font, pdf } from '@react-pdf/renderer';
+import { marked } from 'marked';
+
+// Register fonts (using a reliable font available in React PDF)
+Font.register({
+  family: 'Roboto',
+  fonts: [
+    { src: 'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxP.ttf' }, // Regular
+    { src: 'https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmEU9fBBc9.ttf', fontWeight: 'bold' }, // Bold
+  ],
+});
+
+// Define styles for the PDF
+const styles = StyleSheet.create({
+  page: {
+    padding: 30,
+    fontFamily: 'Roboto',
+    fontSize: 12,
+    lineHeight: 1.5,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  section: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 15,
+    marginBottom: 10,
+  },
+  subsection: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginTop: 10,
+    marginBottom: 8,
+  },
+  text: {
+    marginBottom: 5,
+  },
+  listItem: {
+    marginLeft: 10,
+    marginBottom: 5,
+  },
+  table: {
+    display: 'flex',
+    flexDirection: 'column',
+    marginBottom: 10,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#000',
+  },
+  tableHeader: {
+    backgroundColor: '#f0f0f0',
+    fontWeight: 'bold',
+  },
+  tableCell: {
+    flex: 1,
+    padding: 5,
+    borderRightWidth: 1,
+    borderRightColor: '#000',
+  },
+  lastTableCell: {
+    borderRightWidth: 0,
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 30,
+    left: 30,
+    right: 30,
+    textAlign: 'center',
+    fontSize: 10,
+    color: '#666',
+  },
+});
+
+// Interface for the GeneratedReport (from previous context)
+interface GeneratedReport {
+  title: string;
+  period: {
+    from: string;
+    to: string;
+  };
+  content: string;
+  generatedAt: Date;
+}
+
+// Parse Markdown and map to React PDF components
+const parseMarkdownToPDFComponents = (markdown: string) => {
+  const tokens = marked.lexer(markdown);
+  const components: React.ReactNode[] = [];
+
+  tokens.forEach(token => {
+    switch (token.type) {
+      case 'heading':
+        components.push(
+          <Text
+            key={token.text}
+            style={token.depth === 1 ? styles.title : token.depth === 2 ? styles.section : styles.subsection}
+          >
+            {token.text}
+          </Text>
+        );
+        break;
+      case 'paragraph':
+        components.push(
+          <Text key={token.text} style={styles.text}>
+            {token.text}
+          </Text>
+        );
+        break;
+      case 'list':
+        token.items.forEach((item: any, index: number) => {
+          components.push(
+            <Text key={`${item.text}-${index}`} style={styles.listItem}>
+              • {item.text}
+            </Text>
+          );
+        });
+        break;
+      case 'table':
+        components.push(
+          <View key={token.header.join('-')} style={styles.table}>
+            {/* Header Row */}
+            <View style={[styles.tableRow, styles.tableHeader]}>
+              {token.header.map((header: string, index: number) => (
+                <Text
+                  key={header}
+                  style={[styles.tableCell, index === token.header.length - 1 ? styles.lastTableCell : {}]}
+                >
+                  {header.trim()}
+                </Text>
+              ))}
+            </View>
+            {/* Data Rows */}
+            {token.rows.map((row: string[], rowIndex: number) => (
+              <View key={`row-${rowIndex}`} style={styles.tableRow}>
+                {row.map((cell: string, cellIndex: number) => (
+                  <Text
+                    key={`cell-${rowIndex}-${cellIndex}`}
+                    style={[styles.tableCell, cellIndex === row.length - 1 ? styles.lastTableCell : {}]}
+                  >
+                    {cell.trim()}
+                  </Text>
+                ))}
+              </View>
+            ))}
+          </View>
+        );
+        break;
+      default:
+        // Ignore unsupported tokens (e.g., code blocks, HTML)
+        break;
+    }
+  });
+
+  return components;
+};
+
+// Main function to generate and download the PDF
+export async function generateReportPDF(report: GeneratedReport): Promise<Blob | undefined | null> {
+  try {
+    // Create the PDF document
+    const ReportDocument = () => (
+      <Document>
+        <Page size="A4" style={styles.page}>
+          {/* Title */}
+          <Text style={styles.title}>{report.title}</Text>
+          {/* Period */}
+          <Text style={styles.text}>
+            Period: {report.period.from} to {report.period.to}
+          </Text>
+          <Text style={styles.text}>Generated: {report.generatedAt.toLocaleString()}</Text>
+          {/* Markdown Content */}
+          {parseMarkdownToPDFComponents(report.content)}
+          {/* Footer */}
+          <Text style={styles.footer} fixed>
+            Generated by Dealio Inc. | Page {1}
+          </Text>
+        </Page>
+      </Document>
+    );
+
+    // Generate PDF blob
+    const blob = await pdf(<ReportDocument />).toBlob();
+    return blob
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    //@ts-expect-error error is unknown
+    throw new Error(`Failed to generate PDF: ${error.message}`);
+  }
+}

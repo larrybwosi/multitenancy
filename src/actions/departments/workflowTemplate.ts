@@ -1,6 +1,7 @@
-import { CreateWorkflowTemplateInput, workflowStepInputSchema } from '@/lib/validations/workflowTemplates'; // Zod schemas
-// import { ZodError } from 'zod';
+import { CreateWorkflowTemplateInput } from '@/lib/validations/workflowTemplates';
 import prisma from '@/lib/db';
+import { StepAction, WorkflowStep } from '@/prisma/client';
+import { ZodError } from 'zod';
 
 interface StepCreationOutput extends WorkflowStep {
   originalName: string; // To map transitions correctly
@@ -164,11 +165,11 @@ export async function createStructuredWorkflow(input: CreateWorkflowTemplateInpu
     });
     return fullWorkflow;
   } catch (error) {
-    // if (error instanceof ZodError) {
-    //   // console.error("[WorkflowService] Validation error creating structured workflow:", error.errors);
-    //   throw new Error(`Validation failed: ${error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`);
-    // }
-    // console.error(`[WorkflowService] Error creating structured workflow "${input.workflowName}":`, error);
+    if (error instanceof ZodError) {
+      // console.error("[WorkflowService] Validation error creating structured workflow:", error.errors);
+      throw new Error(`Validation failed: ${error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`);
+    }
+    console.error(`[WorkflowService] Error creating structured workflow "${input.workflowName}":`, error);
     throw new Error(`Could not create structured workflow: ${(error as Error).message}`);
   }
 }

@@ -1,4 +1,7 @@
-// src/services/departmentService.ts (continued)
+import prisma from "@/lib/db";
+import { DepartmentMemberInput, departmentMemberSchema } from "@/lib/validations/department";
+import { DepartmentMemberRole } from "@/prisma/client";
+import { logger } from "./logger";
 
 /**
  * Adds a member to a department with a specific role.
@@ -13,7 +16,7 @@ export async function addMemberToDepartment(
   // console.log(`[DepartmentService] Adding member ${memberId} to department ${departmentId} with role ${role}`);
   try {
     // Zod validation would go here or in the route handler
-    // departmentMemberSchema.parse({ departmentId, memberId, role, canApproveExpenses, canManageBudget });
+    departmentMemberSchema.parse({ departmentId, memberId, role, canApproveExpenses, canManageBudget });
 
     // Check if department and member exist
     const department = await prisma.department.findUnique({ where: { id: departmentId } });
@@ -33,7 +36,7 @@ export async function addMemberToDepartment(
     // console.log(`[DepartmentService] Member ${memberId} added to department ${departmentId} successfully.`);
     return departmentMember;
   } catch (error) {
-    // console.error(`[DepartmentService] Error adding member ${memberId} to department ${departmentId}:`, error);
+    console.error(`[DepartmentService] Error adding member ${memberId} to department ${departmentId}:`, error);
     throw error;
   }
 }
@@ -42,13 +45,12 @@ export async function addMemberToDepartment(
  * Removes a member from a department.
  */
 export async function removeMemberFromDepartment(departmentId: string, memberId: string) {
-  // console.log(`[DepartmentService] Removing member ${memberId} from department ${departmentId}`);
+  logger.debug(`[DepartmentService] Removing member ${memberId} from department ${departmentId}`);
   try {
     // Add validation and checks (e.g., ensure the remover has permission)
     await prisma.departmentMember.delete({
       where: {
         departmentId_memberId: {
-          // This assumes your @@unique constraint name or finds the correct way to identify
           departmentId,
           memberId,
         },
@@ -57,8 +59,7 @@ export async function removeMemberFromDepartment(departmentId: string, memberId:
     // console.log(`[DepartmentService] Member ${memberId} removed from department ${departmentId} successfully.`);
     return { success: true, message: 'Member removed from department.' };
   } catch (error) {
-    // console.error(`[DepartmentService] Error removing member ${memberId} from department ${departmentId}:`, error);
-    // Handle cases where the record might not be found (PrismaClientKnownRequestError P2025)
+    logger.error(`[DepartmentService] Error removing member ${memberId} from department ${departmentId}:`, error);
     throw error;
   }
 }
@@ -88,7 +89,7 @@ export async function updateDepartmentMember(
     // console.log(`[DepartmentService] Member ${memberId} in department ${departmentId} updated successfully.`);
     return updatedMember;
   } catch (error) {
-    // console.error(`[DepartmentService] Error updating member ${memberId} in department ${departmentId}:`, error);
+    console.error(`[DepartmentService] Error updating member ${memberId} in department ${departmentId}:`, error);
     throw error;
   }
 }

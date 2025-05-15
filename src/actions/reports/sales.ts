@@ -56,7 +56,7 @@ export async function generateSalesReportAction(filters: ReportFilters): Promise
     if (!salesData || salesData.length === 0) {
       return { error: 'No sales data found for the given criteria. Cannot generate report.' };
     }
-
+    
     // Prepare data for the Gemini API
     const reportInput: ReportDataInput = {
       organizationId, // or salesData[0].organization.name if fetched and preferred

@@ -1,6 +1,5 @@
-// src/lib/validations/workflowTemplates.ts
 import * as z from 'zod';
-import { AssigneeType, FormFieldType, ActionType, ConditionSourceType, ConditionOperator } from '@prisma/client'; // Assuming Prisma generates these enums
+import { AssigneeType, FormFieldType, ConditionSourceType, ConditionOperator, StepActionType, WorkflowTriggerType } from '@/prisma/client';
 
 export const stepAssigneeLogicSchema = z.object({
   assigneeType: z.nativeEnum(AssigneeType),
@@ -40,7 +39,7 @@ export const stepTransitionSchema = z.object({
 export const stepActionSchema = z.object({
   name: z.string().regex(/^[a-zA-Z0-9_]+$/, 'Action name can only contain letters, numbers, and underscores.'),
   label: z.string().min(1),
-  actionType: z.nativeEnum(ActionType).default(ActionType.PRIMARY),
+  actionType: z.nativeEnum(StepActionType).default(StepActionType.PRIMARY),
   order: z.number().int().positive(),
   // Transitions are defined in stepTransitionSchema linking back to this action by name
 });

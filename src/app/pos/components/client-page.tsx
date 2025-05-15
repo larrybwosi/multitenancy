@@ -283,7 +283,7 @@ export function PosClientWrapper({
       <AnimatePresence>
         {(cartVisible || !isMobileView) && (
           <MotionDiv 
-            className="h-full flex-shrink-0 bg-white dark:bg-neutral-900 shadow-2xl"
+            className="h-full flex-shrink-0 bg-white dark:bg-neutral-900"
             initial={isMobileView ? { x: "100%" } : { x: 0 }}
             animate={{ x: 0 }}
             exit={isMobileView ? { x: "100%" } : {}}

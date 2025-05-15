@@ -423,36 +423,3 @@ export async function canMemberApproveExpense(
   console.log('[Approval] Member does not match any required approver criteria');
   return false;
 }
-
-/**
- * Helper to format currency consistently.
- * @param amount - The amount (Decimal, number, or string).
- * @param currencyCode - e.g., "USD", "KES", "EUR". Defaults to "USD".
- * @param locale - e.g., "en-US", "en-KE". Defaults to "en-US".
- * @returns Formatted currency string.
- */
-export function formatCurrency(
-  amount: Prisma.Decimal | number | string,
-  currencyCode: string = 'USD',
-  locale: string = 'en-US'
-): string {
-  try {
-    const numberAmount =
-      typeof amount === 'object' && amount !== null && 'toNumber' in amount
-        ? amount.toNumber() // Handle Decimal.js
-        : Number(amount);
-
-    if (isNaN(numberAmount)) {
-      console.warn('[Currency] Invalid amount for formatting:', amount);
-      return 'Invalid Amount';
-    }
-
-    return new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency: currencyCode,
-    }).format(numberAmount);
-  } catch (error) {
-    console.error('[Currency] Error formatting currency:', error);
-    return `${amount} ${currencyCode}`;
-  }
-}

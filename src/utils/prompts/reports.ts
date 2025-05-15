@@ -84,7 +84,7 @@ export const DETAILED_SALES_REPORT_PROMPT_TEMPLATE = `
    - Ensure calculations are accurate based on the provided data definitions.
    - If data for a specific metric is insufficient or not available, clearly state that.
 
-Please proceed with generating the report based on the data that will be provided.
+Please proceed with generating the report based on the data that will be provided. Structure your response in Markdown format
 `;
 
 export const DETAILED_EXPENSES_REPORT_PROMPT_TEMPLATE = `
@@ -171,5 +171,5 @@ export const DETAILED_EXPENSES_REPORT_PROMPT_TEMPLATE = `
    - Ensure calculations are accurate based on the provided data definitions.
    - If data for a specific metric is insufficient or not available, clearly state that.
 
-Please proceed with generating the report based on the data that will be provided.
+Please proceed with generating the report based on the data that will be provided. Structure your response in Markdown format
 `;

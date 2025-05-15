@@ -2,6 +2,7 @@
 import InvoiceTable from '@/components/inventory';
 import { Button } from '@/components/ui/button';
 import { apiKey } from '@/lib/auth/authClient';
+import axios from 'axios';
 import React from 'react';
 
 // Sample data mimicking the image
@@ -21,13 +22,7 @@ const sampleInvoices: InvoiceData[] = [
 
 function MyInvoicePage() {
   async function getApiKey(){
-    const { data: key, error } = await apiKey.create({
-      name: 'PDF Generator',
-      metadata: {
-        tier: 'premium',
-      },
-    });
-    console.log(key,error)
+     await fetch('/api/key')
   }
   return (
     <div className="p-4 md:p-8 bg-gray-100 min-h-screen"> {/* Example page background */}

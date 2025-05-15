@@ -1,5 +1,3 @@
-// src/services/geminiWorkflowService.ts (Conceptual)
-// import { gemini } from './geminiApiService'; // Your Gemini API client
 import { CreateWorkflowTemplateInput } from '@/lib/validations/workflowTemplates'; // Zod schema for input type
 import {
   AssigneeType,
@@ -7,9 +5,9 @@ import {
   ActionType,
   ConditionSourceType,
   ConditionOperator,
-  WorkflowTriggerType,
 } from '@/prisma/client';
 import { createStructuredWorkflow } from './workflowTemplate';
+import { getGeminiClient } from '@/lib/gemini';
 
 /**
  * Generates a workflow template definition using Gemini and then creates it.
@@ -116,6 +114,10 @@ export async function generateAndCreateWorkflowViaGemini(
 
   // This is a conceptual call to Gemini.
   // In a real scenario, you'd use the Vertex AI SDK or similar.
+  const gemini = getGeminiClient()
+  const model = gemini.getGenerativeModel({ model: 'gemini-2.0-flash',systemInstruction:systemPrompt });
+  const response = await model.generateContent({})
+  console.log(response)
   // const geminiResponseJsonString = await callGeminiApi(systemPrompt); // Placeholder
   // console.log("[GeminiWorkflowService] Raw Gemini Response:", geminiResponseJsonString);
 
@@ -196,8 +198,8 @@ export async function generateAndCreateWorkflowViaGemini(
     // Add a Zod parse here for safety in a real app:
     // workflowDefinitionInput = createWorkflowTemplateInputSchema.parse(JSON.parse(geminiResponseJsonString));
   } catch (e) {
-    // console.error("[GeminiWorkflowService] Failed to parse Gemini JSON response:", e);
-    // console.error("[GeminiWorkflowService] Received JSON string for parsing:", mockedGeminiResponseJsonString);
+    console.error("[GeminiWorkflowService] Failed to parse Gemini JSON response:", e);
+    console.error("[GeminiWorkflowService] Received JSON string for parsing:", mockedGeminiResponseJsonString);
     throw new Error('Gemini response was not valid JSON or did not match expected structure.');
   }
 

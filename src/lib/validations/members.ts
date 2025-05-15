@@ -1,6 +1,6 @@
 // src/lib/schemas/memberSchemas.ts (or keep within route files if simple)
 import { z } from "zod";
-import { MemberRole } from "@prisma/client"; // Import enum from Prisma
+import { MemberRole } from "@/prisma/client"; // Import enum from Prisma
 
 export const MemberRoleZod = z.nativeEnum(MemberRole);
 

@@ -173,6 +173,32 @@ exports.Prisma.OrganizationScalarFieldEnum = {
   expenseTagOptions: 'expenseTagOptions'
 };
 
+exports.Prisma.DepartmentScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  image: 'image',
+  banner: 'banner',
+  description: 'description',
+  organizationId: 'organizationId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  headId: 'headId',
+  activeBudgetId: 'activeBudgetId',
+  defaultWorkflowId: 'defaultWorkflowId',
+  customFields: 'customFields'
+};
+
+exports.Prisma.DepartmentMemberScalarFieldEnum = {
+  id: 'id',
+  departmentId: 'departmentId',
+  memberId: 'memberId',
+  role: 'role',
+  canApproveExpenses: 'canApproveExpenses',
+  canManageBudget: 'canManageBudget',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.CategoryScalarFieldEnum = {
   id: 'id',
   name: 'name',
@@ -694,6 +720,110 @@ exports.Prisma.ApprovalStepConditionScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.WorkflowScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  description: 'description',
+  organizationId: 'organizationId',
+  departmentId: 'departmentId',
+  triggerType: 'triggerType',
+  version: 'version',
+  isActive: 'isActive',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  initialStepId: 'initialStepId'
+};
+
+exports.Prisma.WorkflowInstanceScalarFieldEnum = {
+  id: 'id',
+  workflowId: 'workflowId',
+  status: 'status',
+  context: 'context',
+  currentStepId: 'currentStepId',
+  assignedToId: 'assignedToId',
+  submittedById: 'submittedById',
+  organizationId: 'organizationId',
+  departmentId: 'departmentId',
+  dueDate: 'dueDate',
+  completedAt: 'completedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.WorkflowInstanceHistoryScalarFieldEnum = {
+  id: 'id',
+  workflowInstanceId: 'workflowInstanceId',
+  stepId: 'stepId',
+  enteredAt: 'enteredAt',
+  exitedAt: 'exitedAt',
+  actorId: 'actorId',
+  actionTaken: 'actionTaken',
+  comments: 'comments',
+  dataSnapshot: 'dataSnapshot'
+};
+
+exports.Prisma.WorkflowStepScalarFieldEnum = {
+  id: 'id',
+  workflowId: 'workflowId',
+  name: 'name',
+  description: 'description',
+  order: 'order',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.StepAssigneeLogicScalarFieldEnum = {
+  id: 'id',
+  stepId: 'stepId',
+  assigneeType: 'assigneeType',
+  specificRoleId: 'specificRoleId',
+  specificMemberId: 'specificMemberId'
+};
+
+exports.Prisma.StepFormFieldScalarFieldEnum = {
+  id: 'id',
+  stepId: 'stepId',
+  fieldName: 'fieldName',
+  label: 'label',
+  fieldType: 'fieldType',
+  isRequired: 'isRequired',
+  placeholder: 'placeholder',
+  defaultValue: 'defaultValue',
+  options: 'options',
+  validationRules: 'validationRules',
+  order: 'order'
+};
+
+exports.Prisma.StepActionScalarFieldEnum = {
+  id: 'id',
+  stepId: 'stepId',
+  name: 'name',
+  label: 'label',
+  actionType: 'actionType',
+  order: 'order'
+};
+
+exports.Prisma.StepTransitionScalarFieldEnum = {
+  id: 'id',
+  workflowId: 'workflowId',
+  fromStepId: 'fromStepId',
+  toStepId: 'toStepId',
+  actionId: 'actionId',
+  description: 'description',
+  priority: 'priority',
+  isAutomatic: 'isAutomatic'
+};
+
+exports.Prisma.TransitionConditionScalarFieldEnum = {
+  id: 'id',
+  transitionId: 'transitionId',
+  sourceType: 'sourceType',
+  sourceFieldName: 'sourceFieldName',
+  operator: 'operator',
+  comparisonValue: 'comparisonValue',
+  valueType: 'valueType'
+};
+
 exports.Prisma.ApprovalStepActionScalarFieldEnum = {
   id: 'id',
   stepId: 'stepId',
@@ -716,12 +846,12 @@ exports.Prisma.BudgetScalarFieldEnum = {
   locationId: 'locationId',
   organizationId: 'organizationId',
   createdById: 'createdById',
+  departmentId: 'departmentId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   amountUsed: 'amountUsed',
   amountRemaining: 'amountRemaining',
   fiscalYear: 'fiscalYear',
-  department: 'department',
   variance: 'variance'
 };
 
@@ -803,44 +933,6 @@ exports.Prisma.NotificationScalarFieldEnum = {
   details: 'details'
 };
 
-exports.Prisma.AccountScalarFieldEnum = {
-  id: 'id',
-  accountId: 'accountId',
-  providerId: 'providerId',
-  userId: 'userId',
-  accessToken: 'accessToken',
-  refreshToken: 'refreshToken',
-  idToken: 'idToken',
-  accessTokenExpiresAt: 'accessTokenExpiresAt',
-  refreshTokenExpiresAt: 'refreshTokenExpiresAt',
-  scope: 'scope',
-  password: 'password',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-};
-
-exports.Prisma.VerificationScalarFieldEnum = {
-  id: 'id',
-  identifier: 'identifier',
-  value: 'value',
-  expiresAt: 'expiresAt',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-};
-
-exports.Prisma.SessionScalarFieldEnum = {
-  id: 'id',
-  expiresAt: 'expiresAt',
-  token: 'token',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt',
-  ipAddress: 'ipAddress',
-  userAgent: 'userAgent',
-  userId: 'userId',
-  impersonatedBy: 'impersonatedBy',
-  activeOrganizationId: 'activeOrganizationId'
-};
-
 exports.Prisma.MpesaPaymentRequestScalarFieldEnum = {
   id: 'id',
   organizationId: 'organizationId',
@@ -899,6 +991,44 @@ exports.Prisma.ApikeyScalarFieldEnum = {
   metadata: 'metadata'
 };
 
+exports.Prisma.AccountScalarFieldEnum = {
+  id: 'id',
+  accountId: 'accountId',
+  providerId: 'providerId',
+  userId: 'userId',
+  accessToken: 'accessToken',
+  refreshToken: 'refreshToken',
+  idToken: 'idToken',
+  accessTokenExpiresAt: 'accessTokenExpiresAt',
+  refreshTokenExpiresAt: 'refreshTokenExpiresAt',
+  scope: 'scope',
+  password: 'password',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.VerificationScalarFieldEnum = {
+  id: 'id',
+  identifier: 'identifier',
+  value: 'value',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.SessionScalarFieldEnum = {
+  id: 'id',
+  expiresAt: 'expiresAt',
+  token: 'token',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  ipAddress: 'ipAddress',
+  userAgent: 'userAgent',
+  userId: 'userId',
+  impersonatedBy: 'impersonatedBy',
+  activeOrganizationId: 'activeOrganizationId'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -943,6 +1073,13 @@ exports.MemberRole = exports.$Enums.MemberRole = {
   EMPLOYEE: 'EMPLOYEE',
   CASHIER: 'CASHIER',
   REPORTER: 'REPORTER'
+};
+
+exports.DepartmentMemberRole = exports.$Enums.DepartmentMemberRole = {
+  HEAD: 'HEAD',
+  MANAGER: 'MANAGER',
+  MEMBER: 'MEMBER',
+  VIEWER: 'VIEWER'
 };
 
 exports.MeasurementUnit = exports.$Enums.MeasurementUnit = {
@@ -1156,6 +1293,79 @@ exports.ConditionType = exports.$Enums.ConditionType = {
   LOCATION: 'LOCATION'
 };
 
+exports.WorkflowTriggerType = exports.$Enums.WorkflowTriggerType = {
+  MANUAL: 'MANUAL',
+  EVENT_BASED: 'EVENT_BASED',
+  SCHEDULED: 'SCHEDULED',
+  API_CALL: 'API_CALL'
+};
+
+exports.WorkflowInstanceStatus = exports.$Enums.WorkflowInstanceStatus = {
+  PENDING: 'PENDING',
+  IN_PROGRESS: 'IN_PROGRESS',
+  COMPLETED: 'COMPLETED',
+  FAILED: 'FAILED',
+  CANCELLED: 'CANCELLED',
+  ON_HOLD: 'ON_HOLD',
+  AWAITING_INPUT: 'AWAITING_INPUT'
+};
+
+exports.AssigneeType = exports.$Enums.AssigneeType = {
+  SUBMITTER: 'SUBMITTER',
+  SPECIFIC_ROLE: 'SPECIFIC_ROLE',
+  SPECIFIC_MEMBER: 'SPECIFIC_MEMBER',
+  REPORTING_MANAGER: 'REPORTING_MANAGER',
+  DEPARTMENT_HEAD: 'DEPARTMENT_HEAD',
+  UNASSIGNED: 'UNASSIGNED',
+  PREVIOUS_STEP_ASSIGNEE: 'PREVIOUS_STEP_ASSIGNEE'
+};
+
+exports.FormFieldType = exports.$Enums.FormFieldType = {
+  TEXT: 'TEXT',
+  TEXTAREA: 'TEXTAREA',
+  NUMBER: 'NUMBER',
+  DATE: 'DATE',
+  DATETIME: 'DATETIME',
+  BOOLEAN: 'BOOLEAN',
+  FILE_UPLOAD: 'FILE_UPLOAD',
+  DROPDOWN: 'DROPDOWN',
+  RADIO_GROUP: 'RADIO_GROUP',
+  CHECKBOX_GROUP: 'CHECKBOX_GROUP',
+  EMAIL: 'EMAIL',
+  INFO_TEXT: 'INFO_TEXT'
+};
+
+exports.StepActionType = exports.$Enums.StepActionType = {
+  PRIMARY: 'PRIMARY',
+  SECONDARY: 'SECONDARY',
+  DESTRUCTIVE: 'DESTRUCTIVE',
+  INFO: 'INFO'
+};
+
+exports.ConditionSourceType = exports.$Enums.ConditionSourceType = {
+  FORM_FIELD_VALUE: 'FORM_FIELD_VALUE',
+  INSTANCE_CONTEXT: 'INSTANCE_CONTEXT',
+  SUBMITTER_PROPERTY: 'SUBMITTER_PROPERTY',
+  WORKFLOW_VARIABLE: 'WORKFLOW_VARIABLE'
+};
+
+exports.ConditionOperator = exports.$Enums.ConditionOperator = {
+  EQUALS: 'EQUALS',
+  NOT_EQUALS: 'NOT_EQUALS',
+  GREATER_THAN: 'GREATER_THAN',
+  LESS_THAN: 'LESS_THAN',
+  GREATER_THAN_OR_EQUAL: 'GREATER_THAN_OR_EQUAL',
+  LESS_THAN_OR_EQUAL: 'LESS_THAN_OR_EQUAL',
+  CONTAINS: 'CONTAINS',
+  NOT_CONTAINS: 'NOT_CONTAINS',
+  STARTS_WITH: 'STARTS_WITH',
+  ENDS_WITH: 'ENDS_WITH',
+  IS_EMPTY: 'IS_EMPTY',
+  IS_NOT_EMPTY: 'IS_NOT_EMPTY',
+  IS_TRUE: 'IS_TRUE',
+  IS_FALSE: 'IS_FALSE'
+};
+
 exports.ApprovalActionType = exports.$Enums.ApprovalActionType = {
   ROLE: 'ROLE',
   SPECIFIC_MEMBER: 'SPECIFIC_MEMBER'
@@ -1216,6 +1426,8 @@ exports.Prisma.ModelName = {
   User: 'User',
   Member: 'Member',
   Organization: 'Organization',
+  Department: 'Department',
+  DepartmentMember: 'DepartmentMember',
   Category: 'Category',
   Product: 'Product',
   ProductVariant: 'ProductVariant',
@@ -1248,6 +1460,15 @@ exports.Prisma.ModelName = {
   ApprovalWorkflow: 'ApprovalWorkflow',
   ApprovalWorkflowStep: 'ApprovalWorkflowStep',
   ApprovalStepCondition: 'ApprovalStepCondition',
+  Workflow: 'Workflow',
+  WorkflowInstance: 'WorkflowInstance',
+  WorkflowInstanceHistory: 'WorkflowInstanceHistory',
+  WorkflowStep: 'WorkflowStep',
+  StepAssigneeLogic: 'StepAssigneeLogic',
+  StepFormField: 'StepFormField',
+  StepAction: 'StepAction',
+  StepTransition: 'StepTransition',
+  TransitionCondition: 'TransitionCondition',
   ApprovalStepAction: 'ApprovalStepAction',
   Budget: 'Budget',
   BudgetReport: 'BudgetReport',
@@ -1256,12 +1477,12 @@ exports.Prisma.ModelName = {
   LoyaltyTransaction: 'LoyaltyTransaction',
   ExecutionLog: 'ExecutionLog',
   Notification: 'Notification',
-  Account: 'Account',
-  Verification: 'Verification',
-  Session: 'Session',
   MpesaPaymentRequest: 'MpesaPaymentRequest',
   AttendanceLog: 'AttendanceLog',
-  Apikey: 'Apikey'
+  Apikey: 'Apikey',
+  Account: 'Account',
+  Verification: 'Verification',
+  Session: 'Session'
 };
 
 /**
