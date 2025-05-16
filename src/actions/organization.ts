@@ -39,6 +39,7 @@ export async function createOrganization(
     data = CreateOrganizationInputSchema.parse(rawData);
   } catch (error) {
     if (error instanceof z.ZodError) {
+      console.log(error)
       throw new ValidationError("Invalid input data for creating organization.", error.issues);
     }
     throw new ValidationError("Invalid input data.");

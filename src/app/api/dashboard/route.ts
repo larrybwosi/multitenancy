@@ -3,7 +3,7 @@ import { db } from "@/lib/db"
 import { getServerAuthContext } from "@/actions/auth"
 
 export async function GET() {
-  const { organizationId } = await getServerAuthContext()
+  const { organizationId, userId } = await getServerAuthContext()
   try {
     // Get start dates
     const now = new Date()
@@ -25,7 +25,8 @@ export async function GET() {
       payrollSummary,
       incomeData,
       paymentVouchers,
-      budgetHistory
+      budgetHistory,
+      recentActivities
     ] = await Promise.all([
       db.organization.findUnique({
         where: { id: organizationId },
@@ -176,8 +177,40 @@ export async function GET() {
           periodStart: 'desc'
         },
         take: 5
+      }),
+      // Recent activities - This is a new query
+      db.activity.findMany({
+        where: {
+          organizationId,
+        },
+        select: {
+          id: true,
+          type: true,
+          description: true,
+          createdAt: true,
+          user: {
+            select: {
+              name: true,
+              image: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        take: 5
+      }).catch(() => {
+        // If the activity table doesn't exist, return an empty array
+        // This makes the enhancement backward compatible
+        return []
       })
     ])
+
+    // Calculate financial metrics
+    const totalIncome = incomeData.reduce((sum, item) => sum + item._sum.finalAmount, 0)
+    const totalExpenses = payrollSummary.reduce((sum, item) => sum + item._sum.amount, 0) + 
+                         paymentVouchers.reduce((sum, item) => sum + item.amount, 0)
+    const cashFlow = totalIncome - totalExpenses
 
     // Calculate growth percentages
     const staffGrowth = totalPrevStaff > 0 
@@ -191,6 +224,18 @@ export async function GET() {
     const projectsGrowth = totalPrevProjects > 0
       ? ((totalProjects - totalPrevProjects) / totalPrevProjects) * 100
       : 0
+
+    // Format recent activities if they exist
+    const formattedActivities = recentActivities.length > 0 ? recentActivities.map(activity => ({
+      id: activity.id,
+      type: activity.type || 'general',
+      description: activity.description,
+      createdAt: activity.createdAt.toISOString(),
+      user: {
+        name: activity.user?.name || 'System',
+        avatar: activity.user?.image || null
+      }
+    })) : null
 
     return NextResponse.json({
       organization: {
@@ -207,6 +252,9 @@ export async function GET() {
         totalProjects,
         projectsGrowth: Math.round(projectsGrowth),
         totalDepartments,
+        totalIncome,
+        totalExpenses,
+        cashFlow
       },
       applications: staffApplications,
       payroll: {
@@ -215,6 +263,7 @@ export async function GET() {
       income: incomeData,
       paymentVouchers,
       budgetHistory,
+      recentActivities: formattedActivities
     });
   } catch (error) {
     console.error("Dashboard data fetch error:", error)

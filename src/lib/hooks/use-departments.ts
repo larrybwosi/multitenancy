@@ -1,6 +1,6 @@
 // lib/api/departments.ts
 import { ApiResponse, PaginatedResponse, UpdateDepartmentDto } from '@/actions/departments/types';
-import { Department, DepartmentMember, DepartmentMemberRole } from '@/prisma/client';
+import { Department, DepartmentMemberRole } from '@/prisma/client';
 import axios, { AxiosError } from 'axios';
 import { DepartmentMemberInput } from '../validations/department';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -22,8 +22,11 @@ const createDepartment = async (data: {
   return response.data;
 };
 
-type ExtendedDepartment = Department & {
-  head: DepartmentMember;
+export type ExtendedDepartment = Department & {
+  head: {
+    name:string;
+    image?: string
+  };
   totalMembers: number;
 };
 // Get departments (paginated)

@@ -25,9 +25,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { useState, useTransition } from "react";
-import { saveCategory } from "@/actions/category.actions";
+import { useState } from "react";
 import { toast } from "sonner";
+import { useCategoryOptions, useSaveCategory } from "@/lib/hooks/use-categories";
 
 // --- Zod Schema --- (can be defined here or imported)
 const CategoryFormSchema = z.object({
@@ -49,9 +49,10 @@ export function CategoryForm({
   category,
   onFormSubmit,
 }: CategoryFormProps) {
-  const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-
+  const { mutateAsync:createCategory, isPending} = useSaveCategory()
+  const { data: categoryOptions, isPending: loadingCategoryOptions } = useCategoryOptions()
+console.log(categoryOptions)
   const isEditing = !!category;
   
   const form = useForm<CategoryFormValues>({
@@ -63,7 +64,7 @@ export function CategoryForm({
     },
   });
 
-  function onSubmit(data: CategoryFormValues) {
+  async function onSubmit(data: CategoryFormValues) {
     setError(null); // Clear previous errors
     const formData = new FormData();
     formData.append("name", data.name);
@@ -81,33 +82,26 @@ export function CategoryForm({
       formData.append("id", category.id);
     }
 
-    startTransition(async () => {
-      const result = await saveCategory(formData);
-      if (result?.errors) {
-        // Handle validation errors (though client-side should catch most)
-        console.error("Server Validation Errors:", result.errors);
-        setError("Validation failed on server.");
-        toast.error("Failed to save category. Check fields.");
-      } else if (result?.message.startsWith("Error:")) {
-        setError(result.message);
-        toast.error(result.message);
-      } else {
-        toast.success(
-          result?.message ||
-            (isEditing ? "Category updated!" : "Category created!")
-        );
-        form.reset(); // Reset form after successful submission
-        onFormSubmit(); // Close the dialog/modal
-      }
-    });
+    const result = await createCategory(formData);
+    if (result?.errors) {
+      // Handle validation errors (though client-side should catch most)
+      console.error('Server Validation Errors:', result.errors);
+      setError('Validation failed on server.');
+      toast.error('Failed to save category. Check fields.');
+    } else if (result?.message.startsWith('Error:')) {
+      setError(result.message);
+      toast.error(result.message);
+    } else {
+      toast.success(result?.message || (isEditing ? 'Category updated!' : 'Category created!'));
+      form.reset(); // Reset form after successful submission
+      onFormSubmit(); // Close the dialog/modal
+    }
   }
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        {error && (
-          <p className="text-sm font-medium text-destructive">{error}</p>
-        )}
+        {error && <p className="text-sm font-medium text-destructive">{error}</p>}
         <FormField
           control={form.control}
           name="name"
@@ -115,11 +109,7 @@ export function CategoryForm({
             <FormItem>
               <FormLabel>Category Name *</FormLabel>
               <FormControl>
-                <Input
-                  placeholder="e.g., Electronics"
-                  {...field}
-                  disabled={isPending}
-                />
+                <Input placeholder="e.g., Electronics" {...field} disabled={isPending} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -136,7 +126,7 @@ export function CategoryForm({
                   placeholder="Optional: Describe the category"
                   className="resize-none"
                   {...field}
-                  value={field.value ?? ""} // Ensure value is not null/undefined for textarea
+                  value={field.value ?? ''} // Ensure value is not null/undefined for textarea
                   disabled={isPending}
                 />
               </FormControl>
@@ -163,33 +153,23 @@ export function CategoryForm({
                 </FormControl>
                 <SelectContent>
                   <SelectItem value="null">-- No Parent --</SelectItem>
-                  {/* {categoryOptions
+                  {!!categoryOptions &&categoryOptions
                     // Prevent selecting itself as parent during edit
-                    .filter(
-                      (option) => !(isEditing && option.value === category?.id)
-                    )
-                    .map((option) => (
+                    ?.filter(option => !(isEditing && option.value === category?.id))
+                    .map(option => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}
                       </SelectItem>
-                    ))} */}
+                    ))}
                 </SelectContent>
               </Select>
-              <FormDescription>
-                Assigning a parent creates a subcategory.
-              </FormDescription>
+              <FormDescription>Assigning a parent creates a subcategory.</FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
         <Button type="submit" disabled={isPending}>
-          {isPending
-            ? isEditing
-              ? "Saving..."
-              : "Creating..."
-            : isEditing
-              ? "Save Changes"
-              : "Create Category"}
+          {isPending ? (isEditing ? 'Saving...' : 'Creating...') : isEditing ? 'Save Changes' : 'Create Category'}
         </Button>
       </form>
     </Form>

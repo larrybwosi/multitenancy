@@ -111,39 +111,39 @@ export function SaleDetailsSheet({
     }
 
     try {
-      // const res = await fetch(`/api/sales/${saleId}/pdf`);
-      toast.loading('Generating PDF...');
-      const html2canvas = await require('html2canvas-pro');
-      const canvas = await html2canvas(content, {
-        scale: 2,
-        logging: false,
-        useCORS: true,
-      });
+      const res = await fetch(`/api/sales/${saleId}/receipt`);
+      // toast.loading('Generating PDF...');
+      // const html2canvas = await require('html2canvas-pro');
+      // const canvas = await html2canvas(content, {
+      //   scale: 2,
+      //   logging: false,
+      //   useCORS: true,
+      // });
 
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
+      // const imgData = canvas.toDataURL('image/png');
+      // const pdf = new jsPDF({
+      //   orientation: 'portrait',
+      //   unit: 'mm',
+      //   format: 'a4',
+      // });
 
-      const imgWidth = 190;
-      const pageHeight = 290;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      let heightLeft = imgHeight;
-      let position = 10;
+      // const imgWidth = 190;
+      // const pageHeight = 290;
+      // const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      // let heightLeft = imgHeight;
+      // let position = 10;
 
-      pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
+      // pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+      // heightLeft -= pageHeight;
 
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-      }
+      // while (heightLeft >= 0) {
+      //   position = heightLeft - imgHeight;
+      //   pdf.addPage();
+      //   pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+      //   heightLeft -= pageHeight;
+      // }
 
-      pdf.save(`Receipt-${saleDetails?.saleNumber || 'sale'}.pdf`);
+      // pdf.save(`Receipt-${saleDetails?.saleNumber || 'sale'}.pdf`);
       toast.success('PDF downloaded successfully');
     } catch (err) {
       toast.error('Failed to generate PDF', {

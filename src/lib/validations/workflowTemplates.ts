@@ -66,3 +66,4 @@ export const createWorkflowTemplateInputSchema = z.object({
   steps: z.array(workflowStepInputSchema).min(1, 'A workflow must have at least one step.'),
 });
 export type CreateWorkflowTemplateInput = z.infer<typeof createWorkflowTemplateInputSchema>;
+export type WorkflowStepInput = z.infer<typeof workflowStepInputSchema>;

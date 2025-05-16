@@ -54,7 +54,7 @@ const organizationSchema = z.object({
     .string()
     .max(500, "Description cannot exceed 500 characters")
     .optional(),
-  logo: z.string().url("Must be a valid URL").optional().or(z.literal("")),
+  logo: z.string().url("Must be a valid URL").optional(),
 
   // Financial Settings
   defaultCurrency: z.string(),
@@ -106,21 +106,6 @@ export default function CreateOrganizationPage() {
     trigger,
   } = useForm({
     resolver: zodResolver(organizationSchema),
-    defaultValues: {
-      name: "",
-      slug: "",
-      description: "",
-      logo: "",
-      defaultCurrency: "USD",
-      taxRate: "0.00",
-      fiscalYearStart: "01-01",
-      lowStockThreshold: "10",
-      inventoryTrackingEnabled: true,
-      website: "",
-      email: "",
-      phone: "",
-      address: "",
-    },
     mode: "onChange",
   });
 
@@ -158,10 +143,15 @@ export default function CreateOrganizationPage() {
     setError(null);
 
     try {
-      const response = await fetch("/api/organization", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+      const refined = {
+        ...data,
+        lowStockThreshold: parseInt(data.lowStockThreshold)
+      };
+      console.log(refined)
+      const response = await fetch('/api/organization', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(refined),
       });
 
       if (!response.ok) {

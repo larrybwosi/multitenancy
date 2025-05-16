@@ -1,9 +1,23 @@
-'use client'
-import { useState } from 'react';
-import { Camera, Info, Check, X } from 'lucide-react';
-import Image from 'next/image';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge'; // For expense tags
+import { Calendar } from '@/components/ui/calendar'; 
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { AlertCircle, Info, InfoIcon } from 'lucide-react';
 
-// Mock enum values that would come from your actual schema
+// Placeholder for your enum values (ensure these are correctly imported/defined)
+const InventoryPolicy = {
+  FIFO: 'FIFO',
+  LIFO: 'LIFO',
+  FEFO: 'FEFO',
+};
+
 const MeasurementUnit = {
   CUBIC_METER: 'CUBIC_METER',
   CUBIC_FEET: 'CUBIC_FEET',
@@ -16,994 +30,446 @@ const MeasurementUnit = {
   WEIGHT_LB: 'WEIGHT_LB',
 };
 
-const InventoryPolicy = {
-  FIFO: 'FIFO',
-  LIFO: 'LIFO',
-  FEFO: 'FEFO',
-  NONE: 'NONE',
-};
+export function CreateOrganizationPage() {
+  // State management (e.g., React Hook Form with Zod resolver) would handle form data and validation errors
 
-const CreateOrganizationPage = () => {
-  const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState({
-    name: '',
-    slug: '',
-    description: '',
-    logo: null,
-
-    // Expense Settings
-    expenseApprovalRequired: false,
-    expenseApprovalThreshold: null,
-    expenseReceiptRequired: true,
-    expenseReceiptThreshold: null,
-    expenseTagOptions: [],
-
-    // General Settings
-    defaultCurrency: 'USD',
-    defaultTimezone: 'UTC',
-    defaultTaxRate: null,
-
-    // Inventory Settings
-    inventoryPolicy: InventoryPolicy.FEFO,
-    lowStockThreshold: 10,
-    negativeStock: false,
-
-    // Spatial Settings
-    enableCapacityTracking: false,
-    enforceSpatialConstraints: false,
-    enableProductDimensions: false,
-    defaultMeasurementUnit: MeasurementUnit.METER,
-    defaultDimensionUnit: MeasurementUnit.METER,
-    defaultWeightUnit: MeasurementUnit.WEIGHT_KG,
-  });
-
-  const [activeSection, setActiveSection] = useState('organization');
-  const [newTag, setNewTag] = useState('');
-  const [errors, setErrors] = useState({});
-
-  // Timezoones list example
-  const timezones = [
-    'UTC',
-    'America/New_York',
-    'America/Los_Angeles',
-    'Europe/London',
-    'Asia/Tokyo',
-    'Australia/Sydney',
-  ];
-
-  // Currencies list example
-  const currencies = ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'CNY'];
-
-  const handleChange = e => {
-    const { name, value, type, checked } = e.target;
-    setFormData({
-      ...formData,
-      [name]: type === 'checkbox' ? checked : value,
-    });
-
-    // Clear error for this field if it exists
-    if (errors[name]) {
-      setErrors({
-        ...errors,
-        [name]: undefined,
-      });
-    }
-  };
-
-  const handleNumberChange = e => {
-    const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value === '' ? null : Number(value),
-    });
-
-    // Clear error for this field if it exists
-    if (errors[name]) {
-      setErrors({
-        ...errors,
-        [name]: undefined,
-      });
-    }
-  };
-
-  const handleAddTag = () => {
-    if (newTag && !formData.expenseTagOptions.includes(newTag)) {
-      setFormData({
-        ...formData,
-        expenseTagOptions: [...formData.expenseTagOptions, newTag],
-      });
-      setNewTag('');
-    }
-  };
-
-  const handleRemoveTag = tag => {
-    setFormData({
-      ...formData,
-      expenseTagOptions: formData.expenseTagOptions.filter(t => t !== tag),
-    });
-  };
-
-  const validateForm = () => {
-    const newErrors = {};
-
-    if (!formData.name) {
-      newErrors.name = 'Organization name is required.';
-    }
-
-    if (!formData.slug) {
-      newErrors.slug = 'Slug is required.';
-    } else if (formData.slug.length < 2) {
-      newErrors.slug = 'Slug must be at least 2 characters.';
-    } else if (formData.slug.length > 30) {
-      newErrors.slug = 'Slug must not exceed 30 characters.';
-    } else if (!/^[a-z0-9-]+$/.test(formData.slug)) {
-      newErrors.slug = 'Slug can only contain lowercase letters, numbers, and hyphens.';
-    }
-
-    if (formData.description && formData.description.length > 500) {
-      newErrors.description = 'Description must not exceed 500 characters.';
-    }
-
-    // Add more validations as needed for other fields
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = e => {
-    e.preventDefault();
-    if (validateForm()) {
-      // Submit form data
-      console.log('Form submitted:', formData);
-      // Here you would typically send the data to your API
-    }
-  };
-
-  const nextStep = () => {
-    if (validateForm()) {
-      setStep(step + 1);
-    }
-  };
-
-  const prevStep = () => {
-    setStep(step - 1);
-  };
-
-  const formatSlug = text => {
-    return text
-      .toLowerCase()
-      .replace(/\s+/g, '-')
-      .replace(/[^a-z0-9-]/g, '');
-  };
-
-  const handleNameChange = e => {
-    const { value } = e.target;
-    setFormData({
-      ...formData,
-      name: value,
-      // Auto-generate slug if the user hasn't manually edited it
-      slug: formData.slug === formatSlug(formData.name) ? formatSlug(value) : formData.slug,
-    });
-
-    if (errors.name) {
-      setErrors({
-        ...errors,
-        name: undefined,
-      });
-    }
-  };
-
-  const handleSlugChange = e => {
-    const { value } = e.target;
-    setFormData({
-      ...formData,
-      slug: formatSlug(value),
-    });
-
-    if (errors.slug) {
-      setErrors({
-        ...errors,
-        slug: undefined,
-      });
-    }
-  };
-
-  // Mock function for file upload
-  const handleLogoChange = e => {
-    // In a real app, you would handle file upload to get a URL
-    setFormData({
-      ...formData,
-      logo: e.target.files[0] ? URL.createObjectURL(e.target.files[0]) : null,
-    });
-  };
+  const expenseTagOptions = ['Travel', 'Office Supplies', 'Software', 'Marketing']; // Example options
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <h1 className="text-2xl font-bold text-gray-900">Create New Organization</h1>
-        </div>
-      </header>
-
-      {/* Main content */}
-      <main className="flex-grow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Progress indicators */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between">
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-in-out"
-                  style={{ width: `${(step / 4) * 100}%` }}
-                ></div>
+    <div className="min-h-screen w-full bg-gradient-to-br from-slate-50 to-sky-100 dark:from-slate-900 dark:to-sky-950 flex flex-col items-center py-8 px-4 overflow-y-auto">
+      <Card className="w-full max-w-4xl shadow-2xl">
+        <CardHeader className="text-center">
+          <CardTitle className="text-3xl font-bold tracking-tight">Create Your New Organization</CardTitle>
+          <CardDescription className="text-md text-muted-foreground pt-1">
+            Fill in the details below to get your organization up and running.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-8 pt-6">
+          {/* Section 1: Basic Information */}
+          <div className="space-y-4 p-6 border rounded-lg shadow-sm bg-card">
+            <h3 className="text-xl font-semibold text-foreground">Basic Information</h3>
+            <p className="text-sm text-muted-foreground">
+              Start with the essentials. This information will help identify your organization.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <Label htmlFor="name" className="text-sm font-medium">
+                  Organization Name <span className="text-red-500">*</span>
+                </Label>
+                <Input id="name" placeholder="e.g., Acme Innovations Inc." className="mt-1" />
+                <p className="text-xs text-muted-foreground mt-1">The official name of your organization. (Required)</p>
+                {/* Validation Error: "Organization name is required." */}
+              </div>
+              <div>
+                <Label htmlFor="slug" className="text-sm font-medium">
+                  Organization Slug <span className="text-red-500">*</span>
+                </Label>
+                <Input id="slug" placeholder="e.g., acme-innovations" className="mt-1" />
+                <p className="text-xs text-muted-foreground mt-1">
+                  A unique, URL-friendly identifier (lowercase, numbers, hyphens). Min 2, Max 30 chars. (Required)
+                </p>
+                {/* Validation Errors: "Slug must be at least 2 characters.", "Slug must not exceed 30 characters.", "Slug can only contain lowercase letters, numbers, and hyphens." */}
               </div>
             </div>
-            <div className="flex justify-between mt-2">
-              <div className={`text-sm font-medium ${step >= 1 ? 'text-blue-600' : 'text-gray-500'}`}>
-                Organization Details
-              </div>
-              <div className={`text-sm font-medium ${step >= 2 ? 'text-blue-600' : 'text-gray-500'}`}>
+            <div>
+              <Label htmlFor="description" className="text-sm font-medium">
+                Description
+              </Label>
+              <Textarea
+                id="description"
+                placeholder="Tell us a bit about your organization (optional, max 500 characters)."
+                className="mt-1 min-h-[100px]"
+              />
+              <p className="text-xs text-muted-foreground mt-1">A brief summary of what your organization does.</p>
+              {/* Validation Error: "Description must not exceed 500 characters." */}
+            </div>
+            <div>
+              <Label htmlFor="logo" className="text-sm font-medium">
+                Logo URL
+              </Label>
+              <Input id="logo" type="url" placeholder="https://example.com/logo.png" className="mt-1" />
+              <p className="text-xs text-muted-foreground mt-1">
+                Link to your organization's logo (optional). Must be a valid URL.
+              </p>
+              {/* Validation Error: "Invalid logo URL." */}
+              {/* Consider adding a File Upload component here as an alternative/enhancement */}
+            </div>
+          </div>
+
+          <Accordion type="multiple" className="w-full space-y-4">
+            {/* Section 2: Expense Settings */}
+            <AccordionItem value="expense-settings" className="border rounded-lg shadow-sm bg-card overflow-hidden">
+              <AccordionTrigger className="px-6 py-4 text-lg font-semibold hover:bg-muted/50">
                 Expense Settings
-              </div>
-              <div className={`text-sm font-medium ${step >= 3 ? 'text-blue-600' : 'text-gray-500'}`}>
-                General Settings
-              </div>
-              <div className={`text-sm font-medium ${step >= 4 ? 'text-blue-600' : 'text-gray-500'}`}>
-                Inventory & Spatial
-              </div>
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-8">
-            {/* Step 1: Organization Details */}
-            {step === 1 && (
-              <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-                <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900">Organization Details</h3>
-                  <p className="mt-1 max-w-2xl text-sm text-gray-500">
-                    Set up the basic information for your organization.
-                  </p>
-                </div>
-                <div className="px-4 py-5 sm:p-6">
-                  <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-                    {/* Logo upload */}
-                    <div className="sm:col-span-6">
-                      <label className="block text-sm font-medium text-gray-700">Organization Logo</label>
-                      <div className="mt-1 flex items-center">
-                        <div className="h-24 w-24 rounded-md border border-gray-300 bg-white flex items-center justify-center overflow-hidden">
-                          {formData.logo ? (
-                            <Image src={formData.logo} alt="Logo preview" fill className="h-full w-full object-cover" />
-                          ) : (
-                            <Camera className="h-8 w-8 text-gray-400" />
-                          )}
-                        </div>
-                        <div className="ml-5">
-                          <label
-                            htmlFor="logo-upload"
-                            className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm leading-4 font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                          >
-                            <span>Upload a file</span>
-                            <input
-                              id="logo-upload"
-                              name="logo-upload"
-                              type="file"
-                              accept="image/*"
-                              className="sr-only"
-                              onChange={handleLogoChange}
-                            />
-                          </label>
-                          <p className="mt-1 text-xs text-gray-500">PNG, JPG, GIF up to 2MB</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Organization name */}
-                    <div className="sm:col-span-4">
-                      <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                        Organization Name <span className="text-red-500">*</span>
-                      </label>
-                      <div className="mt-1">
-                        <input
-                          type="text"
-                          name="name"
-                          id="name"
-                          value={formData.name}
-                          onChange={handleNameChange}
-                          className={`block w-full rounded-md ${errors.name ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'} sm:text-sm`}
-                        />
-                      </div>
-                      {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
-                      <p className="mt-1 text-xs text-gray-500">The official name of your organization.</p>
-                    </div>
-
-                    {/* Slug */}
-                    <div className="sm:col-span-4">
-                      <label htmlFor="slug" className="block text-sm font-medium text-gray-700">
-                        Slug <span className="text-red-500">*</span>
-                      </label>
-                      <div className="mt-1 flex rounded-md shadow-sm">
-                        <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
-                          myapp.com/org/
-                        </span>
-                        <input
-                          type="text"
-                          name="slug"
-                          id="slug"
-                          value={formData.slug}
-                          onChange={handleSlugChange}
-                          className={`flex-1 min-w-0 block rounded-none rounded-r-md ${errors.slug ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'} sm:text-sm`}
-                        />
-                      </div>
-                      {errors.slug && <p className="mt-1 text-sm text-red-600">{errors.slug}</p>}
-                      <p className="mt-1 text-xs text-gray-500">
-                        Used for your organization&apos;s URL. Only lowercase letters, numbers, and hyphens.
-                      </p>
-                    </div>
-
-                    {/* Description */}
-                    <div className="sm:col-span-6">
-                      <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-                        Description
-                      </label>
-                      <div className="mt-1">
-                        <textarea
-                          id="description"
-                          name="description"
-                          rows={4}
-                          value={formData.description || ''}
-                          onChange={handleChange}
-                          className={`block w-full rounded-md ${errors.description ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'} sm:text-sm`}
-                        />
-                      </div>
-                      <div className="flex justify-between mt-1">
-                        <p className="text-xs text-gray-500">Brief description of your organization.</p>
-                        <p className="text-xs text-gray-500">{formData.description?.length || 0}/500</p>
-                      </div>
-                      {errors.description && <p className="mt-1 text-sm text-red-600">{errors.description}</p>}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Step 2: Expense Settings */}
-            {step === 2 && (
-              <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-                <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900">Expense Settings</h3>
-                  <p className="mt-1 max-w-2xl text-sm text-gray-500">
-                    Configure how expenses are managed within your organization.
-                  </p>
-                </div>
-                <div className="px-4 py-5 sm:p-6">
-                  <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-                    {/* Expense Approval */}
-                    <div className="sm:col-span-6">
-                      <div className="flex items-start">
-                        <div className="flex items-center h-5">
-                          <input
-                            id="expenseApprovalRequired"
-                            name="expenseApprovalRequired"
-                            type="checkbox"
-                            checked={formData.expenseApprovalRequired}
-                            onChange={handleChange}
-                            className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
-                          />
-                        </div>
-                        <div className="ml-3 text-sm">
-                          <label htmlFor="expenseApprovalRequired" className="font-medium text-gray-700">
-                            Require expense approval
-                          </label>
-                          <p className="text-gray-500">All expenses will require approval before processing.</p>
-                        </div>
-                      </div>
-
-                      {formData.expenseApprovalRequired && (
-                        <div className="mt-4 ml-7">
-                          <label htmlFor="expenseApprovalThreshold" className="block text-sm font-medium text-gray-700">
-                            Approval threshold
-                          </label>
-                          <div className="mt-1 relative rounded-md shadow-sm">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                              <span className="text-gray-500 sm:text-sm">$</span>
-                            </div>
-                            <input
-                              type="number"
-                              name="expenseApprovalThreshold"
-                              id="expenseApprovalThreshold"
-                              value={formData.expenseApprovalThreshold || ''}
-                              onChange={handleNumberChange}
-                              className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md"
-                              placeholder="0.00"
-                              min="0"
-                              step="0.01"
-                            />
-                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                              <span className="text-gray-500 sm:text-sm">USD</span>
-                            </div>
-                          </div>
-                          <p className="mt-1 text-xs text-gray-500">
-                            Only expenses above this amount require approval. Leave empty to require approval for all
-                            expenses.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Receipt Required */}
-                    <div className="sm:col-span-6">
-                      <div className="flex items-start">
-                        <div className="flex items-center h-5">
-                          <input
-                            id="expenseReceiptRequired"
-                            name="expenseReceiptRequired"
-                            type="checkbox"
-                            checked={formData.expenseReceiptRequired}
-                            onChange={handleChange}
-                            className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
-                          />
-                        </div>
-                        <div className="ml-3 text-sm">
-                          <label htmlFor="expenseReceiptRequired" className="font-medium text-gray-700">
-                            Require receipts
-                          </label>
-                          <p className="text-gray-500">Expenses will require receipt attachments.</p>
-                        </div>
-                      </div>
-
-                      {formData.expenseReceiptRequired && (
-                        <div className="mt-4 ml-7">
-                          <label htmlFor="expenseReceiptThreshold" className="block text-sm font-medium text-gray-700">
-                            Receipt threshold
-                          </label>
-                          <div className="mt-1 relative rounded-md shadow-sm">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                              <span className="text-gray-500 sm:text-sm">$</span>
-                            </div>
-                            <input
-                              type="number"
-                              name="expenseReceiptThreshold"
-                              id="expenseReceiptThreshold"
-                              value={formData.expenseReceiptThreshold || ''}
-                              onChange={handleNumberChange}
-                              className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md"
-                              placeholder="0.00"
-                              min="0"
-                              step="0.01"
-                            />
-                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                              <span className="text-gray-500 sm:text-sm">USD</span>
-                            </div>
-                          </div>
-                          <p className="mt-1 text-xs text-gray-500">
-                            Only expenses above this amount require receipts. Leave empty to require receipts for all
-                            expenses.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Expense Tags */}
-                    <div className="sm:col-span-6">
-                      <label htmlFor="expenseTagOptions" className="block text-sm font-medium text-gray-700">
-                        Expense Tags
-                      </label>
-                      <p className="text-xs text-gray-500 mb-2">
-                        Define tags that can be applied to expenses for categorization.
-                      </p>
-
-                      <div className="flex items-center mt-1">
-                        <input
-                          type="text"
-                          name="newTag"
-                          id="newTag"
-                          value={newTag}
-                          onChange={e => setNewTag(e.target.value)}
-                          className="focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                          placeholder="Add new tag"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleAddTag}
-                          className="ml-3 inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                        >
-                          Add
-                        </button>
-                      </div>
-
-                      {formData.expenseTagOptions.length > 0 && (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {formData.expenseTagOptions.map(tag => (
-                            <span
-                              key={tag}
-                              className="inline-flex items-center px-2.5 py-0.5 rounded-md text-sm font-medium bg-blue-100 text-blue-800"
-                            >
-                              {tag}
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveTag(tag)}
-                                className="ml-1.5 h-4 w-4 flex items-center justify-center text-blue-400 hover:text-blue-600 focus:outline-none"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Step 3: General Settings */}
-            {step === 3 && (
-              <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-                <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900">General Settings</h3>
-                  <p className="mt-1 max-w-2xl text-sm text-gray-500">
-                    Configure default organization settings for currency, timezone, and tax.
-                  </p>
-                </div>
-                <div className="px-4 py-5 sm:p-6">
-                  <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-                    {/* Default Currency */}
-                    <div className="sm:col-span-3">
-                      <label htmlFor="defaultCurrency" className="block text-sm font-medium text-gray-700">
-                        Default Currency
-                      </label>
-                      <div className="mt-1">
-                        <select
-                          id="defaultCurrency"
-                          name="defaultCurrency"
-                          value={formData.defaultCurrency}
-                          onChange={handleChange}
-                          className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                        >
-                          {currencies.map(currency => (
-                            <option key={currency} value={currency}>
-                              {currency}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <p className="mt-1 text-xs text-gray-500">Primary currency for financial transactions.</p>
-                    </div>
-
-                    {/* Default Timezone */}
-                    <div className="sm:col-span-3">
-                      <label htmlFor="defaultTimezone" className="block text-sm font-medium text-gray-700">
-                        Default Timezone
-                      </label>
-                      <div className="mt-1">
-                        <select
-                          id="defaultTimezone"
-                          name="defaultTimezone"
-                          value={formData.defaultTimezone}
-                          onChange={handleChange}
-                          className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                        >
-                          {timezones.map(timezone => (
-                            <option key={timezone} value={timezone}>
-                              {timezone}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <p className="mt-1 text-xs text-gray-500">Used for scheduling and reporting.</p>
-                    </div>
-
-                    {/* Default Tax Rate */}
-                    <div className="sm:col-span-3">
-                      <label htmlFor="defaultTaxRate" className="block text-sm font-medium text-gray-700">
-                        Default Tax Rate
-                      </label>
-                      <div className="mt-1 relative rounded-md shadow-sm">
-                        <input
-                          type="number"
-                          name="defaultTaxRate"
-                          id="defaultTaxRate"
-                          value={formData.defaultTaxRate || ''}
-                          onChange={handleNumberChange}
-                          min="0"
-                          max="1"
-                          step="0.01"
-                          className="focus:ring-blue-500 focus:border-blue-500 block w-full pr-12 sm:text-sm border-gray-300 rounded-md"
-                          placeholder="0.00"
-                        />
-                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                          <span className="text-gray-500 sm:text-sm">%</span>
-                        </div>
-                      </div>
-                      <p className="mt-1 text-xs text-gray-500">
-                        Applied to transactions by default. Enter as decimal (e.g., 0.1 for 10%).
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Step 4: Inventory & Spatial Settings */}
-            {step === 4 && (
-              <div className="space-y-6">
-                {/* Inventory Settings */}
-                <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-                  <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900">Inventory Settings</h3>
-                    <p className="mt-1 max-w-2xl text-sm text-gray-500">
-                      Configure how inventory is managed within your organization.
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <AlertCircle className="h-4 w-4 ml-2 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Configure how expenses are managed within your organization.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </AccordionTrigger>
+              <AccordionContent className="px-6 pb-6 pt-2 space-y-6 bg-card">
+                <div className="flex items-center justify-between space-x-4 p-4 border-b">
+                  <div>
+                    <Label htmlFor="expenseApprovalRequired" className="text-sm font-medium">
+                      Expense Approval Required
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      If enabled, expenses above a certain threshold will require approval. (Default: No)
                     </p>
                   </div>
-                  <div className="px-4 py-5 sm:p-6">
-                    <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-                      {/* Inventory Policy */}
-                      <div className="sm:col-span-3">
-                        <label htmlFor="inventoryPolicy" className="block text-sm font-medium text-gray-700">
-                          Inventory Policy
-                        </label>
-                        <div className="mt-1">
-                          <select
-                            id="inventoryPolicy"
-                            name="inventoryPolicy"
-                            value={formData.inventoryPolicy}
-                            onChange={handleChange}
-                            className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                          >
-                            <option value={InventoryPolicy.FIFO}>FIFO (First In, First Out)</option>
-                            <option value={InventoryPolicy.LIFO}>LIFO (Last In, First Out)</option>
-                            <option value={InventoryPolicy.FEFO}>FEFO (First Expired, First Out)</option>
-                            <option value={InventoryPolicy.NONE}>None</option>
-                          </select>
-                        </div>
-                        <p className="mt-1 text-xs text-gray-500">Determines how inventory is consumed and managed.</p>
-                      </div>
-
-                      {/* Low Stock Threshold */}
-                      <div className="sm:col-span-3">
-                        <label htmlFor="lowStockThreshold" className="block text-sm font-medium text-gray-700">
-                          Low Stock Threshold
-                        </label>
-                        <div className="mt-1">
-                          <input
-                            type="number"
-                            name="lowStockThreshold"
-                            id="lowStockThreshold"
-                            value={formData.lowStockThreshold}
-                            onChange={handleNumberChange}
-                            min="0"
-                            className="focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                          />
-                        </div>
-                        <p className="mt-1 text-xs text-gray-500">
-                          Triggers low stock alerts when inventory falls below this level.
-                        </p>
-                      </div>
-
-                      {/* Negative Stock */}
-                      <div className="sm:col-span-6">
-                        <div className="flex items-start">
-                          <div className="flex items-center h-5">
-                            <input
-                              id="negativeStock"
-                              name="negativeStock"
-                              type="checkbox"
-                              checked={formData.negativeStock}
-                              onChange={handleChange}
-                              className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
-                            />
-                          </div>
-                          <div className="ml-3 text-sm">
-                            <label htmlFor="negativeStock" className="font-medium text-gray-700">
-                              Allow negative inventory
-                            </label>
-                            <p className="text-gray-500">Allow items to be withdrawn even when stock is at zero.</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  <Switch id="expenseApprovalRequired" defaultChecked={false} />
                 </div>
-
-                {/* Spatial Settings */}
-                <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-                  <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900">Spatial Settings</h3>
-                    <p className="mt-1 max-w-2xl text-sm text-gray-500">
-                      Configure space and dimension tracking for your organization.
-                    </p>
-                  </div>
-                  <div className="px-4 py-5 sm:p-6">
-                    <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-                      {/* Capacity Tracking */}
-                      <div className="sm:col-span-6">
-                        <div className="flex items-start">
-                          <div className="flex items-center h-5">
-                            <input
-                              id="enableCapacityTracking"
-                              name="enableCapacityTracking"
-                              type="checkbox"
-                              checked={formData.enableCapacityTracking}
-                              onChange={handleChange}
-                              className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
-                            />
-                          </div>
-                          <div className="ml-3 text-sm">
-                            <label htmlFor="enableCapacityTracking" className="font-medium text-gray-700">
-                              Enable capacity tracking
-                            </label>
-                            <p className="text-gray-500">Track storage capacity for locations and containers.</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Spatial Constraints */}
-                      <div className="sm:col-span-6">
-                        <div className="flex items-start">
-                          <div className="flex items-center h-5">
-                            <input
-                              id="enforceSpatialConstraints"
-                              name="enforceSpatialConstraints"
-                              type="checkbox"
-                              checked={formData.enforceSpatialConstraints}
-                              onChange={handleChange}
-                              className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
-                            />
-                          </div>
-                          <div className="ml-3 text-sm">
-                            <label htmlFor="enforceSpatialConstraints" className="font-medium text-gray-700">
-                              Enforce spatial constraints
-                            </label>
-                            <p className="text-gray-500">
-                              Prevent exceeding capacity limits for locations and containers.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Product Dimensions */}
-                      <div className="sm:col-span-6">
-                        <div className="flex items-start">
-                          <div className="flex items-center h-5">
-                            <input
-                              id="enableProductDimensions"
-                              name="enableProductDimensions"
-                              type="checkbox"
-                              checked={formData.enableProductDimensions}
-                              onChange={handleChange}
-                              className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
-                            />
-                          </div>
-                          <div className="ml-3 text-sm">
-                            <label htmlFor="enableProductDimensions" className="font-medium text-gray-700">
-                              Enable product dimensions
-                            </label>
-                            <p className="text-gray-500">Track physical dimensions and weight for products.</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Measurement Units */}
-                      {formData.enableProductDimensions && (
-                        <>
-                          <div className="sm:col-span-2">
-                            <label htmlFor="defaultMeasurementUnit" className="block text-sm font-medium text-gray-700">
-                              Default Measurement Unit
-                            </label>
-                            <div className="mt-1">
-                              <select
-                                id="defaultMeasurementUnit"
-                                name="defaultMeasurementUnit"
-                                value={formData.defaultMeasurementUnit}
-                                onChange={handleChange}
-                                className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                              >
-                                <option value={MeasurementUnit.CUBIC_METER}>Cubic Meter</option>
-                                <option value={MeasurementUnit.CUBIC_FEET}>Cubic Feet</option>
-                                <option value={MeasurementUnit.SQUARE_METER}>Square Meter</option>
-                                <option value={MeasurementUnit.SQUARE_FEET}>Square Feet</option>
-                                <option value={MeasurementUnit.METER}>Meter</option>
-                                <option value={MeasurementUnit.FEET}>Feet</option>
-                                <option value={MeasurementUnit.COUNT}>Count</option>
-                              </select>
-                            </div>
-                            <p className="mt-1 text-xs text-gray-500">Default unit for volume measurements.</p>
-                          </div>
-
-                          <div className="sm:col-span-2">
-                            <label htmlFor="defaultDimensionUnit" className="block text-sm font-medium text-gray-700">
-                              Default Dimension Unit
-                            </label>
-                            <div className="mt-1">
-                              <select
-                                id="defaultDimensionUnit"
-                                name="defaultDimensionUnit"
-                                value={formData.defaultDimensionUnit}
-                                onChange={handleChange}
-                                className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                              >
-                                <option value={MeasurementUnit.METER}>Meter</option>
-                                <option value={MeasurementUnit.FEET}>Feet</option>
-                              </select>
-                            </div>
-                            <p className="mt-1 text-xs text-gray-500">Default unit for length, width, height.</p>
-                          </div>
-
-                          <div className="sm:col-span-2">
-                            <label htmlFor="defaultWeightUnit" className="block text-sm font-medium text-gray-700">
-                              Default Weight Unit
-                            </label>
-                            <div className="mt-1">
-                              <select
-                                id="defaultWeightUnit"
-                                name="defaultWeightUnit"
-                                value={formData.defaultWeightUnit}
-                                onChange={handleChange}
-                                className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                              >
-                                <option value={MeasurementUnit.WEIGHT_KG}>Kilograms (kg)</option>
-                                <option value={MeasurementUnit.WEIGHT_LB}>Pounds (lb)</option>
-                              </select>
-                            </div>
-                            <p className="mt-1 text-xs text-gray-500">Default unit for weight measurements.</p>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Form actions */}
-            <div className="pt-5">
-              <div className="flex justify-between">
                 <div>
-                  {step > 1 && (
-                    <button
-                      type="button"
-                      onClick={prevStep}
-                      className="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                      Back
-                    </button>
-                  )}
+                  <Label htmlFor="expenseApprovalThreshold" className="text-sm font-medium">
+                    Expense Approval Threshold
+                  </Label>
+                  <Input id="expenseApprovalThreshold" type="number" placeholder="e.g., 500" className="mt-1" />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Minimum amount for an expense to require approval (if enabled). Must be a positive number.
+                  </p>
+                  {/* Validation Error: "Threshold must be a positive number." */}
                 </div>
-                <div className="flex space-x-3">
-                  <button
-                    type="button"
-                    className="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    onClick={() =>
-                      setFormData({
-                        name: '',
-                        slug: '',
-                        description: '',
-                        logo: null,
-                        expenseApprovalRequired: false,
-                        expenseApprovalThreshold: null,
-                        expenseReceiptRequired: true,
-                        expenseReceiptThreshold: null,
-                        expenseTagOptions: [],
-                        defaultCurrency: 'USD',
-                        defaultTimezone: 'UTC',
-                        defaultTaxRate: null,
-                        inventoryPolicy: InventoryPolicy.FEFO,
-                        lowStockThreshold: 10,
-                        negativeStock: false,
-                        enableCapacityTracking: false,
-                        enforceSpatialConstraints: false,
-                        enableProductDimensions: false,
-                        defaultMeasurementUnit: MeasurementUnit.METER,
-                        defaultDimensionUnit: MeasurementUnit.METER,
-                        defaultWeightUnit: MeasurementUnit.WEIGHT_KG,
-                      })
-                    }
-                  >
-                    Reset
-                  </button>
-                  {step < 4 ? (
-                    <button
-                      type="button"
-                      onClick={nextStep}
-                      className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                      Next
-                    </button>
-                  ) : (
-                    <button
-                      type="submit"
-                      className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                    >
-                      Create Organization
-                    </button>
-                  )}
+                <div className="flex items-center justify-between space-x-4 p-4 border-b">
+                  <div>
+                    <Label htmlFor="expenseReceiptRequired" className="text-sm font-medium">
+                      Expense Receipt Required
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      If enabled, receipts will be mandatory for expenses, possibly above a threshold. (Default: Yes)
+                    </p>
+                  </div>
+                  <Switch id="expenseReceiptRequired" defaultChecked={true} />
                 </div>
-              </div>
-            </div>
-          </form>
-        </div>
-      </main>
-
-      {/* Summary panel - fixed on the right side */}
-      <div className="hidden lg:block fixed top-0 right-0 w-96 h-full bg-white shadow-lg border-l border-gray-200 overflow-auto">
-        <div className="px-6 py-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Organization Summary</h2>
-
-          <div className="space-y-4">
-            {/* Basic Info Preview */}
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Basic Information</h3>
-              <div className="bg-gray-50 p-3 rounded-md">
-                <div className="flex items-center">
-                  {formData.logo ? (
-                    <Image src={formData.logo} alt="Logo" fill className="h-10 w-10 rounded-md object-cover" />
-                  ) : (
-                    <div className="h-10 w-10 rounded-md bg-gray-300 flex items-center justify-center">
-                      <Camera className="h-6 w-6 text-gray-500" />
-                    </div>
-                  )}
-                  <div className="ml-3">
-                    <p className="text-sm font-medium text-gray-900">{formData.name || 'Organization Name'}</p>
-                    <p className="text-xs text-gray-500">myapp.com/org/{formData.slug || 'org-slug'}</p>
+                <div>
+                  <Label htmlFor="expenseReceiptThreshold" className="text-sm font-medium">
+                    Expense Receipt Threshold
+                  </Label>
+                  <Input id="expenseReceiptThreshold" type="number" placeholder="e.g., 50" className="mt-1" />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Minimum amount for an expense to require a receipt (if enabled). Must be a positive number.
+                  </p>
+                  {/* Validation Error: "Threshold must be a positive number." */}
+                </div>
+                <div>
+                  <Label htmlFor="expenseTagOptions" className="text-sm font-medium">
+                    Expense Tag Options
+                  </Label>
+                  {/* This could be an input that allows adding tags, e.g., with pills/badges */}
+                  <Input
+                    id="expenseTagOptions"
+                    placeholder="e.g., Travel, Food, Software (comma-separated)"
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Define default tags users can select for expenses. (Enter comma-separated values)
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {/* Example of displaying tags */}
+                    {expenseTagOptions.map(tag => (
+                      <Badge key={tag} variant="secondary">
+                        {tag}
+                      </Badge>
+                    ))}
                   </div>
                 </div>
-                {formData.description && (
-                  <p className="mt-2 text-xs text-gray-600 line-clamp-2">{formData.description}</p>
-                )}
-              </div>
-            </div>
+              </AccordionContent>
+            </AccordionItem>
 
-            {/* Progress */}
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Setup Progress</h3>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-600">Organization Details</span>
-                  <span className={`text-xs ${formData.name && formData.slug ? 'text-green-600' : 'text-orange-500'}`}>
-                    {formData.name && formData.slug ? <Check className="h-4 w-4" /> : 'Required'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-600">Expense Settings</span>
-                  <span className="text-xs text-green-600">
-                    <Check className="h-4 w-4" />
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-600">General Settings</span>
-                  <span className="text-xs text-green-600">
-                    <Check className="h-4 w-4" />
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-600">Inventory & Spatial</span>
-                  <span className="text-xs text-green-600">
-                    <Check className="h-4 w-4" />
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Tips */}
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Tips</h3>
-              <div className="bg-blue-50 p-3 rounded-md">
-                <div className="flex">
-                  <Info className="h-5 w-5 text-blue-400 flex-shrink-0" />
-                  <div className="ml-2">
-                    <p className="text-xs text-blue-800">
-                      After creating your organization, you'll be able to invite team members and set up permissions.
+            {/* Section 3: General Settings */}
+            <AccordionItem value="general-settings" className="border rounded-lg shadow-sm bg-card overflow-hidden">
+              <AccordionTrigger className="px-6 py-4 text-lg font-semibold hover:bg-muted/50">
+                General Settings
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <AlertCircle className="h-4 w-4 ml-2 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Define global defaults for your organization's operations.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </AccordionTrigger>
+              <AccordionContent className="px-6 pb-6 pt-2 space-y-6 bg-card">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <Label htmlFor="defaultCurrency" className="text-sm font-medium">
+                      Default Currency
+                    </Label>
+                    <Input
+                      id="defaultCurrency"
+                      defaultValue="USD"
+                      maxLength={3}
+                      placeholder="e.g., USD"
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Standard currency (3-letter code). (Default: USD)
+                    </p>
+                    {/* Validation Error: min(3), max(3) */}
+                  </div>
+                  <div>
+                    <Label htmlFor="defaultTimezone" className="text-sm font-medium">
+                      Default Timezone
+                    </Label>
+                    {/* Consider using a Select component populated with common timezones */}
+                    <Input
+                      id="defaultTimezone"
+                      defaultValue="UTC"
+                      placeholder="e.g., America/New_York"
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Primary timezone for operations. (Default: UTC)
                     </p>
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+                <div>
+                  <Label htmlFor="defaultTaxRate" className="text-sm font-medium">
+                    Default Tax Rate (0-1)
+                  </Label>
+                  <Input
+                    id="defaultTaxRate"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="1"
+                    placeholder="e.g., 0.07 for 7%"
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Standard tax rate as a decimal (e.g., 0.05 for 5%). Optional.
+                  </p>
+                  {/* Validation Error: "Tax rate must be between 0 and 1." */}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            {/* Section 4: Inventory Settings */}
+            <AccordionItem value="inventory-settings" className="border rounded-lg shadow-sm bg-card overflow-hidden">
+              <AccordionTrigger className="px-6 py-4 text-lg font-semibold hover:bg-muted/50">
+                Inventory Settings
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <AlertCircle className="h-4 w-4 ml-2 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Customize how inventory is tracked and managed.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </AccordionTrigger>
+              <AccordionContent className="px-6 pb-6 pt-2 space-y-6 bg-card">
+                <div>
+                  <Label htmlFor="inventoryPolicy" className="text-sm font-medium">
+                    Inventory Policy
+                  </Label>
+                  <Select defaultValue={InventoryPolicy.FEFO}>
+                    <SelectTrigger id="inventoryPolicy" className="mt-1">
+                      <SelectValue placeholder="Select inventory policy" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={InventoryPolicy.FIFO}>FIFO (First-In, First-Out)</SelectItem>
+                      <SelectItem value={InventoryPolicy.LIFO}>LIFO (Last-In, First-Out)</SelectItem>
+                      <SelectItem value={InventoryPolicy.FEFO}>FEFO (First-Expired, First-Out)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Method for valuing and moving inventory. (Default: FEFO)
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <Label htmlFor="lowStockThreshold" className="text-sm font-medium">
+                      Low Stock Threshold
+                    </Label>
+                    <Input
+                      id="lowStockThreshold"
+                      type="number"
+                      defaultValue={10}
+                      min="0"
+                      placeholder="e.g., 10"
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Alert level for low inventory items. Must be a non-negative integer. (Default: 10)
+                    </p>
+                    {/* Validation Error: "Threshold must be a non-negative integer." */}
+                  </div>
+                  <div className="flex items-center space-x-4 pt-6">
+                    <Label htmlFor="negativeStock" className="text-sm font-medium whitespace-nowrap">
+                      Allow Negative Stock
+                    </Label>
+                    <Switch id="negativeStock" defaultChecked={false} />
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Permit stock levels to go below zero. (Default: No)</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            {/* Section 5: Spatial Settings */}
+            <AccordionItem value="spatial-settings" className="border rounded-lg shadow-sm bg-card overflow-hidden">
+              <AccordionTrigger className="px-6 py-4 text-lg font-semibold hover:bg-muted/50">
+                Spatial & Measurement Settings
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 ml-2 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Configure settings related to physical space and units of measurement.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </AccordionTrigger>
+              <AccordionContent className="px-6 pb-6 pt-2 space-y-6 bg-card">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8">
+                  <div className="flex items-center justify-between space-x-2 p-3 rounded-md border">
+                    <div>
+                      <Label htmlFor="enableCapacityTracking" className="text-sm font-medium">
+                        Enable Capacity Tracking
+                      </Label>
+                      <p className="text-xs text-muted-foreground">Track storage capacity. (Default: No)</p>
+                    </div>
+                    <Switch id="enableCapacityTracking" defaultChecked={false} />
+                  </div>
+                  <div className="flex items-center justify-between space-x-2 p-3 rounded-md border">
+                    <div>
+                      <Label htmlFor="enforceSpatialConstraints" className="text-sm font-medium">
+                        Enforce Spatial Constraints
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Strictly enforce location capacities. (Default: No)
+                      </p>
+                    </div>
+                    <Switch id="enforceSpatialConstraints" defaultChecked={false} />
+                  </div>
+                  <div className="flex items-center justify-between space-x-2 p-3 rounded-md border">
+                    <div>
+                      <Label htmlFor="enableProductDimensions" className="text-sm font-medium">
+                        Enable Product Dimensions
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Allow specifying dimensions for products. (Default: No)
+                      </p>
+                    </div>
+                    <Switch id="enableProductDimensions" defaultChecked={false} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+                  <div>
+                    <Label htmlFor="defaultMeasurementUnit" className="text-sm font-medium">
+                      Default Measurement Unit
+                    </Label>
+                    <Select defaultValue={MeasurementUnit.METER}>
+                      <SelectTrigger id="defaultMeasurementUnit" className="mt-1">
+                        <SelectValue placeholder="Select unit" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.values(MeasurementUnit).map(unit => (
+                          <SelectItem key={unit} value={unit}>
+                            {unit
+                              .replace(/_/g, ' ')
+                              .toLowerCase()
+                              .replace(/\b\w/g, l => l.toUpperCase())}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      General unit for measurements. (Default: Meter)
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="defaultDimensionUnit" className="text-sm font-medium">
+                      Default Dimension Unit
+                    </Label>
+                    <Select defaultValue={MeasurementUnit.METER}>
+                      <SelectTrigger id="defaultDimensionUnit" className="mt-1">
+                        <SelectValue placeholder="Select unit" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[
+                          MeasurementUnit.CUBIC_METER,
+                          MeasurementUnit.CUBIC_FEET,
+                          MeasurementUnit.SQUARE_METER,
+                          MeasurementUnit.SQUARE_FEET,
+                          MeasurementUnit.METER,
+                          MeasurementUnit.FEET,
+                        ].map(unit => (
+                          <SelectItem key={unit} value={unit}>
+                            {unit
+                              .replace(/_/g, ' ')
+                              .toLowerCase()
+                              .replace(/\b\w/g, l => l.toUpperCase())}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Unit for product/location dimensions. (Default: Meter)
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="defaultWeightUnit" className="text-sm font-medium">
+                      Default Weight Unit
+                    </Label>
+                    <Select defaultValue={MeasurementUnit.WEIGHT_KG}>
+                      <SelectTrigger id="defaultWeightUnit" className="mt-1">
+                        <SelectValue placeholder="Select unit" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[MeasurementUnit.WEIGHT_KG, MeasurementUnit.WEIGHT_LB].map(unit => (
+                          <SelectItem key={unit} value={unit}>
+                            {unit
+                              .replace(/_/g, ' ')
+                              .toLowerCase()
+                              .replace(/\b\w/g, l => l.toUpperCase())}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">Unit for product weights. (Default: KG)</p>
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </CardContent>
+        <CardFooter className="flex flex-col items-center pt-8">
+          {/* Optional: Display a summary of critical validation errors here if any */}
+          {/* <div className="mb-4 text-sm text-red-600 dark:text-red-400">
+            <ExclamationTriangleIcon className="inline h-4 w-4 mr-1" /> Please correct the errors above.
+          </div> */}
+          <Button size="lg" className="w-full max-w-xs text-lg">
+            Create Organization
+          </Button>
+          <p className="text-xs text-muted-foreground mt-4">
+            By clicking "Create Organization", you agree to our{' '}
+            <a href="/terms" className="underline hover:text-primary">
+              Terms of Service
+            </a>
+            .
+          </p>
+        </CardFooter>
+      </Card>
     </div>
   );
-};
-
-export default CreateOrganizationPage;
+}
+export default CreateOrganizationPage
