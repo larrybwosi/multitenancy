@@ -37,6 +37,7 @@ import { ExpensesList } from "./expenses-list";
 import { ExpensesStats } from "./expenses-stats";
 import { RecurringExpensesList } from "./recurring-expenses-list";
 import { ExpenseAnalytics } from "./expense-analytics";
+import { CreateExpenseSheet } from "./create-expense-sheet";
 
 // Define the shape of the API response (optional but recommended)
 interface ExpenseData {
@@ -285,7 +286,7 @@ export function ExpensesPage() {
                           <SelectValue placeholder="All Categories" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">All Categories</SelectItem>{" "}
+                          {/* <SelectItem value="">All Categories</SelectItem>{" "} */}
                           {/* Use "" for 'all' */}
                           {categories.map((cat) => (
                             <SelectItem key={cat} value={cat}>
@@ -309,7 +310,7 @@ export function ExpensesPage() {
                           <SelectValue placeholder="All Departments" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">All Departments</SelectItem>{" "}
+                          {/* <SelectItem value="">All Departments</SelectItem>{" "} */}
                           {/* Use "" for 'all' */}
                           {departments.map((dept) => (
                             <SelectItem key={dept} value={dept}>
@@ -333,7 +334,7 @@ export function ExpensesPage() {
                           <SelectValue placeholder="All Vendors" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">All Vendors</SelectItem>{" "}
+                          {/* <SelectItem value="">All Vendors</SelectItem>{" "} */}
                           {/* Use "" for 'all' */}
                           {vendors.map((v) => (
                             <SelectItem key={v} value={v}>
@@ -357,9 +358,9 @@ export function ExpensesPage() {
                           <SelectValue placeholder="All Approval Statuses" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">
+                          {/* <SelectItem value="">
                             All Approval Statuses
-                          </SelectItem>{" "}
+                          </SelectItem>{" "} */}
                           {/* Use "" for 'all' */}
                           {approvalStatuses.map((status) => (
                             <SelectItem key={status} value={status}>
@@ -383,7 +384,7 @@ export function ExpensesPage() {
                           <SelectValue placeholder="Tax Deductible" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">All</SelectItem>{" "}
+                          {/* <SelectItem value="">All</SelectItem>{" "} */}
                           {/* Represent 'all' with empty string */}
                           <SelectItem value="true">Tax Deductible</SelectItem>
                           <SelectItem value="false">Non-Deductible</SelectItem>

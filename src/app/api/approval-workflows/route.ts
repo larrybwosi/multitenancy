@@ -4,12 +4,9 @@ import { updateApprovalWorkflow } from "@/actions/approval-workflows";
 import { ApprovalWorkflowInputSchema } from "@/lib/validations/approval";
 import { getServerAuthContext } from "@/actions/auth";
 
-// GET /api/approval-workflows - Get all workflows for an organization
 export async function GET() {
   try {
     const { organizationId } = await getServerAuthContext();
-    console.log("Organization ID:", organizationId);
-    
     const workflows = await prisma.approvalWorkflow.findMany({
       where: {
         organizationId,
@@ -39,21 +36,19 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
 
+    const { organizationId } = await getServerAuthContext();
     const json = await request.json();
 
     // Validate input
     const validationResult = ApprovalWorkflowInputSchema.safeParse(json.data);
     if (!validationResult.success) {
+      console.log(validationResult.error.issues);
       return NextResponse.json(
         { error: "Invalid input", details: validationResult.error.issues },
         { status: 400 }
       );
     }
-
-    const { organizationId } = json;
-    if (!organizationId) {
-      return NextResponse.json({ error: "Organization ID is required" }, { status: 400 });
-    }
+    
     
     const { name, description, isActive, steps } = validationResult.data;
 

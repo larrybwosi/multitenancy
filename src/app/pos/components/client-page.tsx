@@ -256,7 +256,7 @@ export function PosClientWrapper({
       {isMobileView && (
         <button 
           onClick={toggleCart}
-          className="fixed z-50 bottom-6 right-6 bg-blue-600 text-white p-3 rounded-full shadow-lg hover:bg-blue-700 transition-all duration-300 flex items-center justify-center"
+          className="fixed z-50 bottom-6 right-6 bg-blue-600 text-white p-3 rounded-full hover:bg-blue-700 transition-all duration-300 flex items-center justify-center"
           aria-label={cartVisible ? "Hide cart" : "Show cart"}
         >
           {cartVisible ? <ArrowRight size={24} /> : <ArrowLeft size={24} />}

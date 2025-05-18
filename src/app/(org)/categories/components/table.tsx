@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { FileText, Grid, PlusCircle } from "lucide-react";
-import { Category, Prisma } from "@/prisma/client";
+import { Category } from "@/prisma/client";
 import { CategoryForm } from "./category-form";
 import { CategoryActions } from "./category-actions";
 import { Pagination } from "@/components/pagination";
@@ -26,20 +26,12 @@ import { useQueryState } from "nuqs";
 import { useState } from "react";
 import { useCategories } from "@/lib/hooks/use-categories";
 import LoadingSkeleton from "../loading";
+import { formatCurrency } from "@/lib/utils";
 
 interface CategoryTableProps {
   currentPage: number;
   pageSize: number;
 }
-
-const formatCurrency = (
-  value: number | string | Prisma.Decimal | null | undefined
-): string => {
-  if (value === null || value === undefined) return "$0.00";
-  const num = typeof value === "number" ? value : parseFloat(value.toString());
-  if (isNaN(num)) return "$0.00";
-  return num.toLocaleString("en-US", { style: "currency", currency: "USD" });
-};
 
 export function CategoryTable({
   currentPage,

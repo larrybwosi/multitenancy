@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { BarChart, ChartConfig, Coins } from "lucide-react"
+import {  ChartArea, Coins } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -31,7 +31,7 @@ export function BudgetHistoryCard({ data }: BudgetHistoryCardProps) {
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-md bg-purple-100 dark:bg-purple-900">
-              <ChartConfig className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+              <ChartArea className="h-4 w-4 text-purple-600 dark:text-purple-400" />
             </div>
             <span>Budget Allocation</span>
           </div>

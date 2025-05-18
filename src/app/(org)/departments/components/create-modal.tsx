@@ -34,7 +34,7 @@ type DepartmentFormValues = z.infer<typeof departmentFormSchema>;
 
 interface CreateDepartmentProps {
   isOpen: boolean;
-  onOpenChange: ()=> void;
+  onOpenChange: ()=> boolean;
 }
 
 const CreateDepartment = ({isOpen, onOpenChange}: CreateDepartmentProps) => {

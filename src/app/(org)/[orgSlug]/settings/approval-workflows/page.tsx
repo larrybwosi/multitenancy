@@ -45,7 +45,7 @@ export default function ApprovalWorkflowsPage() {
     await deleteWorkflow(workflowId);
   };
 
-  if (!organization) {
+  if (!organization && !loadingOrganization) {
     return (
       <div className="flex items-center justify-center h-64">
         <AlertTriangle className="h-8 w-8 text-amber-500 mr-2" />
@@ -63,7 +63,7 @@ export default function ApprovalWorkflowsPage() {
             Configure approval workflows for expenses and other items that require hierarchical approval.
           </p>
         </div>
-        <WorkflowDialog id={organization.id} />
+        <WorkflowDialog id={organization?.id} />
       </div>
 
       <Separator className="my-6" />
@@ -84,7 +84,7 @@ export default function ApprovalWorkflowsPage() {
           <p className="text-muted-foreground mb-6">
             Create your first approval workflow to start managing expense approvals.
           </p>
-          <WorkflowDialog id={organization.id} />
+          <WorkflowDialog id={organization?.id} />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -95,7 +95,7 @@ export default function ApprovalWorkflowsPage() {
                   <div>
                     <CardTitle className="flex items-center gap-2">
                       {workflow.name}
-                      {organization.activeExpenseWorkflowId === workflow.id && (
+                      {organization?.activeExpenseWorkflowId === workflow.id && (
                         <Badge variant="secondary" className="ml-2">
                           <Star className="h-3 w-3 mr-1 text-yellow-500 fill-yellow-500" />
                           Active
@@ -129,7 +129,7 @@ export default function ApprovalWorkflowsPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => handleSetActive(workflow.id)}
-                  disabled={organization.activeExpenseWorkflowId === workflow.id || settingActiveWorkflow}
+                  disabled={organization?.activeExpenseWorkflowId === workflow.id || settingActiveWorkflow}
                 >
                   {settingActiveWorkflow && variables?.workflowId === workflow.id ? (
                     <>
@@ -144,7 +144,7 @@ export default function ApprovalWorkflowsPage() {
                   <WorkflowDialog
                     workflowId={workflow.id}
                     initialData={workflow as unknown as ApprovalWorkflowInput}
-                    id={organization.id}
+                    id={organization?.id}
                   />
                   <AlertDialog>
                     <AlertDialogTrigger asChild>

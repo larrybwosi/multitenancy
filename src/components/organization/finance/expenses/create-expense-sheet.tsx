@@ -96,7 +96,7 @@ export function CreateExpenseSheet({ open, setOpen }: CreateExpenseProps) {
       isBillable: false,
       tags: [],
       receiptUrl: null,
-      notes: null,
+      notes: null,  
       supplierId: null,
       budgetId: null,
       taxAmount: null,

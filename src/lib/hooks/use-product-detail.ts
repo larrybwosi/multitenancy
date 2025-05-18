@@ -3,10 +3,50 @@ import axios, { AxiosError } from 'axios';
 import { toast } from 'sonner';
 import { ProductVariantSchema, ProductSupplierSchema } from '../validations/product';
 import { z } from 'zod';
+import { Category, InventoryLocation, Product, ProductVariant, ProductVariantStock, Supplier } from '@/prisma/client';
 
 export type ProductDetailQueryOptions = {
   id: string;
 };
+
+// Extended types for relationships
+interface ExtendedVariantStock extends ProductVariantStock {
+  location: InventoryLocation;
+}
+
+interface ExtendedSupplier {
+  supplier: Supplier;
+}
+
+interface ExtendedVariant extends ProductVariant {
+  variantStocks: ExtendedVariantStock[];
+  suppliers: ExtendedSupplier[];
+}
+
+interface ExtendedProduct extends Product {
+  category: Category | null;
+  variants: ExtendedVariant[];
+  defaultLocation: InventoryLocation | null;
+  variantStock: ExtendedVariantStock[];
+}
+
+// Success response type
+interface ProductDetailsSuccessResponse {
+  product: ExtendedProduct;
+  locations: InventoryLocation[];
+  suppliers: Supplier[];
+}
+
+// Error response types
+interface ErrorResponse {
+  error: string;
+  details?: string;
+}
+
+// Union type for all possible responses
+type ProductDetailsResponse = 
+  | ProductDetailsSuccessResponse
+  | ErrorResponse;
 
 // Types based on schemas
 export type ProductVariantInput = z.infer<typeof ProductVariantSchema>;
@@ -16,8 +56,8 @@ export function useProductDetail(options: ProductDetailQueryOptions) {
   const { id } = options;
   const queryKey = ['product', id];
 
-  const queryFn = async () => {
-    const response = await fetch(`/api/products/${id}/product`);
+  const queryFn = async (): Promise<ProductDetailsResponse> => {
+    const response = await fetch(`/api/products/${id}`);
 
     if (!response.ok) {
       const error = await response.json();

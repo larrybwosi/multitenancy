@@ -1,16 +1,30 @@
-"use server";
+'use server';
 
-import { Prisma, type Organization, MemberRole, LocationType, InventoryLocation } from '@/prisma/client';
-import slugify from "slugify";
+import { Prisma, type Organization, MemberRole, LocationType, InventoryLocation, DepartmentMemberRole } from '@/prisma/client';
+import slugify from 'slugify';
 
-import { db as prisma } from "@/lib/db";
-import { getServerAuthContext } from "./auth";
-import { revalidatePath } from "next/cache";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
-import { AppError, AuthenticationError, ConflictError, DatabaseError, NotFoundError, SlugGenerationError, ValidationError } from '@/utils/errors';
+import { db as prisma } from '@/lib/db';
+import { getServerAuthContext } from './auth';
+import { revalidatePath } from 'next/cache';
+import { auth } from '@/lib/auth';
+import { headers } from 'next/headers';
+import {
+  AppError,
+  AuthenticationError,
+  ConflictError,
+  DatabaseError,
+  NotFoundError,
+  SlugGenerationError,
+  ValidationError,
+} from '@/utils/errors';
 import { z } from 'zod';
-import { CreateOrganizationInput, CreateOrganizationInputSchema, UpdateOrganizationInput, UpdateOrganizationInputSchema } from '@/lib/validations/organization';
+import {
+  CreateOrganizationInput,
+  CreateOrganizationInputSchema,
+  UpdateOrganizationInput,
+  UpdateOrganizationInputSchema,
+} from '@/lib/validations/organization';
+import { CreateInterface } from '@/lib/hooks/use-org';
 
 interface CreationResponse {
   organization: Organization;
@@ -29,7 +43,7 @@ export async function createOrganization(
   // 1. Authentication
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.id) {
-    throw new AuthenticationError("User not authenticated.");
+    throw new AuthenticationError('User not authenticated.');
   }
   const userId = session.user.id;
 
@@ -39,10 +53,10 @@ export async function createOrganization(
     data = CreateOrganizationInputSchema.parse(rawData);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.log(error)
-      throw new ValidationError("Invalid input data for creating organization.", error.issues);
+      console.log(error);
+      throw new ValidationError('Invalid input data for creating organization.', error.issues);
     }
-    throw new ValidationError("Invalid input data.");
+    throw new ValidationError('Invalid input data.');
   }
 
   const {
@@ -85,10 +99,9 @@ export async function createOrganization(
     }
   } catch (error) {
     if (error instanceof AppError) throw error;
-    console.error("Error during slug generation:", error);
-    throw new SlugGenerationError("An unexpected error occurred while generating the slug.");
+    console.error('Error during slug generation:', error);
+    throw new SlugGenerationError('An unexpected error occurred while generating the slug.');
   }
-
 
   // 4. Database Operations
   try {
@@ -110,9 +123,8 @@ export async function createOrganization(
           create: {
             defaultCurrency,
             defaultTimezone,
-            defaultTaxRate: defaultTaxRate !== null && defaultTaxRate !== undefined
-              ? new Prisma.Decimal(defaultTaxRate)
-              : null,
+            defaultTaxRate:
+              defaultTaxRate !== null && defaultTaxRate !== undefined ? new Prisma.Decimal(defaultTaxRate) : null,
             inventoryPolicy,
             lowStockThreshold, // Zod ensures it's an int
             negativeStock,
@@ -127,8 +139,8 @@ export async function createOrganization(
 
     const mainStore = await prisma.inventoryLocation.create({
       data: {
-        name: "Main Store",
-        description: "Primary retail store location for " + name,
+        name: 'Main Store',
+        description: 'Primary retail store location for ' + name,
         locationType: LocationType.RETAIL_SHOP,
         isDefault: true,
         isActive: true,
@@ -139,39 +151,39 @@ export async function createOrganization(
 
     // Update user's active organization and organization's default location
     await prisma.$transaction([
-        prisma.user.update({
-            where: { id: userId },
-            data: { activeOrganizationId: newOrganization.id },
-        }),
-        prisma.organization.update({
-            where: { id: newOrganization.id },
-            data: { defaultLocationId: mainStore.id },
-        })
+      prisma.user.update({
+        where: { id: userId },
+        data: { activeOrganizationId: newOrganization.id },
+      }),
+      prisma.organization.update({
+        where: { id: newOrganization.id },
+        data: { defaultLocationId: mainStore.id },
+      }),
     ]);
-    
+
     // Fetch the updated organization to include defaultLocationId in the returned object if needed immediately
     // Or adjust the return type/logic based on whether newOrganization already contains this post-transaction.
     // For simplicity, we return the initially created newOrganization and mainStore.
     // If `defaultLocationId` must be in the returned `newOrganization` object, re-fetch or merge.
 
-    console.log("New Organization Created:", newOrganization.name);
+    console.log('New Organization Created:', newOrganization.name);
     return { organization: newOrganization, warehouse: mainStore };
-
   } catch (error) {
-    console.error("Failed to create organization:", error);
+    console.error('Failed to create organization:', error);
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === 'P2002') { // Unique constraint violation
+      if (error.code === 'P2002') {
+        // Unique constraint violation
         // This might happen in a race condition for the slug despite the check.
         // Or if the id generation `org-${finalSlug}` clashes, though less likely with CUIDs for sub-models.
         const target = (error.meta?.target as string[])?.join(', ');
-        throw new ConflictError(
-          `An organization with similar attributes (${target || 'slug/id'}) already exists.`
-        );
+        throw new ConflictError(`An organization with similar attributes (${target || 'slug/id'}) already exists.`);
       }
       throw new DatabaseError(`Database error: ${error.message} (Code: ${error.code})`);
     }
     if (error instanceof AppError) throw error; // Re-throw known app errors
-    throw new DatabaseError(`Could not create organization. ${error instanceof Error ? error.message : "Unknown database error"}`);
+    throw new DatabaseError(
+      `Could not create organization. ${error instanceof Error ? error.message : 'Unknown database error'}`
+    );
   }
 }
 
@@ -180,9 +192,7 @@ export async function createOrganization(
  * @param slug - The unique slug of the organization.
  * @returns The organization data or null if not found or not permitted.
  */
-export async function getOrganizationBySlug(
-  slug: string
-): Promise<Organization | null> {
+export async function getOrganizationBySlug(slug: string): Promise<Organization | null> {
   // const { userId } = await getServerAuthContext();
   try {
     const organization = await prisma.organization.findUnique({
@@ -204,9 +214,9 @@ export async function getOrganizationBySlug(
 
     return organization;
   } catch (error) {
-    console.error("Failed to get organization by slug:", error);
+    console.error('Failed to get organization by slug:', error);
     // Avoid leaking detailed errors to the client
-    throw new Error("Could not retrieve organization.");
+    throw new Error('Could not retrieve organization.');
   }
 }
 
@@ -215,22 +225,20 @@ export async function getOrganizationBySlug(
  * @param id - The ID of the organization.
  * @returns The organization data or null if not found or not permitted.
  */
-export async function getOrganizationById(
-  id: string
-){
+export async function getOrganizationById(id: string) {
   // const { role } = await getServerAuthContext();
   try {
     const organization = await prisma.organization.findUnique({
       where: { id },
-      include:{
-        settings:true
-      }
+      include: {
+        settings: true,
+      },
     });
 
     return organization;
   } catch (error) {
-    console.error("Failed to get organization by ID:", error);
-    throw new Error("Could not retrieve organization.");
+    console.error('Failed to get organization by ID:', error);
+    throw new Error('Could not retrieve organization.');
   }
 }
 
@@ -253,17 +261,16 @@ export async function getUserOrganizations(): Promise<Organization[]> {
         },
       },
       orderBy: {
-        createdAt: "asc", // Or 'name', 'updatedAt', etc.
+        createdAt: 'asc', // Or 'name', 'updatedAt', etc.
       },
       // include: { _count: { select: { members: true } } } // Example: include member count
     });
     return organizations;
   } catch (error) {
-    console.error("Failed to get user organizations:", error);
-    throw new Error("Could not retrieve your organizations.");
+    console.error('Failed to get user organizations:', error);
+    throw new Error('Could not retrieve your organizations.');
   }
 }
-
 
 /**
  * Updates an existing organization and its settings.
@@ -272,19 +279,15 @@ export async function getUserOrganizations(): Promise<Organization[]> {
  * @returns The updated organization.
  * @throws Various AppError descendants.
  */
-export async function updateOrganization(
-  organizationId: string,
-  rawData: unknown 
-){
-  
+export async function updateOrganization(organizationId: string, rawData: unknown) {
   let validatedData: UpdateOrganizationInput;
   try {
     validatedData = UpdateOrganizationInputSchema.parse(rawData);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      throw new ValidationError("Invalid input data for updating organization.", error.issues);
+      throw new ValidationError('Invalid input data for updating organization.', error.issues);
     }
-    throw new ValidationError("Invalid input data.");
+    throw new ValidationError('Invalid input data.');
   }
 
   const {
@@ -317,7 +320,8 @@ export async function updateOrganization(
   // Populate Settings fields
   if (defaultCurrency !== undefined) settingsUpdateData.defaultCurrency = defaultCurrency;
   if (defaultTimezone !== undefined) settingsUpdateData.defaultTimezone = defaultTimezone;
-  if (defaultTaxRate !== undefined) { // Handles null explicitly
+  if (defaultTaxRate !== undefined) {
+    // Handles null explicitly
     settingsUpdateData.defaultTaxRate = defaultTaxRate === null ? null : new Prisma.Decimal(defaultTaxRate);
   }
   if (inventoryPolicy !== undefined) settingsUpdateData.inventoryPolicy = inventoryPolicy;
@@ -329,7 +333,6 @@ export async function updateOrganization(
   if (defaultMeasurementUnit !== undefined) settingsUpdateData.defaultMeasurementUnit = defaultMeasurementUnit;
   if (defaultDimensionUnit !== undefined) settingsUpdateData.defaultDimensionUnit = defaultDimensionUnit;
   if (defaultWeightUnit !== undefined) settingsUpdateData.defaultWeightUnit = defaultWeightUnit;
-
 
   // 3. If name is being updated, regenerate the slug
   if (name) {
@@ -362,8 +365,8 @@ export async function updateOrganization(
       }
     } catch (error) {
       if (error instanceof AppError) throw error;
-      console.error("Error during slug generation for update:", error);
-      throw new SlugGenerationError("An unexpected error occurred while generating the new slug.");
+      console.error('Error during slug generation for update:', error);
+      throw new SlugGenerationError('An unexpected error occurred while generating the new slug.');
     }
   }
 
@@ -380,15 +383,14 @@ export async function updateOrganization(
     // For now, let's fetch and return the current org to indicate no change.
     // Or, more strictly, one might require at least one field to be passed for an update.
     const currentOrganization = await prisma.organization.findUnique({
-        where: { id: organizationId },
-        include: { settings: true } // Ensure settings are included
+      where: { id: organizationId },
+      include: { settings: true }, // Ensure settings are included
     });
     if (!currentOrganization) {
-        throw new NotFoundError(`Organization with ID ${organizationId} not found.`);
+      throw new NotFoundError(`Organization with ID ${organizationId} not found.`);
     }
     return currentOrganization; // No actual update performed
   }
-
 
   try {
     const updatedOrganization = await prisma.organization.update({
@@ -408,7 +410,8 @@ export async function updateOrganization(
           `An organization with the updated attributes (${target || 'name/slug'}) already exists.`
         );
       }
-      if (error.code === 'P2025') { // Record to update not found (either Org or related Settings if not handled by nested write correctly)
+      if (error.code === 'P2025') {
+        // Record to update not found (either Org or related Settings if not handled by nested write correctly)
         // For a nested update on settings, if OrganizationSettings does not exist, P2025 might be "An operation failed because it depends on one or more records that were required but not found. No 'OrganizationSettings' record was found for a nested update on relation 'OrganizationToOrganizationSettings'."
         // This implies the settings record must exist. The createOrganization ensures this.
         throw new NotFoundError(`Organization with ID ${organizationId} or its settings not found for update.`);
@@ -417,7 +420,7 @@ export async function updateOrganization(
     }
     if (error instanceof AppError) throw error;
     throw new DatabaseError(
-      `Could not update organization ${organizationId}. ${error instanceof Error ? error.message : "Unknown database error"}`
+      `Could not update organization ${organizationId}. ${error instanceof Error ? error.message : 'Unknown database error'}`
     );
   }
 }
@@ -457,17 +460,15 @@ export async function deleteOrganization(id: string): Promise<Organization> {
 
     return deletedOrganization;
   } catch (error) {
-    console.error("Failed to delete organization:", error);
+    console.error('Failed to delete organization:', error);
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === "P2025") {
+      if (error.code === 'P2025') {
         // Record not found
         throw new Error(`Organization with ID ${id} not found.`);
       }
       // Handle other specific DB errors if necessary
     }
-    throw new Error(
-      `Could not delete organization. ${error instanceof Error ? error.message : ""}`
-    );
+    throw new Error(`Could not delete organization. ${error instanceof Error ? error.message : ''}`);
   }
 }
 
@@ -478,7 +479,7 @@ export async function saveOrganizationCategories(
   if (!organizationId || categoryNames.length === 0) {
     return {
       success: false,
-      message: "Missing organization ID or categories.",
+      message: 'Missing organization ID or categories.',
     };
   }
 
@@ -490,14 +491,14 @@ export async function saveOrganizationCategories(
     // Option 2: Create categories specific to this organization
     // This uses the provided Prisma model structure implicitly
 
-    const categoryData = categoryNames.map((name) => ({
+    const categoryData = categoryNames.map(name => ({
       name: name.trim(),
       organizationId: organizationId,
       // Add description or parentId if needed/available
     }));
 
     // Use transaction to ensure atomicity if needed
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async tx => {
       // Optional: Delete existing categories for this org before adding new ones
       // await tx.category.deleteMany({ where: { organizationId } });
 
@@ -510,12 +511,152 @@ export async function saveOrganizationCategories(
 
     revalidatePath(`/organizations/${organizationId}`);
 
-    return { success: true, message: "Categories saved successfully." };
+    return { success: true, message: 'Categories saved successfully.' };
   } catch (error) {
-    console.error(
-      `Error saving categories for organization ${organizationId}:`,
-      error
-    );
-    return { success: false, message: "Failed to save categories." };
+    console.error(`Error saving categories for organization ${organizationId}:`, error);
+    return { success: false, message: 'Failed to save categories.' };
+  }
+}
+
+export async function createUserAndMember({ departmentId, email,name, password, phone, image, role }: CreateInterface) {
+  const { organizationId } = await getServerAuthContext();
+
+  const user = await auth.api.createUser({
+    body: {
+      email,name, password, 
+      data:{
+        image
+      }
+    },
+  });
+  
+  return await createOrganizationMember({ organizationId, userId: user.user.id, departmentId, phone, role});
+}
+
+
+/**
+ * Creates a member for an organization and optionally adds them to a department.
+ * @param props - Object containing the parameters for creating the member.
+ * @param props.userId - The ID of the user to be added as a member.
+ * @param props.organizationId - The ID of the organization to add the member to.
+ * @param props.departmentId - Optional ID of the department to add the member to.
+ * @param props.role - Optional role for the member in the organization (defaults to MEMBER).
+ * @param props.phone - Optional phone number to update for the user.
+ * @returns The created member record.
+ * @throws Error if the user or organization does not exist, or if the member already exists.
+ */
+async function createOrganizationMember(props: {
+  userId: string;
+  organizationId: string;
+  departmentId?: string | null;
+  role?: MemberRole | null;
+  phone?: string | null;
+}): Promise<{
+  id: string;
+  organizationId: string;
+  userId: string;
+  role: MemberRole;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}> {
+  const { userId, organizationId, departmentId, role = MemberRole.EMPLOYEE, phone } = props;
+
+  try {
+    // Validate that the user exists
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!user) {
+      throw new Error(`User with ID ${userId} not found`);
+    }
+
+
+    // Check if the member already exists for this organization
+    const existingMember = await prisma.member.findUnique({
+      where: {
+        organizationId_userId: {
+          organizationId,
+          userId,
+        },
+      },
+    });
+    if (existingMember) {
+      throw new Error(`User is already a member of organization ${organizationId}`);
+    }
+
+    // Start a transaction to ensure atomicity
+    const result = await prisma.$transaction(async (tx) => {
+      // Update user with phone number if provided
+      // if (phone != null) {
+      //   await tx.user.update({
+      //     where: { id: userId },
+      //     data: { phone },
+      //   });
+      // }
+
+      // Create the member record
+      const member = await tx.member.create({
+        data: {
+          organizationId,
+          userId,
+          phone,
+          role: role || MemberRole.EMPLOYEE, // Use provided role or default
+          isActive: true,
+        },
+      });
+      console.log(member)
+
+      // If departmentId is provided, validate and add to department
+      if (departmentId != null) {
+        // Validate that the department exists and belongs to the organization
+        const department = await tx.department.findUnique({
+          where: { id: departmentId },
+        });
+        if (!department) {
+          throw new Error(`Department with ID ${departmentId} not found`);
+        }
+        if (department.organizationId !== organizationId) {
+          throw new Error(`Department ${departmentId} does not belong to organization ${organizationId}`);
+        }
+
+        // Check if the user is already a member of the department
+        const existingDepartmentMember = await tx.departmentMember.findUnique({
+          where: {
+            departmentId_memberId: {
+              departmentId,
+              memberId: member.id,
+            },
+          },
+        });
+        if (existingDepartmentMember) {
+          throw new Error(`User is already a member of department ${departmentId}`);
+        }
+
+        // Add the member to the department
+        await tx.departmentMember.create({
+          data: {
+            departmentId,
+            memberId: member.id,
+            role: DepartmentMemberRole.MEMBER, // Default department role
+            canApproveExpenses: false,
+            canManageBudget: false,
+          },
+        });
+
+        await prisma.user.update({
+          where: { id: userId },
+          data: { activeOrganizationId: organizationId },
+        });
+      }
+      
+      return member;
+    });
+
+    return result;
+  } catch (error) {
+    throw error instanceof Error ? error : new Error('Failed to create organization member');
+  } finally {
+    await prisma.$disconnect();
   }
 }

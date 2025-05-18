@@ -1,6 +1,6 @@
 import { neon, neonConfig, Pool } from '@neondatabase/serverless';
 import { PrismaNeon, PrismaNeonHTTP } from '@prisma/adapter-neon';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@/prisma/client';
 import ws from 'ws';
 
 let connectionString = process.env.DATABASE_URL;

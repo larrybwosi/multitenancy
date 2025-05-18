@@ -12,7 +12,7 @@ import { toast } from "sonner";
 
 export default function DepartmentCard({ dept }: { dept: ExtendedDepartment }) {
   const { mutateAsync: deleteDepartment, isPending: deleting } = useDeleteDepartment();
-
+console.log(dept)
   const handleDelete = async (departmentId: string) => {
     try {
       await deleteDepartment(departmentId);
@@ -34,7 +34,7 @@ export default function DepartmentCard({ dept }: { dept: ExtendedDepartment }) {
     >
       {/* Banner Image */}
       <div
-        className="h-32 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 relative overflow-hidden"
+        className="h-32 bg-gradient-to-r dark:from-blue-950/30 dark:to-indigo-950/30 relative overflow-hidden"
         style={
           dept.banner
             ? {
@@ -60,7 +60,7 @@ export default function DepartmentCard({ dept }: { dept: ExtendedDepartment }) {
 
       <CardHeader className={`pb-2 ${dept.image || dept.banner ? 'pt-10 pl-28' : ''}`}>
         <div className="flex justify-between items-start">
-          <CardTitle className="line-clamp-1 font-bold text-xl">{dept.name}</CardTitle>
+          <CardTitle className="line-clamp-1 font-bold text-2xl">{dept.name}</CardTitle>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -93,13 +93,13 @@ export default function DepartmentCard({ dept }: { dept: ExtendedDepartment }) {
       </CardHeader>
 
       <CardContent>
-        <p className="text-md text-muted-foreground mb-6 line-clamp-3 min-h-[60px]">
+        <p className="text-md text-muted-foreground line-clamp-3 min-h-[60px]">
           {dept.description || 'No description provided'}
         </p>
 
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-3 ">
           <Avatar className="h-10 w-10 ring-2 ring-background shadow-sm">
-            <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
+            <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-400 text-white">
               {dept.head?.name
                 ?.split(' ')
                 .map(n => n[0])

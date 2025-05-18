@@ -131,6 +131,8 @@ export async function GET(request: NextRequest) {
           lastCountDate: null
         }
       })
+      
+      console.log(product.variants?.[0] * totalQuantity);
 
       return {
         productId: product.id,
@@ -140,12 +142,18 @@ export async function GET(request: NextRequest) {
         imageUrls: product.imageUrls,
         variantStocks,
         totalQuantity,
-        unitCost: product.basePrice.toNumber(),
+        unitCost: product.variants?.[0].buyingPrice,
         lastUpdated: product.updatedAt.toISOString(),
-        status: totalQuantity <= 0 ? "out_of_stock" :
-               variantStocks.some(vs => vs.quantity > 0 && vs.quantity <= vs.minLevel) ? "low_stock" :
-               variantStocks.every(vs => vs.quantity >= vs.maxLevel) ? "overstock" : "normal"
-      }
+        status:
+          totalQuantity <= 0
+            ? 'out_of_stock'
+            : variantStocks.some(vs => vs.quantity > 0 && vs.quantity <= vs.minLevel)
+              ? 'low_stock'
+              : variantStocks.every(vs => vs.quantity >= vs.maxLevel)
+                ? 'overstock'
+                : 'normal',
+        totalValue: product.variants?.[0].buyingPrice * totalQuantity,
+      };
     })
 
     // Filter by status if requested
@@ -157,21 +165,11 @@ export async function GET(request: NextRequest) {
     const totalProducts = await prisma.product.count({
       where: productWhere
     })
-
-    console.log({
-      stockLevels: filteredStockLevels,
-      locations,
-      categories: await prisma.category.findMany(),
-      pagination: {
-        total: totalProducts,
-        page,
-        limit,
-      },
-    });
+    
     return NextResponse.json({
       stockLevels: filteredStockLevels,
       locations,
-      categories: await prisma.category.findMany(),
+      categories: await prisma.category.findMany({select:{name:true, description: true, id:true, parentId: true}}),
       pagination: {
         total: totalProducts,
         page,

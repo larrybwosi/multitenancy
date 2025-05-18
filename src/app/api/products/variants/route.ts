@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
     const validationResult = ProductVariantSchema.safeParse(body);
     if (!validationResult.success) {
       const fieldErrors = validationResult.error.flatten().fieldErrors;
+      console.log(fieldErrors)
       return NextResponse.json(
         { 
           error: "Validation failed", 
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
       data: {
         productId: body.productId,
         name: validatedData.name,
-        sku: validatedData.sku || `SKU-${Date.now()}`,
+        sku: validatedData.sku || `SKU-${crypto.randomUUID().slice(3,8).toUpperCase().toString()}`,
         barcode: validatedData.barcode,
         attributes: validatedData.attributes || {},
         isActive: validatedData.isActive,
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
         lowStockAlert: validatedData.lowStockAlert,
       }
     });
-
+    
     return NextResponse.json({
       success: true,
       data: variant

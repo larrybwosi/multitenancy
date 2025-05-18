@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { cn } from "@/lib/utils"
+import { cn, formatCurrency } from "@/lib/utils"
 
 interface DashboardData {
   organization: {
@@ -149,17 +149,18 @@ export function DashboardPage() {
               <div className="flex items-center gap-2">
                 <h1 className="text-3xl font-bold tracking-tight">{organization.name}</h1>
                 <Badge variant="outline" className="ml-2 border-primary/40 bg-primary/5">
-                  {organization.slug || "Organization"}
+                  {organization.slug || 'Organization'}
                 </Badge>
               </div>
               <p className="text-muted-foreground leading-relaxed">
-                {organization.description || "Welcome to your organization's dashboard. Here you can manage all aspects of your organization."}
+                {organization.description ||
+                  "Welcome to your organization's dashboard. Here you can manage all aspects of your organization."}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Badge className="px-3 py-1.5 text-sm bg-primary/80 hover:bg-primary">
-              {session?.user.role === "ADMIN" ? "Administrator" : "User"}
+              {session?.user.role === 'ADMIN' ? 'Administrator' : 'User'}
             </Badge>
           </div>
         </div>
@@ -175,16 +176,16 @@ export function DashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
               <p className="text-sm text-muted-foreground mb-1">Total Income</p>
-              <h3 className="text-2xl font-bold text-green-600">${totalIncome.toLocaleString()}</h3>
+              <h3 className="text-2xl font-bold text-green-600">{formatCurrency(totalIncome.toLocaleString())}</h3>
             </div>
             <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
               <p className="text-sm text-muted-foreground mb-1">Total Expenses</p>
-              <h3 className="text-2xl font-bold text-red-500">${totalExpenses.toLocaleString()}</h3>
+              <h3 className="text-2xl font-bold text-red-500">{formatCurrency(totalExpenses.toLocaleString())}</h3>
             </div>
             <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
               <p className="text-sm text-muted-foreground mb-1">Net Cash Flow</p>
               <h3 className={`text-2xl font-bold ${cashFlow >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                ${Math.abs(cashFlow).toLocaleString()}
+                {formatCurrency(Math.abs(cashFlow).toLocaleString())}
                 <span className="text-sm ml-1">{cashFlow >= 0 ? 'surplus' : 'deficit'}</span>
               </h3>
             </div>
@@ -206,7 +207,7 @@ export function DashboardPage() {
           <TabsTrigger value="financial">Financial</TabsTrigger>
           <TabsTrigger value="staff">Staff & Projects</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="overview">
           {/* Top metrics - Overview Tab */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -265,7 +266,10 @@ export function DashboardPage() {
               <div className="space-y-4">
                 {recentActivities ? (
                   recentActivities.map((activity, i) => (
-                    <div key={activity.id} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
+                    <div
+                      key={activity.id}
+                      className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800"
+                    >
                       <Avatar className="h-8 w-8">
                         {activity.user.avatar ? (
                           <AvatarImage src={activity.user.avatar} alt={activity.user.name} />
@@ -279,11 +283,11 @@ export function DashboardPage() {
                           {new Date(activity.createdAt).toLocaleString()}
                         </p>
                       </div>
-                      <Badge variant={
-                        activity.type === 'finance' ? 'default' :
-                        activity.type === 'staff' ? 'secondary' :
-                        'outline'
-                      }>
+                      <Badge
+                        variant={
+                          activity.type === 'finance' ? 'default' : activity.type === 'staff' ? 'secondary' : 'outline'
+                        }
+                      >
                         {activity.type}
                       </Badge>
                     </div>
@@ -304,7 +308,7 @@ export function DashboardPage() {
             <PaymentVouchersCard data={paymentVouchers} />
             <BudgetHistoryCard data={budgetHistory} />
           </div>
-          
+
           <div className="grid grid-cols-1 gap-4">
             <Card className="p-6">
               <h3 className="text-lg font-semibold mb-4 flex items-center">
@@ -323,17 +327,17 @@ export function DashboardPage() {
                               ${budget.amountUsed.toLocaleString()} / ${budget.amount.toLocaleString()}
                             </p>
                           </div>
-                          <Progress 
-                            value={(budget.amountUsed / budget.amount) * 100} 
-                            className={cn(
-                              "h-2",
-                              (budget.amountUsed / budget.amount) > 0.9 ? "bg-red-200" : ""
-                            )}
+                          <Progress
+                            value={(budget.amountUsed / budget.amount) * 100}
+                            className={cn('h-2', budget.amountUsed / budget.amount > 0.9 ? 'bg-red-200' : '')}
                           />
                         </div>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>Period: {new Date(budget.periodStart).toLocaleDateString()} - {new Date(budget.periodEnd).toLocaleDateString()}</p>
+                        <p>
+                          Period: {new Date(budget.periodStart).toLocaleDateString()} -{' '}
+                          {new Date(budget.periodEnd).toLocaleDateString()}
+                        </p>
                         <p>Utilization: {Math.round((budget.amountUsed / budget.amount) * 100)}%</p>
                       </TooltipContent>
                     </Tooltip>
@@ -373,7 +377,7 @@ export function DashboardPage() {
                 </div>
               </div>
             </Card>
-            
+
             <Card className="p-6">
               <h3 className="text-lg font-semibold mb-4 flex items-center">
                 <FolderKanban className="h-5 w-5 mr-2 text-primary" />
@@ -401,12 +405,12 @@ export function DashboardPage() {
               </div>
             </Card>
           </div>
-          
+
           <StaffApplicationsCard data={applications} />
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }
 
 function DashboardSkeleton() {

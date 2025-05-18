@@ -3,7 +3,7 @@
 import { Customer, Prisma } from "@/prisma/client";
 import { db, db as prisma } from "@/lib/db";
 import { revalidatePath, revalidateTag } from "next/cache";
-import { checkUserAuthorization, getServerAuthContext } from "./auth";
+import { getServerAuthContext } from "./auth";
 import { CustomerFormSchema, CustomerIdSchema, CustomerWithDetails, LoyaltyAdjustmentSchema } from "@/lib/validations/customers";
 
 // --- Helper Types ---
@@ -40,12 +40,12 @@ export async function getCustomers(searchParams?: {
     totalPages: number;
   }>
 > {
-  const { userId, organizationId } = await getServerAuthContext();
+  const { organizationId } = await getServerAuthContext();
 
   // Authorization check (optional, if base membership isn't enough)
-  if (!(await checkUserAuthorization(userId, organizationId))) {
-    return { success: false, message: "You are not authorized to view customers for this organization." };
-  }
+  // if (!(await checkUserAuthorization(userId, organizationId))) {
+  //   return { success: false, message: "You are not authorized to view customers for this organization." };
+  // }
 
   try {
     const {
@@ -129,12 +129,12 @@ export async function getCustomerById(
   if (!authContext) {
     return { success: false, message: "Authentication required." };
   }
-  const { userId, organizationId } = authContext;
+  const {  organizationId } = authContext;
 
   // Authorization check (optional, if base membership isn't enough)
-  if (!(await checkUserAuthorization(userId, organizationId))) {
-    return { success: false, message: "You are not authorized to view customers for this organization." };
-  }
+  // if (!(await checkUserAuthorization(userId, organizationId))) {
+  //   return { success: false, message: "You are not authorized to view customers for this organization." };
+  // }
 
   try {
     const customer = await prisma.customer.findUnique({

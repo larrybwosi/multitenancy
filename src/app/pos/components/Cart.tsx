@@ -238,7 +238,7 @@ function CartComponent({
   return (
     <div className="flex flex-col h-full bg-white dark:bg-neutral-900 overflow-hidden">
       {/* Cart Header */}
-      <div className="px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-800 dark:to-blue-900 text-white shadow-md">
+      <div className="px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-800 dark:to-blue-900 text-white">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <ShoppingBag className="h-6 w-6" />
@@ -659,7 +659,7 @@ function CartComponent({
             <Button
               onClick={handleSubmitSale}
               disabled={loading || isSubmitting || isMpesaProcessing}
-              className="h-12 px-6 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 shadow-md text-white rounded-xl"
+              className="h-12 px-6 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white rounded-xl"
             >
               {loading || isSubmitting || isMpesaProcessing ? (
                 <>

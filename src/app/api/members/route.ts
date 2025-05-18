@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
-import { MemberRole } from "@prisma/client";
+import { NextRequest, NextResponse } from "next/server";
+import { MemberRole } from "@/prisma/client";
 import { db } from "@/lib/db";
 import { getServerAuthContext } from "@/actions/auth";
 import {
@@ -8,6 +8,7 @@ import {
   NotFoundError,
 } from "@/lib/api-utils"; 
 import { updateMemberBulkSchema } from "@/lib/validations/members";
+import { createUserAndMember } from "@/actions/organization";
 
 // GET - List all members in the organization
 export async function GET(request: Request) {
@@ -38,14 +39,35 @@ export async function GET(request: Request) {
       orderBy: { createdAt: "desc" },
     });
 
+    const membersDetails = members.map((m)=>{
+     return {
+      ...m,
+      name: m.user.name,
+      email: m.user.email,
+      image: m.user.image
+     }
+    })
+
     // 3. Success Response
-    return NextResponse.json({ members });
+    return NextResponse.json({ members: membersDetails });
   } catch (error) {
     // 4. Error Handling
     return handleApiError(error);
   }
 }
 
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    
+    const result = await createUserAndMember(body);
+
+    return NextResponse.json(result, { status: 201 });
+  } catch (error: any) {
+    console.log(error)
+    return NextResponse.json({ error: error.message || 'Failed to create user' }, { status: error.status || 500 });
+  }
+}
 // PATCH - Update a member's role/status (original bulk-like function)
 export async function PATCH(request: Request) {
   try {

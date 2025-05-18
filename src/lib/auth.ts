@@ -1,10 +1,11 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { apiKey, multiSession, username } from "better-auth/plugins";
+import { admin, apiKey, multiSession, username } from "better-auth/plugins";
 import { db } from "./db";
 import redis from "./redis";
 // import { passkey } from "better-auth/plugins/passkey";
 import { nextCookies } from "better-auth/next-js";
+import { UserRole } from "@/prisma/client";
 
 
 export const auth = betterAuth({
@@ -38,6 +39,7 @@ export const auth = betterAuth({
       maxAge: 5 * 60 * 60,
     },
     preserveSessionInDatabase: true,
+    storeSessionInDatabase: process.env.NODE_ENV === 'development',
   },
   databaseHooks: {
     session: {
@@ -61,6 +63,9 @@ export const auth = betterAuth({
     apiKey({
       enableMetadata: true,
     }),
+    admin({
+      defaultRole: UserRole.MEMBER,
+    }),
     username(),
     multiSession(),
     // passkey({
@@ -80,19 +85,19 @@ export const auth = betterAuth({
     nextCookies(),
   ],
 
-  secondaryStorage: {
-    get: async key => {
-      const value = (await redis.get(key)) as string | null;
-      return value ? JSON.stringify(value) : null;
-    },
-    set: async (key, value, ttl) => {
-      if (ttl) await redis.setex(key, ttl, value);
-      else await redis.set(key, value);
-    },
-    delete: async key => {
-      await redis.del(key);
-    },
-  },
+  // secondaryStorage: {
+  //   get: async key => {
+  //     const value = (await redis.get(key)) as string | null;
+  //     return value ? JSON.stringify(value) : null;
+  //   },
+  //   set: async (key, value, ttl) => {
+  //     if (ttl) await redis.setex(key, ttl, value);
+  //     else await redis.set(key, value);
+  //   },
+  //   delete: async key => {
+  //     await redis.del(key);
+  //   },
+  // },
   rateLimit: {
     window: 60,
     max: 100,

@@ -3,7 +3,7 @@ import { db } from "@/lib/db"
 import { getServerAuthContext } from "@/actions/auth"
 
 export async function GET() {
-  const { organizationId, userId } = await getServerAuthContext()
+  const { organizationId } = await getServerAuthContext()
   try {
     // Get start dates
     const now = new Date()
@@ -179,31 +179,31 @@ export async function GET() {
         take: 5
       }),
       // Recent activities - This is a new query
-      db.activity.findMany({
-        where: {
-          organizationId,
-        },
-        select: {
-          id: true,
-          type: true,
-          description: true,
-          createdAt: true,
-          user: {
-            select: {
-              name: true,
-              image: true
-            }
-          }
-        },
-        orderBy: {
-          createdAt: 'desc'
-        },
-        take: 5
-      }).catch(() => {
+      // db.activity.findMany({
+      //   where: {
+      //     organizationId,
+      //   },
+      //   select: {
+      //     id: true,
+      //     type: true,
+      //     description: true,
+      //     createdAt: true,
+      //     user: {
+      //       select: {
+      //         name: true,
+      //         image: true
+      //       }
+      //     }
+      //   },
+      //   orderBy: {
+      //     createdAt: 'desc'
+      //   },
+      //   take: 5
+      // }).catch(() => {
         // If the activity table doesn't exist, return an empty array
         // This makes the enhancement backward compatible
-        return []
-      })
+        []
+      // })
     ])
 
     // Calculate financial metrics

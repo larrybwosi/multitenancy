@@ -72,6 +72,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   
   const organization = useAppStore((state) => state.organization);
   const warehouse = useAppStore((state) => state.currentWarehouse);
+  const handleSignOut =async()=>{
+    await signOut()
+    useAppStore.getState().clearAll();
+  }
   
   const currentPath = usePathname();
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>(
@@ -353,7 +357,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         <LogOut
           size={18}
           onClick={async () => {
-            await signOut();
+            await handleSignOut();
+
             window.location.href = "/check-in";
           }}
           className="ml-auto text-neutral-400 hover:text-neutral-600 cursor-pointer"

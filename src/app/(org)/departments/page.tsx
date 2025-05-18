@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Edit, Trash2, Users, MoreHorizontal, Search, X, } from 'lucide-react';
+import { Edit, Trash2, Users, MoreHorizontal, Search, X, Group, } from 'lucide-react';
 import { format } from 'date-fns';
 
 // Shadcn UI Components
@@ -25,11 +25,16 @@ import { DepartmentsSkeleton } from './loader';
 import Image from 'next/image';
 import CreateDepartment from './components/create-modal';
 import DepartmentCard from './components/department-card';
+import { useQueryState } from 'nuqs';
+import { SectionHeader } from '@/components/ui/SectionHeader';
 
 
 const DepartmentsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useQueryState('modal', {
+    parse: v => v === 'false',
+    serialize: v => (v ? 'true' : 'false'),
+  });
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const { data, isLoading, isError } = useDepartments();
@@ -83,18 +88,14 @@ const DepartmentsPage = () => {
     console.log(filteredDepartments);
   return (
     <div className="container mx-auto py-8 px-4 max-w-[1500px]">
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl p-8 mb-8">
+      <div className=" rounded-xl p-8 mb-8">
         <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-blue-700 to-indigo-700 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">
-              Departments
-            </h1>
-            <p className="text-muted-foreground mt-2">Manage your organization&#39;s departments and teams</p>
-          </div>
-          <CreateDepartment
-            isOpen={isDialogOpen}
-            onOpenChange={()=>setIsDialogOpen(false)}
+          <SectionHeader
+            title="Departments"
+            subtitle="Manage your organization&#39;s departments and teams"
+            icon={<Group className="h-8 w-8 text-indigo-500" />}
           />
+          <CreateDepartment isOpen={isDialogOpen as boolean} onOpenChange={v => setIsDialogOpen(v)} />
         </div>
       </div>
 
@@ -151,9 +152,7 @@ const DepartmentsPage = () => {
             ))
           ) : filteredDepartments.length > 0 ? (
             // Departments grid
-            filteredDepartments.map(dept => (
-              <DepartmentCard key={dept.id} dept={dept}/>
-            ))
+            filteredDepartments.map(dept => <DepartmentCard key={dept.id} dept={dept} />)
           ) : (
             // No results for grid view
             <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
@@ -229,7 +228,7 @@ const DepartmentsPage = () => {
                               className="h-10 w-10 rounded-md object-cover border border-border/30"
                             />
                           ) : (
-                            <div className="h-10 w-10 rounded-md bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-medium">
+                            <div className="h-10 w-10 rounded-md bg-gradient-to-br from-blue-200 to-indigo-400 flex items-center justify-center text-white font-medium">
                               {dept.name.charAt(0)}
                             </div>
                           )}
@@ -244,7 +243,7 @@ const DepartmentsPage = () => {
                       <td className="p-4">
                         <div className="flex items-center gap-2">
                           <Avatar className="h-6 w-6">
-                            <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-xs">
+                            <AvatarFallback className="bg-gradient-to-br from-blue-200 to-indigo-300 text-white text-xs">
                               {dept.head?.name
                                 ?.split(' ')
                                 .map(n => n[0])

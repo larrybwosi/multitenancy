@@ -1,55 +1,33 @@
-'use client';
-import React, { useState } from "react";
-import { useForm, useFieldArray } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import React, { useState } from 'react';
+import { useForm, useFieldArray } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent } from "@/components/ui/card";
-import { Trash2, Plus, ArrowDown, ArrowUp, HelpCircle } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { ApprovalWorkflowInputSchema, type ApprovalWorkflowInput } from "@/lib/validations/approval";
-import { ApprovalActionType, ApprovalMode, ConditionType, MemberRole } from "@/types/prisma";
-import { toast } from "sonner";
-import { Spinner } from "@/components/ui/spinner";
-import { useCreateApprovalWorkflow, useUpdateApprovalWorkflow } from "@/lib/hooks/use-approval-workflows";
-import { useExpenseCategories } from "@/lib/hooks/use-expense-categories";
-import { useLocations } from "@/hooks/use-warehouse";
+} from '@/components/ui/dialog';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Card, CardContent } from '@/components/ui/card';
+import { Trash2, Plus, ArrowDown, ArrowUp, HelpCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { ApprovalWorkflowInputSchema, type ApprovalWorkflowInput } from '@/lib/validations/approval';
+import { ApprovalActionType, ApprovalMode, ConditionType, MemberRole } from '@/types/prisma';
+import { toast } from 'sonner';
+import { Spinner } from '@/components/ui/spinner';
+import { useCreateApprovalWorkflow, useUpdateApprovalWorkflow } from '@/lib/hooks/use-approval-workflows';
+import { useExpenseCategories } from '@/lib/hooks/use-expense-categories';
+import { useLocations } from '@/hooks/use-warehouse';
 
 interface WorkflowDialogProps {
   workflowId?: string;
@@ -57,22 +35,20 @@ interface WorkflowDialogProps {
   id: string;
 }
 
-export function WorkflowDialog({
-  workflowId,
-  initialData,
-  id,
-}: WorkflowDialogProps) {
+export function WorkflowDialog({ workflowId, initialData, id }: WorkflowDialogProps) {
   const [open, setOpen] = useState(false);
-  
+
   const createMutation = useCreateApprovalWorkflow();
   const updateMutation = useUpdateApprovalWorkflow();
-  
+
   const { data: expenseCategories = [], isLoading: loadingCategories } = useExpenseCategories();
   const { data: locations = [] } = useLocations();
-  const members = [{ id: '123', name: 'John Doe' }, { id: '456', name: 'Jane Doe' }]
-  // const { data: members = [] } = useMembers(); creat
+  const members = [
+    { id: '123', name: 'John Doe' },
+    { id: '456', name: 'Jane Doe' },
+  ];
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
-  
+
   const form = useForm({
     resolver: zodResolver(ApprovalWorkflowInputSchema),
     defaultValues: initialData || {
@@ -92,9 +68,14 @@ export function WorkflowDialog({
     },
   });
 
-  const { fields: steps, append: appendStep, remove: removeStep, move: moveStep } = useFieldArray({
+  const {
+    fields: steps,
+    append: appendStep,
+    remove: removeStep,
+    move: moveStep,
+  } = useFieldArray({
     control: form.control,
-    name: "steps",
+    name: 'steps',
   });
 
   const onSubmit = async (data: ApprovalWorkflowInput) => {
@@ -106,7 +87,7 @@ export function WorkflowDialog({
       }
       setOpen(false);
     } catch (error) {
-      console.error("Error submitting workflow:", error);
+      console.error('Error submitting workflow:', error);
     }
   };
 
@@ -117,7 +98,7 @@ export function WorkflowDialog({
           {workflowId ? 'Edit Workflow' : 'Create Workflow'}
         </Button>
       </DialogTrigger>
-      <DialogContent className="w-[1500px] h-[90vh]">
+      <DialogContent className="w-7xl max-w-7xl">
         <DialogHeader>
           <DialogTitle>{workflowId ? 'Edit Approval Workflow' : 'Create Approval Workflow'}</DialogTitle>
           <DialogDescription>
@@ -128,7 +109,7 @@ export function WorkflowDialog({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <ScrollArea className="h-[70vh] pr-4">
+            <ScrollArea className="h-[70vh] pr-4 flex-1 mx-auto">
               <div className="space-y-6">
                 {/* Workflow Details Section */}
                 <div className="space-y-4">
@@ -175,10 +156,7 @@ export function WorkflowDialog({
                       <FormItem>
                         <FormLabel>Description</FormLabel>
                         <FormControl>
-                          <Textarea
-                            placeholder="Describe the purpose of this workflow"
-                            {...field}
-                          />
+                          <Textarea placeholder="Describe the purpose of this workflow" {...field} />
                         </FormControl>
                         <FormDescription>
                           Add details to help others understand when this workflow should be used.
@@ -239,7 +217,7 @@ export function WorkflowDialog({
               </div>
             </ScrollArea>
 
-            <DialogFooter>
+            <div className="flex justify-end space-x-2">
               <Button variant="outline" onClick={() => setOpen(false)} type="button">
                 Cancel
               </Button>
@@ -255,7 +233,7 @@ export function WorkflowDialog({
                   'Create Workflow'
                 )}
               </Button>
-            </DialogFooter>
+            </div>
           </form>
         </Form>
       </DialogContent>
@@ -274,32 +252,37 @@ interface ApprovalStepCardProps {
   moveDown: () => void;
 }
 
-function ApprovalStepCard({ 
-  stepIndex, 
-  form, 
+function ApprovalStepCard({
+  stepIndex,
+  form,
   expenseCategories,
   locations,
   members,
-  removeStep, 
-  moveUp, 
-  moveDown 
+  removeStep,
+  moveUp,
+  moveDown,
 }: ApprovalStepCardProps) {
-  const { fields: conditions, append: appendCondition, remove: removeCondition } = useFieldArray({
+  const {
+    fields: conditions,
+    append: appendCondition,
+    remove: removeCondition,
+  } = useFieldArray({
     control: form.control,
     name: `steps.${stepIndex}.conditions`,
   });
 
-  const { fields: actions, append: appendAction, remove: removeAction } = useFieldArray({
+  const {
+    fields: actions,
+    append: appendAction,
+    remove: removeAction,
+  } = useFieldArray({
     control: form.control,
     name: `steps.${stepIndex}.actions`,
   });
 
   return (
     <Card key={stepIndex} className="relative">
-      <Badge 
-        variant="outline" 
-        className="absolute top-2 right-2"
-      >
+      <Badge variant="secondary" className="absolute top-2 right-2">
         Step {stepIndex + 1}
       </Badge>
       <CardContent className="pt-6">
@@ -314,14 +297,12 @@ function ApprovalStepCard({
                   <FormControl>
                     <Input placeholder="Enter a name for this step" {...field} />
                   </FormControl>
-                  <FormDescription>
-                    Example: &#34;Manager Approval&#34; or &#34;Finance Review&#34;
-                  </FormDescription>
+                  <FormDescription>Example: &#34;Manager Approval&#34; or &#34;Finance Review&#34;</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            
+
             <FormField
               control={form.control}
               name={`steps.${stepIndex}.stepNumber`}
@@ -329,17 +310,15 @@ function ApprovalStepCard({
                 <FormItem>
                   <FormLabel>Step Order</FormLabel>
                   <FormControl>
-                    <Input 
-                      type="number" 
-                      min={1} 
+                    <Input
+                      type="number"
+                      min={1}
                       placeholder="Enter step order number"
-                      {...field} 
+                      {...field}
                       onChange={e => field.onChange(parseInt(e.target.value) || 1)}
                     />
                   </FormControl>
-                  <FormDescription>
-                    Defines the execution sequence of the approval steps
-                  </FormDescription>
+                  <FormDescription>Defines the execution sequence of the approval steps</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -353,14 +332,9 @@ function ApprovalStepCard({
               <FormItem>
                 <FormLabel>Description</FormLabel>
                 <FormControl>
-                  <Textarea 
-                    placeholder="Describe what happens in this step" 
-                    {...field}
-                  />
+                  <Textarea placeholder="Describe what happens in this step" {...field} />
                 </FormControl>
-                <FormDescription>
-                  Add details to help approvers understand their responsibilities
-                </FormDescription>
+                <FormDescription>Add details to help approvers understand their responsibilities</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -382,35 +356,38 @@ function ApprovalStepCard({
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent className="max-w-xs">
-                          <p>&quot;AND&quot; requires all conditions to match for the step to apply. &quot;OR&quot; requires any one condition to match.</p>
+                          <p>
+                            &quot;AND&quot; requires all conditions to match for the step to apply. &quot;OR&quot;
+                            requires any one condition to match.
+                          </p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
                   </div>
                   <FormDescription>
-                    {field.value ? "All conditions must match (AND logic)" : "Any condition can match (OR logic)"}
+                    {field.value ? 'All conditions must match (AND logic)' : 'Any condition can match (OR logic)'}
                   </FormDescription>
                 </div>
                 <FormControl>
-                  <Switch
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
+                  <Switch checked={field.value} onCheckedChange={field.onChange} />
                 </FormControl>
               </FormItem>
             )}
           />
 
-          <Tabs defaultValue="conditions" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="conditions">Conditions</TabsTrigger>
-              <TabsTrigger value="actions">Actions</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="conditions" className="space-y-4 pt-4">
+          {/* Conditions and Actions in a row */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Conditions Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <h4 className="text-md font-medium">Conditions</h4>
+                <Badge variant="outline" className="bg-blue-100 text-blue-800">
+                  {conditions.length} condition{conditions.length !== 1 ? 's' : ''}
+                </Badge>
+              </div>
               {conditions.map((condition, conditionIndex) => (
-                <ConditionCard 
-                  key={condition.id} 
+                <ConditionCard
+                  key={condition.id}
                   stepIndex={stepIndex}
                   conditionIndex={conditionIndex}
                   form={form}
@@ -420,27 +397,34 @@ function ApprovalStepCard({
                   onDelete={() => removeCondition(conditionIndex)}
                 />
               ))}
-              
+
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => 
-                  appendCondition({ 
-                    type: ConditionType.AMOUNT_RANGE, 
-                    minAmount: null, 
-                    maxAmount: null 
+                onClick={() =>
+                  appendCondition({
+                    type: ConditionType.AMOUNT_RANGE,
+                    minAmount: null,
+                    maxAmount: null,
                   })
                 }
               >
                 <Plus className="mr-1 h-4 w-4" /> Add Condition
               </Button>
-            </TabsContent>
-            
-            <TabsContent value="actions" className="space-y-4 pt-4">
+            </div>
+
+            {/* Actions Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <h4 className="text-md font-medium">Actions</h4>
+                <Badge variant="outline" className="bg-green-100 text-green-800">
+                  {actions.length} action{actions.length !== 1 ? 's' : ''}
+                </Badge>
+              </div>
               {actions.map((action, actionIndex) => (
-                <ActionCard 
-                  key={action.id} 
+                <ActionCard
+                  key={action.id}
                   stepIndex={stepIndex}
                   actionIndex={actionIndex}
                   form={form}
@@ -449,40 +433,29 @@ function ApprovalStepCard({
                   onDelete={() => removeAction(actionIndex)}
                 />
               ))}
-              
+
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => 
-                  appendAction({ 
-                    type: ApprovalActionType.ROLE, 
-                    approverRole: null, 
-                    approvalMode: ApprovalMode.ANY_ONE 
+                onClick={() =>
+                  appendAction({
+                    type: ApprovalActionType.ROLE,
+                    approverRole: null,
+                    approvalMode: ApprovalMode.ANY_ONE,
                   })
                 }
               >
                 <Plus className="mr-1 h-4 w-4" /> Add Action
               </Button>
-            </TabsContent>
-          </Tabs>
-          
+            </div>
+          </div>
+
           <div className="flex justify-end space-x-2 mt-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={removeStep}
-            >
+            <Button type="button" variant="outline" size="sm" onClick={removeStep}>
               <Trash2 className="mr-1 h-4 w-4" /> Remove Step
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={moveUp}
-              disabled={stepIndex === 0}
-            >
+            <Button type="button" variant="outline" size="icon" onClick={moveUp} disabled={stepIndex === 0}>
               <ArrowUp className="h-4 w-4" />
             </Button>
             <Button
@@ -511,45 +484,64 @@ interface ConditionCardProps {
   onDelete: () => void;
 }
 
-function ConditionCard({ 
-  stepIndex, 
-  conditionIndex, 
-  form, 
+function ConditionCard({
+  stepIndex,
+  conditionIndex,
+  form,
   expenseCategories,
   locations,
-  canDelete, 
-  onDelete 
+  canDelete,
+  onDelete,
 }: ConditionCardProps) {
   const conditionType = form.watch(`steps.${stepIndex}.conditions.${conditionIndex}.type`);
-  
+
+  const getBadgeColor = () => {
+    switch (conditionType) {
+      case ConditionType.AMOUNT_RANGE:
+        return 'bg-purple-100 text-purple-800';
+      case ConditionType.LOCATION:
+        return 'bg-yellow-100 text-yellow-800';
+      case ConditionType.EXPENSE_CATEGORY:
+        return 'bg-pink-100 text-pink-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   return (
     <div className="border rounded-md p-4 relative">
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="absolute top-2 right-2"
-        onClick={() => {
-          if (canDelete) {
-            onDelete();
-          } else {
-            toast.error("Each step must have at least one condition");
-          }
-        }}
-      >
-        <Trash2 className="h-4 w-4" />
-      </Button>
-      
+      <div className="absolute top-2 right-2 flex gap-1">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={() => {
+            if (canDelete) {
+              onDelete();
+            } else {
+              toast.error('Each step must have at least one condition');
+            }
+          }}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <div className="flex items-center gap-2 mb-3">
+        <Badge variant="outline" className={getBadgeColor()}>
+          {conditionType === ConditionType.AMOUNT_RANGE && 'Amount'}
+          {conditionType === ConditionType.LOCATION && 'Location'}
+          {conditionType === ConditionType.EXPENSE_CATEGORY && 'Category'}
+        </Badge>
+      </div>
+
       <FormField
         control={form.control}
         name={`steps.${stepIndex}.conditions.${conditionIndex}.type`}
         render={({ field }) => (
           <FormItem>
             <FormLabel>Condition Type</FormLabel>
-            <Select
-              onValueChange={field.onChange}
-              value={field.value}
-            >
+            <Select onValueChange={field.onChange} value={field.value}>
               <FormControl>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a condition type" />
@@ -562,9 +554,9 @@ function ConditionCard({
               </SelectContent>
             </Select>
             <FormDescription>
-              {conditionType === ConditionType.AMOUNT_RANGE && "Trigger approval based on expense amount range"}
-              {conditionType === ConditionType.LOCATION && "Trigger approval based on location"}
-              {conditionType === ConditionType.EXPENSE_CATEGORY && "Trigger approval based on expense category"}
+              {conditionType === ConditionType.AMOUNT_RANGE && 'Trigger approval based on expense amount range'}
+              {conditionType === ConditionType.LOCATION && 'Trigger approval based on location'}
+              {conditionType === ConditionType.EXPENSE_CATEGORY && 'Trigger approval based on expense category'}
             </FormDescription>
             <FormMessage />
           </FormItem>
@@ -584,13 +576,11 @@ function ConditionCard({
                     type="number"
                     step="0.01"
                     placeholder="0.00"
-                    value={field.value === null ? "" : field.value}
-                    onChange={(e) => field.onChange(e.target.value === "" ? null : parseFloat(e.target.value))}
+                    value={field.value === null ? '' : field.value}
+                    onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))}
                   />
                 </FormControl>
-                <FormDescription>
-                  Leave empty for no minimum amount
-                </FormDescription>
+                <FormDescription>Leave empty for no minimum amount</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -606,13 +596,11 @@ function ConditionCard({
                     type="number"
                     step="0.01"
                     placeholder="No limit"
-                    value={field.value === null ? "" : field.value}
-                    onChange={(e) => field.onChange(e.target.value === "" ? null : parseFloat(e.target.value))}
+                    value={field.value === null ? '' : field.value}
+                    onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))}
                   />
                 </FormControl>
-                <FormDescription>
-                  Leave empty for no maximum limit
-                </FormDescription>
+                <FormDescription>Leave empty for no maximum limit</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -627,26 +615,21 @@ function ConditionCard({
           render={({ field }) => (
             <FormItem className="mt-4">
               <FormLabel>Location</FormLabel>
-              <Select
-                onValueChange={field.onChange}
-                value={field.value || ""}
-              >
+              <Select onValueChange={field.onChange} value={field.value || ''}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a location" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {locations.map((location) => (
+                  {locations.map(location => (
                     <SelectItem key={location.id} value={location.id}>
                       {location.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <FormDescription>
-                Select the location that will trigger this approval step
-              </FormDescription>
+              <FormDescription>Select the location that will trigger this approval step</FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -660,26 +643,21 @@ function ConditionCard({
           render={({ field }) => (
             <FormItem className="mt-4">
               <FormLabel>Expense Category</FormLabel>
-              <Select
-                onValueChange={field.onChange}
-                value={field.value || ""}
-              >
+              <Select onValueChange={field.onChange} value={field.value || ''}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a category" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {expenseCategories.map((category) => (
+                  {expenseCategories.map(category => (
                     <SelectItem key={category.id} value={category.id}>
                       {category.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <FormDescription>
-                Select the expense category that will trigger this approval step
-              </FormDescription>
+              <FormDescription>Select the expense category that will trigger this approval step</FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -698,44 +676,56 @@ interface ActionCardProps {
   onDelete: () => void;
 }
 
-function ActionCard({ 
-  stepIndex, 
-  actionIndex, 
-  form, 
-  members,
-  canDelete, 
-  onDelete 
-}: ActionCardProps) {
+function ActionCard({ stepIndex, actionIndex, form, members, canDelete, onDelete }: ActionCardProps) {
   const actionType = form.watch(`steps.${stepIndex}.actions.${actionIndex}.type`);
-  
+  const approvalMode = form.watch(`steps.${stepIndex}.actions.${actionIndex}.approvalMode`);
+
+  const getBadgeColor = () => {
+    if (actionType === ApprovalActionType.ROLE) {
+      return approvalMode === ApprovalMode.ANY_ONE ? 'bg-blue-100 text-blue-800' : 'bg-indigo-100 text-indigo-800';
+    } else {
+      return approvalMode === ApprovalMode.ANY_ONE ? 'bg-green-100 text-green-800' : 'bg-teal-100 text-teal-800';
+    }
+  };
+
   return (
     <div className="border rounded-md p-4 relative">
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="absolute top-2 right-2"
-        onClick={() => {
-          if (canDelete) {
-            onDelete();
-          } else {
-            toast.error("Each step must have at least one action");
-          }
-        }}
-      >
-        <Trash2 className="h-4 w-4" />
-      </Button>
-      
+      <div className="absolute top-2 right-2 flex gap-1">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={() => {
+            if (canDelete) {
+              onDelete();
+            } else {
+              toast.error('Each step must have at least one action');
+            }
+          }}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <div className="flex items-center gap-2 mb-3">
+        <Badge variant="outline" className={getBadgeColor()}>
+          {actionType === ApprovalActionType.ROLE
+            ? approvalMode === ApprovalMode.ANY_ONE
+              ? 'Role (Any)'
+              : 'Role (All)'
+            : approvalMode === ApprovalMode.ANY_ONE
+              ? 'Member (Any)'
+              : 'Member (All)'}
+        </Badge>
+      </div>
+
       <FormField
         control={form.control}
         name={`steps.${stepIndex}.actions.${actionIndex}.type`}
         render={({ field }) => (
           <FormItem>
             <FormLabel>Approver Type</FormLabel>
-            <Select
-              onValueChange={field.onChange}
-              value={field.value}
-            >
+            <Select onValueChange={field.onChange} value={field.value}>
               <FormControl>
                 <SelectTrigger>
                   <SelectValue placeholder="Select approver type" />
@@ -747,8 +737,8 @@ function ActionCard({
               </SelectContent>
             </Select>
             <FormDescription>
-              {actionType === ApprovalActionType.ROLE && "Select a role for approval (e.g., Manager, Finance)"}
-              {actionType === ApprovalActionType.SPECIFIC_MEMBER && "Select a specific person for approval"}
+              {actionType === ApprovalActionType.ROLE && 'Select a role for approval (e.g., Manager, Finance)'}
+              {actionType === ApprovalActionType.SPECIFIC_MEMBER && 'Select a specific person for approval'}
             </FormDescription>
             <FormMessage />
           </FormItem>
@@ -762,26 +752,21 @@ function ActionCard({
           render={({ field }) => (
             <FormItem className="mt-4">
               <FormLabel>Role</FormLabel>
-              <Select
-                onValueChange={field.onChange}
-                value={field.value || ""}
-              >
+              <Select onValueChange={field.onChange} value={field.value || ''}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a role" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {Object.values(MemberRole).map((role) => (
+                  {Object.values(MemberRole).map(role => (
                     <SelectItem key={role} value={role}>
                       {role}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <FormDescription>
-                Members with this role will be responsible for approval
-              </FormDescription>
+              <FormDescription>Members with this role will be responsible for approval</FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -795,26 +780,21 @@ function ActionCard({
           render={({ field }) => (
             <FormItem className="mt-4">
               <FormLabel>Member</FormLabel>
-              <Select
-                onValueChange={field.onChange}
-                value={field.value || ""}
-              >
+              <Select onValueChange={field.onChange} value={field.value || ''}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a member" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {members.map((member) => (
+                  {members.map(member => (
                     <SelectItem key={member.id} value={member.id}>
                       {member.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <FormDescription>
-                This specific person will be responsible for approval
-              </FormDescription>
+              <FormDescription>This specific person will be responsible for approval</FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -827,10 +807,7 @@ function ActionCard({
         render={({ field }) => (
           <FormItem className="mt-4">
             <FormLabel>Approval Mode</FormLabel>
-            <Select
-              onValueChange={field.onChange}
-              value={field.value}
-            >
+            <Select onValueChange={field.onChange} value={field.value}>
               <FormControl>
                 <SelectTrigger>
                   <SelectValue placeholder="Select approval mode" />
@@ -842,8 +819,8 @@ function ActionCard({
               </SelectContent>
             </Select>
             <FormDescription>
-              {field.value === ApprovalMode.ANY_ONE && "Any one person can approve"}
-              {field.value === ApprovalMode.ALL && "All people must approve"}
+              {field.value === ApprovalMode.ANY_ONE && 'Any one person can approve'}
+              {field.value === ApprovalMode.ALL && 'All people must approve'}
             </FormDescription>
             <FormMessage />
           </FormItem>

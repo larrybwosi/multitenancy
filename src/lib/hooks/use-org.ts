@@ -1,4 +1,6 @@
+import { Member, MemberRole } from '@/prisma/client';
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
+import axios from 'axios';
 import { toast } from 'sonner';
 
 // Fetch organization hook
@@ -70,6 +72,70 @@ async function updateOrganization(data: unknown) {
     throw error;
   }
 }
+
+export interface ExtendedMember extends Member {
+  id: string;
+  userId: string;
+  organizationId: string;
+  role: MemberRole;
+  departmentId?: string | null;
+  name: string;
+  image?: string;
+  isActive: boolean;
+  email:string
+  department?: { name: string; id: string };
+}
+
+export const useMembers = () => {
+  return useQuery({
+    queryKey: ['members'],
+    queryFn: async (): Promise<ExtendedMember[]> => {
+      const response = await fetch('/api/members');
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch members');
+      }
+
+      const data = await response.json();
+      return data.members;
+    },
+  });
+};
+
+
+export interface CreateInterface {
+  name: string;
+  email: string;
+  phone: string;
+  password: string;
+  image?: string;
+  departmentId?: string;
+  role: MemberRole;
+}
+
+export const useCreateUserAndMember = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (userData: CreateInterface) => {
+      const { data } = await axios.post('/api/members', userData);
+      return data;
+    },
+    // Optional: Add onSuccess, onError handlers as needed
+    onSuccess: data => {
+      // Handle success (e.g., show toast, invalidate queries)
+      console.log('User created successfully', data);
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+    },
+    onError: (error: any) => {
+      // Handle error (e.g., show error toast)
+      console.error('Error creating user:', error.response?.data?.error || error.message);
+      toast.error('Error creating user', {
+        description: error.response?.data?.error || error.message,
+      });
+    },
+  });
+};
 
 // const state$ = useObservableSyncedQuery<Profile>({
 //   query: {

@@ -14,12 +14,10 @@ export default function PosPage() {
     sortBy: "createdAt",
   });
 
-  const { data: customers, isLoading: isLoadingCustomers } = useCustomers({});
+  const { data: customersData, isLoading: isLoadingCustomers } = useCustomers({});
   
   if (isLoadingProducts || isLoadingCustomers) {
     return <ProductGridSkeleton/>
   }
-  return (
-    <PosClientWrapper products={products?.data ?? []} customers={customers}/>
-  );
+  return <PosClientWrapper products={products?.data ?? []} customers={customersData?.success && customersData.data.customers} />;
 }

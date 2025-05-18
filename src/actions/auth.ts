@@ -2,7 +2,7 @@
 
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import redis from '@/lib/redis';
+// import redis from '@/lib/redis';
 import { MemberRole } from '@/prisma/client';
 import { headers } from 'next/headers';
 
@@ -88,21 +88,21 @@ async function getServerAuthContext(): Promise<ServerAuthContextResult> {
 
   try {
     // 1. Try cache first
-    const cachedAuthContextJson = await redis.get(cacheKey);
-    if (cachedAuthContextJson) {
-      try {
-        const cachedContext = cachedAuthContextJson as ServerAuthContextResult;
-        // Validate essential fields from cache
-        if (cachedContext && cachedContext.userId && cachedContext.memberId && cachedContext.organizationId) {
-          return cachedContext;
-        } else {
-          console.warn('Invalid data found in auth context cache for key:', cacheKey);
-        }
-      } catch (parseError) {
-        //@ts-expect-error ignore
-        console.error('Error parsing cached auth context:', parseError.message);
-      }
-    }
+    // const cachedAuthContextJson = await redis.get(cacheKey);
+    // if (cachedAuthContextJson) {
+    //   try {
+    //     const cachedContext = cachedAuthContextJson as ServerAuthContextResult;
+    //     // Validate essential fields from cache
+    //     if (cachedContext && cachedContext.userId && cachedContext.memberId && cachedContext.organizationId) {
+    //       return cachedContext;
+    //     } else {
+    //       console.warn('Invalid data found in auth context cache for key:', cacheKey);
+    //     }
+    //   } catch (parseError) {
+    //     //@ts-expect-error ignore
+    //     console.error('Error parsing cached auth context:', parseError.message);
+    //   }
+    // }
 
     // 2. Fetch session if not in cache or cache invalid
     let session;
@@ -165,12 +165,12 @@ async function getServerAuthContext(): Promise<ServerAuthContextResult> {
     }
 
     // 5. Cache the result
-    try {
-      await redis.setex(cacheKey, AUTH_CONTEXT_TTL, JSON.stringify(authContextData));
-    } catch (cacheError) {
-      console.error('Error caching auth context:', cacheError);
-      // Don't throw, as we still have the auth context data to return
-    }
+    // try {
+    //   await redis.setex(cacheKey, AUTH_CONTEXT_TTL, JSON.stringify(authContextData));
+    // } catch (cacheError) {
+    //   console.error('Error caching auth context:', cacheError);
+    //   // Don't throw, as we still have the auth context data to return
+    // }
 
     return authContextData;
   } catch (error: unknown) {
@@ -183,65 +183,67 @@ async function getServerAuthContext(): Promise<ServerAuthContextResult> {
   }
 }
 
-async function checkUserAuthorization(userId: string, organizationId: string): Promise<boolean> {
-  const cacheKey = `auth:membership:${userId}:${organizationId}`;
+// async function checkUserAuthorization(userId: string, organizationId: string): Promise<boolean> {
+//   const cacheKey = `auth:membership:${userId}:${organizationId}`;
 
-  try {
-    // Try to get from cache first
-    const cachedResult = await redis.get(cacheKey);
-    if (typeof cachedResult === 'boolean') {
-      return cachedResult;
-    }
+//   try {
+//     // Try to get from cache first
+//     const cachedResult = await redis.get(cacheKey);
+//     if (typeof cachedResult === 'boolean') {
+//       return cachedResult;
+//     }
 
-    // If not in cache, check database
-    const member = await db.member.findUnique({
-      where: {
-        organizationId_userId: {
-          userId,
-          organizationId,
-        },
-      },
-      select: { userId: true },
-    });
+//     // If not in cache, check database
+//     const member = await db.member.findUnique({
+//       where: {
+//         organizationId_userId: {
+//           userId,
+//           organizationId,
+//         },
+//       },
+//       select: { userId: true },
+//     });
 
-    const isAuthorized = !!member;
+//     const isAuthorized = !!member;
 
-    // Cache the result
-    await redis.setex(cacheKey, AUTHORIZATION_TTL, isAuthorized);
+//     // Cache the result
+//     await redis.setex(cacheKey, AUTHORIZATION_TTL, isAuthorized);
 
-    return isAuthorized;
-  } catch (error) {
-    console.error('Error in checkUserAuthorization:', error);
-    return false; // Fail secure - assume unauthorized if error occurs
-  }
-}
+//     return isAuthorized;
+//   } catch (error) {
+//     console.error('Error in checkUserAuthorization:', error);
+//     return false; // Fail secure - assume unauthorized if error occurs
+//   }
+// }
 
-async function invalidateAuthCache(
-  type: 'context' | 'membership',
-  identifier: string,
-  organizationId?: string
-): Promise<void> {
-  try {
-    if (type === 'context') {
-      const cacheKey = `auth:context:${identifier}`;
-      await redis.del(cacheKey);
-    } else if (type === 'membership') {
-      if (!organizationId) {
-        // Invalidate all membership checks for this user
-        const pattern = `auth:membership:${identifier}:*`;
-        const keys = await redis.keys(pattern);
-        if (keys.length > 0) {
-          await redis.del(...keys);
-        }
-      } else {
-        // Invalidate specific membership check
-        const cacheKey = `auth:membership:${identifier}:${organizationId}`;
-        await redis.del(cacheKey);
-      }
-    }
-  } catch (error) {
-    console.error('Error invalidating auth cache:', error);
-  }
-}
+// async function invalidateAuthCache(
+//   type: 'context' | 'membership',
+//   identifier: string,
+//   organizationId?: string
+// ): Promise<void> {
+//   try {
+//     if (type === 'context') {
+//       const cacheKey = `auth:context:${identifier}`;
+//       await redis.del(cacheKey);
+//     } else if (type === 'membership') {
+//       if (!organizationId) {
+//         // Invalidate all membership checks for this user
+//         const pattern = `auth:membership:${identifier}:*`;
+//         const keys = await redis.keys(pattern);
+//         if (keys.length > 0) {
+//           await redis.del(...keys);
+//         }
+//       } else {
+//         // Invalidate specific membership check
+//         const cacheKey = `auth:membership:${identifier}:${organizationId}`;
+//         await redis.del(cacheKey);
+//       }
+//     }
+//   } catch (error) {
+//     console.error('Error invalidating auth cache:', error);
+//   }
+// }
 
-export { getServerAuthContext, checkUserAuthorization, invalidateAuthCache };
+export { getServerAuthContext,
+  //  checkUserAuthorization, invalidateAuthCache 
+  };

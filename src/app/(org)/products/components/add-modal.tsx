@@ -19,8 +19,10 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, ImagePlus } from 'lucide-react';
+import { Loader2, Plus, ImagePlus, UploadCloud } from 'lucide-react';
 import { useCreateProduct } from '@/lib/hooks/use-products';
+import { QRUploadModal } from '@/components/file-upload-device';
+import Image from 'next/image';
 
 // Schema definition
 const BaseProductSchema = z.object({
@@ -54,11 +56,9 @@ interface CreateProductModalProps {
 
 export function CreateProductModal({ categories }: CreateProductModalProps) {
   const [open, setOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
-  const {
-    mutateAsync: createProductMutation,
-    isPending: creatingProduct,
-  } = useCreateProduct();
+  const { mutateAsync: createProductMutation, isPending: creatingProduct } = useCreateProduct();
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(AddProductMinimalSchema),
     defaultValues: {
@@ -74,8 +74,7 @@ export function CreateProductModal({ categories }: CreateProductModalProps) {
     },
   });
 
-
-  const onSubmit = async(data: ProductFormValues) => {
+  const onSubmit = async (data: ProductFormValues) => {
     await createProductMutation(data);
   };
 
@@ -85,6 +84,42 @@ export function CreateProductModal({ categories }: CreateProductModalProps) {
   ) => {
     const value = e.target.value;
     field.onChange(value === '' ? null : Number(value));
+  };
+
+  const handleFileUpload = async (file: File) => {
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const data = await response.json();
+      const imageUrl = data.url; 
+
+      // Update the form field with the new image URL
+      const currentImages = form.getValues('imageUrls') || [];
+      form.setValue('imageUrls', [...currentImages, imageUrl]);
+
+      return imageUrl;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      throw error;
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleImageUploaded = async (imageUrl: string) => {
+    const currentImages = form.getValues('imageUrls') || [];
+    form.setValue('imageUrls', [...currentImages, imageUrl]);
   };
 
   return (
@@ -272,6 +307,15 @@ export function CreateProductModal({ categories }: CreateProductModalProps) {
                 )}
               />
             </div>
+            <QRUploadModal
+              onImageUploaded={handleImageUploaded}
+              trigger={
+                <Button variant="outline" type="button">
+                  <UploadCloud className="w-4 h-4 mr-2 textxl" />
+                  Upload from Phone
+                </Button>
+              }
+            />
 
             <FormField
               control={form.control}
@@ -309,32 +353,61 @@ export function CreateProductModal({ categories }: CreateProductModalProps) {
               )}
             />
 
-            {/* <FormField
+            <FormField
               control={form.control}
               name="imageUrls"
-              render={() => (
+              render={({ field }) => (
                 <FormItem>
                   <FormLabel className="font-medium">Images</FormLabel>
-                  <div className="flex items-center justify-center w-full">
-                    <label
-                      htmlFor="dropzone-file"
-                      className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
-                    >
-                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                        <ImagePlus className="w-8 h-8 mb-2 text-gray-500" />
-                        <p className="mb-1 text-sm text-gray-500">
-                          <span className="font-semibold">Click to upload</span> or drag and drop
-                        </p>
-                        <p className="text-xs text-gray-500">Images will appear here</p>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-center w-full">
+                      <label
+                        htmlFor="dropzone-file"
+                        className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
+                      >
+                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                          <ImagePlus className="w-8 h-8 mb-2 text-gray-500" />
+                          <p className="mb-1 text-sm text-gray-500">
+                            <span className="font-semibold">Click to upload</span> or drag and drop
+                          </p>
+                          <p className="text-xs text-gray-500">Images will appear here</p>
+                        </div>
+                        <input
+                          id="dropzone-file"
+                          type="file"
+                          className="hidden"
+                          multiple
+                          onChange={async e => {
+                            if (e.target.files) {
+                              const files = Array.from(e.target.files);
+                              for (const file of files) {
+                                await handleFileUpload(file);
+                              }
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                    {!!field.value?.length && (
+                      <div className="grid grid-cols-3 gap-2">
+                        {field.value.map((url, index) => (
+                          <div key={index} className="relative group">
+                            <Image
+                              fill
+                              src={url}
+                              alt={`Product preview ${index + 1}`}
+                              className="w-full h-24 object-cover rounded-md"
+                            />
+                          </div>
+                        ))}
                       </div>
-                      <input id="dropzone-file" type="file" className="hidden" multiple />
-                    </label>
+                    )}
                   </div>
                   <FormDescription className="text-xs">Product images will be displayed in the catalog</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
-            /> */}
+            />
 
             <DialogFooter className="gap-2 sm:gap-0">
               <Button type="button" variant="outline" onClick={() => setOpen(false)} className="mt-2 sm:mt-0">
@@ -343,12 +416,17 @@ export function CreateProductModal({ categories }: CreateProductModalProps) {
               <Button
                 type="submit"
                 className="bg-indigo-600 hover:bg-indigo-700 mt-2 sm:mt-0"
-                disabled={creatingProduct}
+                disabled={creatingProduct || isUploading}
               >
                 {creatingProduct ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Creating...
+                  </>
+                ) : isUploading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Uploading...
                   </>
                 ) : (
                   'Create Product'

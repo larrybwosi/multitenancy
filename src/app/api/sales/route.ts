@@ -12,6 +12,7 @@ import {
 } from "@/prisma/client";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { getServerAuthContext } from "@/actions/auth";
 
 // --- Zod Schema for Input Validation ---
 const saleItemInputSchema = z.object({
@@ -514,8 +515,10 @@ export async function GET(request: Request) {
       }
     }
 
+    const { organizationId } = await getServerAuthContext()
     // Build where clause
     const where = {
+      organizationId,
       AND: [
         search
           ? {

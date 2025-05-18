@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { Prisma, MemberRole } from "@prisma/client";
+import { Prisma, MemberRole } from "@/prisma/client";
 import { db } from "@/lib/db";
 import {  getServerAuthContext } from "@/actions/auth";
 import {
@@ -62,7 +62,7 @@ export async function GET(
 // PATCH - Update a specific member's details (role, ban status etc.)
 export async function PATCH(
   request: Request,
-  { params }: { params: { memberId: string } }
+  { params }: { params: Promise<{ memberId: string }> }
 ) {
   try {
     // 1. Authentication & Base Authorization
@@ -72,7 +72,7 @@ export async function PATCH(
     }
 
     // 2. Parameter Validation
-    const { memberId } = memberParamsSchema.parse(params);
+    const { memberId } = memberParamsSchema.parse( await params);
 
     // 3. Body Parsing & Validation
     const body = await request.json();

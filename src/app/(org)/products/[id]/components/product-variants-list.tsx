@@ -79,9 +79,7 @@ export default function ProductVariantsList({ variants, onEdit, productId }: Pro
       <div className="flex flex-col items-center justify-center py-10 text-center">
         <AlertTriangle className="h-10 w-10 text-gray-400 mb-4" />
         <h3 className="text-lg font-medium">No Variants Found</h3>
-        <p className="text-sm text-muted-foreground mt-2 mb-6">
-          This product doesn't have any variants yet.
-        </p>
+        <p className="text-sm text-muted-foreground mt-2 mb-6">This product doesn&lsquo;t have any variants yet.</p>
       </div>
     );
   }

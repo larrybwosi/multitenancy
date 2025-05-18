@@ -80,6 +80,11 @@ interface AppState {
    * @param {Partial<WarehouseDetails>} updates - The fields to update
    */
   updateCurrentWarehouse: (updates: Partial<WarehouseDetails>) => void;
+
+  /**
+   * Clears all app state (organization and warehouse) - typically used when signing out
+   */
+  clearAll: () => void;
 }
 
 /**
@@ -87,30 +92,27 @@ interface AppState {
  */
 export const useAppStore = create<AppState>()(
   persist(
-    (set) => ({
+    set => ({
       organization: null,
       currentWarehouse: null,
 
-      setOrganization: (org) => set({ organization: org }),
+      setOrganization: org => set({ organization: org }),
       clearOrganization: () => set({ organization: null }),
-      updateOrganization: (updates) =>
-        set((state) => ({
-          organization: state.organization
-            ? { ...state.organization, ...updates }
-            : null,
+      updateOrganization: updates =>
+        set(state => ({
+          organization: state.organization ? { ...state.organization, ...updates } : null,
         })),
 
-      setCurrentWarehouse: (warehouse) => set({ currentWarehouse: warehouse }),
+      setCurrentWarehouse: warehouse => set({ currentWarehouse: warehouse }),
       clearCurrentWarehouse: () => set({ currentWarehouse: null }),
-      updateCurrentWarehouse: (updates) =>
-        set((state) => ({
-          currentWarehouse: state.currentWarehouse
-            ? { ...state.currentWarehouse, ...updates }
-            : null,
+      updateCurrentWarehouse: updates =>
+        set(state => ({
+          currentWarehouse: state.currentWarehouse ? { ...state.currentWarehouse, ...updates } : null,
         })),
+      clearAll: () => set({ organization: null, currentWarehouse: null }),
     }),
     {
-      name: "app-storage",
+      name: 'app-storage',
       // Optional: Only persist specific fields
       // partialize: (state) => ({
       //   organization: state.organization,

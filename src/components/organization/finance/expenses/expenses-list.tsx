@@ -40,12 +40,12 @@ import {
   PlusIcon,
   FilterIcon,
   SearchIcon,
+  Banknote,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Expense } from '@/lib/hooks/use-expenses';
 import ExpenseDetails from './details-modal';
-import { CreateExpenseSheet } from './create-expense-sheet';
-import { parseAsBoolean, useQueryState } from 'nuqs';
+import { formatCurrency } from '@/lib/utils';
 
 interface ExpensesListProps {
   expenses: Expense[];
@@ -64,21 +64,6 @@ export function ExpensesList({ expenses = [], isLoading, pagination, onPageChang
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-    const [ isCreateOpen, setIsCreateOpen ] = useQueryState('create', parseAsBoolean.withDefault(false).withOptions({
-        history: 'push',
-        shallow: false,
-      })
-    )
-
-  const formatCurrency = (value: number | string) => {
-    const numValue = typeof value === 'string' ? parseFloat(value) : value;
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(numValue);
-  };
 
   const formatDate = (dateString: string) => {
     try {
@@ -109,8 +94,8 @@ export function ExpensesList({ expenses = [], isLoading, pagination, onPageChang
 
   const getPaymentMethodIcon = (method: string) => {
     if (method === 'CREDIT_CARD') return <CreditCardIcon className="h-4 w-4" />;
-    if (method === 'CASH') return <DollarSignIcon className="h-4 w-4" />;
-    return <DollarSignIcon className="h-4 w-4" />;
+    if (method === 'CASH') return <Banknote className="h-4 w-4" />;
+    return <Banknote className="h-4 w-4" />;
   };
 
   const handlePageChange = (newPage: number) => {
@@ -290,7 +275,6 @@ export function ExpensesList({ expenses = [], isLoading, pagination, onPageChang
             <FilterIcon className="h-4 w-4" />
           </Button>
 
-          <CreateExpenseSheet open={isCreateOpen as boolean} setOpen={setIsCreateOpen} />
         </div>
       </div>
 

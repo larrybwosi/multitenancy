@@ -105,7 +105,7 @@ export function ProductGrid({
   };
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-neutral-900 rounded-xl shadow-xl overflow-hidden border border-gray-200 dark:border-neutral-800">
+    <div className="flex flex-col h-full bg-white dark:bg-neutral-900 rounded-xl  overflow-hidden border border-gray-200 dark:border-neutral-800">
       {/* Search Header */}
       <div className="sticky top-0 z-20 bg-white dark:bg-neutral-900 border-b border-gray-200 dark:border-neutral-800">
         <div className="p-4 md:p-5">
@@ -189,7 +189,7 @@ export function ProductGrid({
                 
                 <Button
                   onClick={navigateToAddProduct}
-                  className="h-12 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white rounded-xl shadow-sm"
+                  className="h-12 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white rounded-xl "
                 >
                   <Plus className="h-5 w-5 mr-2" />
                   Add Product
@@ -282,7 +282,7 @@ export function ProductGrid({
                 
                 <Button
                   onClick={navigateToAddProduct}
-                  className="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white rounded-xl shadow-sm"
+                  className="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white rounded-xl "
                 >
                   <Plus className="h-5 w-5 mr-2" />
                   Add Product
@@ -378,7 +378,7 @@ export function ProductGrid({
 function EmptyProductState({ onAddProduct }: { onAddProduct: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center h-[calc(100vh-200px)] p-6">
-      <div className="bg-blue-100 dark:bg-blue-900/30 p-8 rounded-full mb-6 shadow-inner">
+      <div className="bg-blue-100 dark:bg-blue-900/30 p-8 rounded-full mb-6 ">
         <ShoppingBag size={64} className="text-blue-600 dark:text-blue-400" />
       </div>
       <h3 className="text-2xl font-bold mb-2 text-center text-gray-800 dark:text-gray-100">Your Product Catalog Is Empty</h3>
@@ -388,7 +388,7 @@ function EmptyProductState({ onAddProduct }: { onAddProduct: () => void }) {
       <Button
         onClick={onAddProduct}
         size="lg"
-        className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-md hover:shadow-lg transition-all dark:bg-blue-700 dark:hover:bg-blue-800 h-12 px-6"
+        className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl  hover: transition-all dark:bg-blue-700 dark:hover:bg-blue-800 h-12 px-6"
       >
         <Plus className="h-5 w-5 mr-2" />
         Add Your First Product

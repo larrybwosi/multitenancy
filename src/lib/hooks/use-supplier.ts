@@ -4,6 +4,24 @@ import axios from "axios";
 import { toast } from "sonner";
 
 
+interface ProductSupplier {
+  id: string;
+  supplierId: string;
+  supplierSku?: string | null;
+  costPrice: number | string;
+  minimumOrderQuantity?: number | null;
+  packagingUnit?: string | null;
+  isPreferred: boolean;
+  supplier: {
+    id: string;
+    name: string;
+    contactName?: string | null;
+    email?: string | null;
+    phone?: string | null;
+  };
+}
+
+
 interface SupplierResponse {
   data: {
     suppliers: Supplier[];

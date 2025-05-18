@@ -18,6 +18,11 @@ import {
   useExpenses,
 } from "@/lib/hooks/use-expenses"
 import { SectionHeader } from "@/components/ui/SectionHeader"
+import { CreateExpenseSheet } from "./create-expense-sheet"
+import ExpenseModal from "./create-modal"
+import { MotionDiv } from "@/components/motion"
+import { Button } from "@/components/ui"
+import { Plus, Wallet2 } from "lucide-react"
 
 
 interface PaginationData {
@@ -36,6 +41,13 @@ const DEFAULT_PAGE_SIZE = 10
 
 export function ExpensesOverview() {
   const [isPending, startTransition] = useTransition()
+  const [isCreateOpen, setIsCreateOpen] = useQueryState(
+    'create',
+    parseAsBoolean.withDefault(false).withOptions({
+      history: 'push',
+      shallow: false,
+    })
+  );
 
   // Filter states with nuqs
   const [search, setSearch] = useQueryState(
@@ -126,10 +138,12 @@ export function ExpensesOverview() {
     <div className="space-y-6 px-4 py-6 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <SectionHeader
-         title="Expenses"
-         subtitle="Manage all your organization expenses"
-         icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7h20L12 2z"/><path d="M2 7v14l10 5 10-5V7H2z"/></svg>}
-         />
+          title="Expenses"
+          subtitle="Manage all your organization expenses"
+          icon={
+            <Wallet2 className="text-lg"/>
+          }
+        />
       </div>
 
       {isLoading && !expenses.length ? (
@@ -139,12 +153,23 @@ export function ExpensesOverview() {
         </div>
       ) : isError ? (
         <Card className="p-6 border-destructive">
-          <p className="text-destructive">Error loading expenses: {(error as Error)?.message || 'Please try again later.'}</p>
+          <p className="text-destructive">
+            Error loading expenses: {(error as Error)?.message || 'Please try again later.'}
+          </p>
         </Card>
       ) : (
         <>
           <ExpensesStats expenses={expenses} />
-
+          <MotionDiv whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }} className="relative overflow-hidden group">
+            <Button
+              className="px-6 items-center text-white shadow-lg hover:shadow-xl transition-all duration-300 "
+              onClick={() => setIsCreateOpen(true)}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              New Expense
+              <span className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity duration-300"></span>
+            </Button>
+          </MotionDiv>
           <div className="space-y-4">
             <Card className="overflow-hidden transition-all duration-200 hover:shadow-md">
               <CardHeader className="bg-muted/50 pb-3">
@@ -162,15 +187,17 @@ export function ExpensesOverview() {
                   pagination={{
                     totalPages: pagination.totalPages,
                     currentPage: pagination.page,
-                    totalExpenses: pagination.total
+                    totalExpenses: pagination.total,
                   }}
                   onPageChange={handlePageChange}
                 />
               </CardContent>
             </Card>
           </div>
+          <ExpenseModal isOpen={isCreateOpen as boolean} onClose={() => setIsCreateOpen(false)} />
+          {/* <CreateExpenseSheet open={isCreateOpen as boolean} setOpen={setIsCreateOpen} /> */}
         </>
       )}
     </div>
-  )
+  );
 }

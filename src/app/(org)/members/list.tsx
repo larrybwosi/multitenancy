@@ -228,7 +228,7 @@ export function MembersList({ loading, members }: MembersListProps) {
           </div>
         </div>
 
-        <div className="border rounded-md">
+        <div className="rounded-md">
           <Table>
             <TableHeader>
               <TableRow>
@@ -590,7 +590,7 @@ export function MembersList({ loading, members }: MembersListProps) {
                 {loadingActivity ? (
                   <div className="space-y-4">
                     {Array.from({ length: 5 }).map((_, i) => (
-                      <div key={i} className="flex justify-between items-center border-b pb-2">
+                      <div key={i} className="flex justify-between items-center pb-2">
                         <div className="space-y-1">
                           <Skeleton className="h-5 w-[120px]" />
                           <Skeleton className="h-4 w-[80px]" />
@@ -602,7 +602,7 @@ export function MembersList({ loading, members }: MembersListProps) {
                 ) : memberActivity?.recentSales?.length > 0 ? (
                   <div className="space-y-4">
                     {memberActivity.recentSales.map((sale: any) => (
-                      <div key={sale.id} className="flex justify-between items-center border-b pb-2">
+                      <div key={sale.id} className="flex justify-between items-center pb-2">
                         <div className="space-y-1">
                           <p className="font-medium">Sale #{sale.saleNumber}</p>
                           <p className="text-sm text-muted-foreground">

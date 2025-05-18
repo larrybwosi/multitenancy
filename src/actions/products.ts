@@ -374,7 +374,7 @@ export async function updateProduct(formData: FormData) {
     const updatedProduct = await prisma.$transaction(async (tx) => {
       // 1. Handle variants (same as before)
       const existingVariants = await tx.productVariant.findMany({
-        where: { productId: id, organizationId },
+        where: { productId: id },
         select: { id: true },
       });
       const existingVariantIds = new Set(existingVariants.map((v) => v.id));
@@ -396,7 +396,6 @@ export async function updateProduct(formData: FormData) {
         await tx.productVariant.deleteMany({
           where: {
             id: { in: variantsToDeleteIds },
-            organizationId,
           },
         });
       }
@@ -434,8 +433,6 @@ export async function updateProduct(formData: FormData) {
         data: {
           ...productData,
           category: { connect: { id: categoryId } },
-          basePrice: new Prisma.Decimal(productData.basePrice || 0),
-          reorderPoint: productData.reorderPoint,
           imageUrls: productData.imageUrls ?? [],
           isActive: productData.isActive,
           width: productData.width,
@@ -456,7 +453,7 @@ export async function updateProduct(formData: FormData) {
       // 4. Create new variants
       if (variantsToCreate.length > 0) {
         await tx.productVariant.createMany({
-          data: variantsToCreate.map((v) => ({
+          data: variantsToCreate.map(v => ({
             productId: id,
             organizationId,
             name: v.name,
@@ -464,6 +461,9 @@ export async function updateProduct(formData: FormData) {
             barcode: v.barcode,
             isActive: v.isActive,
             attributes: (v.attributes as Prisma.InputJsonValue) ?? Prisma.JsonNull,
+            buyingPrice: v.buyingPrice,
+            retailPrice: v.retailPrice,
+            wholeSalePrice: v.wholesalePrice,
             reorderPoint: v.reorderPoint,
             reorderQty: v.reorderQty,
             lowStockAlert: v.lowStockAlert,
@@ -475,7 +475,7 @@ export async function updateProduct(formData: FormData) {
       for (const v of variantsToUpdate) {
         if (v.id) {
           await tx.productVariant.update({
-            where: { id: v.id, organizationId },
+            where: { id: v.id },
             data: {
               name: v.name,
               barcode: v.barcode,
@@ -528,11 +528,6 @@ export async function updateProduct(formData: FormData) {
         where: { id },
         include: { 
           variants: true,
-          suppliers: {
-            include: {
-              supplier: true
-            }
-          },
           defaultLocation: true,
         },
       });

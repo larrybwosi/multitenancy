@@ -3,6 +3,8 @@ import React, { use } from 'react';
 import { Users, Wallet, FileSpreadsheet, Info, Calendar, User } from 'lucide-react';
 import Image from 'next/image';
 import { useGetFullDepartment } from '@/lib/hooks/use-departments';
+import { formatCurrency } from '@/lib/utils';
+import { WorkflowTemplateModal } from '../components/WorkflowTemplateModal';
 
 const formatDate = (dateString: string) => {
   const date = new Date(dateString);
@@ -11,15 +13,6 @@ const formatDate = (dateString: string) => {
     month: 'short',
     day: 'numeric',
   });
-};
-
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
 };
 
 const formatPercentage = (used: number, total: number) => {
@@ -68,6 +61,8 @@ const DepartmentDetailsCard = (props: { params: Params; }) => {
           </div>
         </div>
       </div>
+
+      {/* <WorkflowTemplateModal isOpen={true}/> */}
 
       {/* Main Content */}
       <div className="bg-white shadow-md rounded-b-xl p-6">
