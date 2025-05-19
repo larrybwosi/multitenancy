@@ -331,6 +331,59 @@ exports.Prisma.SaleItemScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.OrderScalarFieldEnum = {
+  id: 'id',
+  orderNumber: 'orderNumber',
+  organizationId: 'organizationId',
+  customerId: 'customerId',
+  memberId: 'memberId',
+  status: 'status',
+  orderType: 'orderType',
+  fulfillmentType: 'fulfillmentType',
+  subTotal: 'subTotal',
+  discountAmount: 'discountAmount',
+  taxAmount: 'taxAmount',
+  shippingAmount: 'shippingAmount',
+  totalAmount: 'totalAmount',
+  paymentMethod: 'paymentMethod',
+  paymentStatus: 'paymentStatus',
+  paymentTransactionId: 'paymentTransactionId',
+  placedAt: 'placedAt',
+  confirmedAt: 'confirmedAt',
+  preparingAt: 'preparingAt',
+  readyAt: 'readyAt',
+  dispatchedAt: 'dispatchedAt',
+  deliveredAt: 'deliveredAt',
+  completedAt: 'completedAt',
+  cancelledAt: 'cancelledAt',
+  updatedAt: 'updatedAt',
+  shippingAddress: 'shippingAddress',
+  billingAddress: 'billingAddress',
+  deliveryNotes: 'deliveryNotes',
+  pickupLocationId: 'pickupLocationId',
+  tableNumber: 'tableNumber',
+  estimatedPreparationTime: 'estimatedPreparationTime',
+  notes: 'notes',
+  tags: 'tags'
+};
+
+exports.Prisma.OrderItemScalarFieldEnum = {
+  id: 'id',
+  orderId: 'orderId',
+  variantId: 'variantId',
+  productName: 'productName',
+  variantName: 'variantName',
+  quantity: 'quantity',
+  unitPrice: 'unitPrice',
+  totalPrice: 'totalPrice',
+  discountAmount: 'discountAmount',
+  taxRate: 'taxRate',
+  taxAmount: 'taxAmount',
+  notes: 'notes',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.PurchaseScalarFieldEnum = {
   id: 'id',
   purchaseNumber: 'purchaseNumber',
@@ -1014,6 +1067,38 @@ exports.PaymentStatus = exports.$Enums.PaymentStatus = {
   VOIDED: 'VOIDED'
 };
 
+exports.OrderStatus = exports.$Enums.OrderStatus = {
+  PENDING_CONFIRMATION: 'PENDING_CONFIRMATION',
+  CONFIRMED: 'CONFIRMED',
+  PREPARING: 'PREPARING',
+  READY_FOR_PICKUP: 'READY_FOR_PICKUP',
+  OUT_FOR_DELIVERY: 'OUT_FOR_DELIVERY',
+  DELIVERED: 'DELIVERED',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
+  FAILED: 'FAILED',
+  ON_HOLD: 'ON_HOLD'
+};
+
+exports.OrderType = exports.$Enums.OrderType = {
+  RETAIL_SALE: 'RETAIL_SALE',
+  ONLINE_ORDER: 'ONLINE_ORDER',
+  RESTAURANT_DINE_IN: 'RESTAURANT_DINE_IN',
+  RESTAURANT_TAKEOUT: 'RESTAURANT_TAKEOUT',
+  RESTAURANT_DELIVERY: 'RESTAURANT_DELIVERY',
+  SERVICE_BOOKING: 'SERVICE_BOOKING',
+  SUBSCRIPTION: 'SUBSCRIPTION',
+  OTHER: 'OTHER'
+};
+
+exports.FulfillmentType = exports.$Enums.FulfillmentType = {
+  PHYSICAL_DELIVERY: 'PHYSICAL_DELIVERY',
+  DIGITAL_DOWNLOAD: 'DIGITAL_DOWNLOAD',
+  PICKUP_IN_STORE: 'PICKUP_IN_STORE',
+  DINE_IN: 'DINE_IN',
+  SERVICE_PROVISION: 'SERVICE_PROVISION'
+};
+
 exports.PurchaseStatus = exports.$Enums.PurchaseStatus = {
   DRAFT: 'DRAFT',
   ORDERED: 'ORDERED',
@@ -1259,6 +1344,8 @@ exports.Prisma.ModelName = {
   Customer: 'Customer',
   Sale: 'Sale',
   SaleItem: 'SaleItem',
+  Order: 'Order',
+  OrderItem: 'OrderItem',
   Purchase: 'Purchase',
   PurchaseItem: 'PurchaseItem',
   PurchasePayment: 'PurchasePayment',
