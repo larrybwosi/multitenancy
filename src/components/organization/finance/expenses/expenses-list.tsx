@@ -46,6 +46,7 @@ import { Input } from '@/components/ui/input';
 import { Expense } from '@/lib/hooks/use-expenses';
 import ExpenseDetails from './details-modal';
 import { formatCurrency } from '@/lib/utils';
+import Link from 'next/link';
 
 interface ExpensesListProps {
   expenses: Expense[];
@@ -217,10 +218,12 @@ export function ExpensesList({ expenses = [], isLoading, pagination, onPageChang
         <FileTextIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
         <h3 className="text-lg font-medium mb-2">No expenses found</h3>
         <p className="text-muted-foreground mb-6">Try adjusting your filters or add a new expense.</p>
-        <Button>
-          <PlusIcon className="h-4 w-4 mr-2" />
-          Add New Expense
-        </Button>
+        <Link href={'/finance/expenses?create=true'}>
+          <Button>
+            <PlusIcon className="h-4 w-4 mr-2" />
+            Add New Expense
+          </Button>
+        </Link>
       </div>
     );
   }

@@ -16,7 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 
 export function ProductGrid({
   products = [],
@@ -87,7 +87,7 @@ export function ProductGrid({
   }, []);
 
   const navigateToAddProduct = () => {
-    router.push('/products/add');
+    router.push('/products?modal=true');
   };
 
   const clearSearch = () => {

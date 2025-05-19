@@ -1,6 +1,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { formatCurrency } from '@/lib/utils';
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -9,7 +10,6 @@ import {
   ClockIcon,
   AlertCircleIcon,
   RepeatIcon,
-  CheckCircleIcon,
 } from 'lucide-react';
 
 interface Expense {
@@ -25,15 +25,6 @@ interface ExpensesStatsProps {
 }
 
 export function ExpensesStats({ expenses = [] }: ExpensesStatsProps) {
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-  };
-
   const safeExpenses = Array.isArray(expenses) ? expenses : [];
 
   // Parse amount to number (handle both string and number types)
@@ -44,22 +35,12 @@ export function ExpensesStats({ expenses = [] }: ExpensesStatsProps) {
   // Calculate total expenses
   const totalExpenses = safeExpenses.reduce((sum, expense) => sum + parseAmount(expense), 0);
 
-  // Calculate expenses by status
-  const paidExpenses = safeExpenses
-    .filter(expense => expense.status?.toLowerCase() === 'paid')
-    .reduce((sum, expense) => sum + parseAmount(expense), 0);
-
   const pendingExpenses = safeExpenses
     .filter(expense => expense.status?.toLowerCase() === 'pending')
     .reduce((sum, expense) => sum + parseAmount(expense), 0);
 
   const overdueExpenses = safeExpenses
     .filter(expense => expense.status?.toLowerCase() === 'overdue')
-    .reduce((sum, expense) => sum + parseAmount(expense), 0);
-
-  // Calculate tax deductible expenses
-  const taxDeductibleExpenses = safeExpenses
-    .filter(expense => expense.taxDeductible)
     .reduce((sum, expense) => sum + parseAmount(expense), 0);
 
   // Calculate recurring expenses
@@ -87,7 +68,6 @@ export function ExpensesStats({ expenses = [] }: ExpensesStatsProps) {
         ? 100
         : 0;
 
-  const paidCount = safeExpenses.filter(e => e.status?.toLowerCase() === 'paid').length;
   const pendingCount = safeExpenses.filter(e => e.status?.toLowerCase() === 'pending').length;
   const overdueCount = safeExpenses.filter(e => e.status?.toLowerCase() === 'overdue').length;
   const recurringCount = safeExpenses.filter(e => e.isRecurring).length;
@@ -154,21 +134,6 @@ export function ExpensesStats({ expenses = [] }: ExpensesStatsProps) {
       <Card className="transition-all hover:shadow-md border-border/50">
         <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <CheckCircleIcon className="h-4 w-4 text-green-500" />
-            Paid
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{formatCurrency(paidExpenses)}</div>
-          <p className="text-xs text-muted-foreground mt-1">
-            {paidCount} expense{paidCount !== 1 ? 's' : ''} paid
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card className="transition-all hover:shadow-md border-border/50">
-        <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
             <RepeatIcon className="h-4 w-4 text-blue-500" />
             Recurring
           </CardTitle>
@@ -177,18 +142,6 @@ export function ExpensesStats({ expenses = [] }: ExpensesStatsProps) {
           <div className="text-2xl font-bold">{formatCurrency(recurringExpenses)}</div>
           <p className="text-xs text-muted-foreground mt-1">
             {recurringCount} recurring expense{recurringCount !== 1 ? 's' : ''}
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card className="transition-all hover:shadow-md border-border/50">
-        <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-          <CardTitle className="text-sm font-medium">Tax Deductible</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{formatCurrency(taxDeductibleExpenses)}</div>
-          <p className="text-xs text-muted-foreground mt-1">
-            {totalExpenses > 0 ? ((taxDeductibleExpenses / totalExpenses) * 100).toFixed(1) : '0'}% of total expenses
           </p>
         </CardContent>
       </Card>

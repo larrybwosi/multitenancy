@@ -18,8 +18,7 @@ export async function POST(request: Request) {
     const buffer = Buffer.from(await file.arrayBuffer());
 
     // Generate a unique filename
-    const fileExtension = file.name.split('.').pop();
-    const fileName = `${uuidv4()}.${fileExtension}`;
+    const fileName = `Dealio-files-${uuidv4()}`;
 
     // Determine asset type - simplified logic
     const assetType = uploadAsFile ? 'file' : 'image';

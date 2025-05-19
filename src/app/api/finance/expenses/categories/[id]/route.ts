@@ -19,9 +19,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const {id:categoryId} = params;
+    const { id: categoryId } = await params;
 
     if (!categoryId) {
       return NextResponse.json({ error: 'Category ID is required' }, { status: 400 });

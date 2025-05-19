@@ -132,7 +132,7 @@ export const sidebarSectionsData: SectionItem[] = [
       },
       {
         
-        title: "Warehouses",
+        title: "Branches",
         path: "/warehouses",
         icon: <Boxes size={18} />,
       },

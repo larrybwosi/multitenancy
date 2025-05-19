@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import {AlertCircle, Package } from 'lucide-react';
+import {AlertCircle, Package, Plus } from 'lucide-react';
 import ProductsTab from './components/products-tab';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { useCategories } from '@/lib/hooks/use-categories';
@@ -10,6 +10,8 @@ import { useQueryState } from 'nuqs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Pagination } from '@/components/pagination';
+import { Button } from '@/components/ui';
+import { CreateProductModal } from './components/add-modal';
 
 export default function ProductsPage() {
   const [page, setPage] = useQueryState('page', { defaultValue: '1' });
@@ -19,6 +21,10 @@ export default function ProductsPage() {
   const [sortBy, setSortBy] = useQueryState<'name' | 'createdAt' | 'basePrice'>('sortBy', {
     defaultValue: 'name',
     parse: (value) => value as 'name' | 'createdAt' | 'basePrice',
+  });
+  const [isModalOpen, setIsModalOpen] = useQueryState('modal', {
+    parse: v => v === 'true',
+    serialize: v => (v ? 'true' : 'false'),
   });
   const [sortOrder, setSortOrder] = useQueryState<'asc' | 'desc'>('sortOrder', { defaultValue: 'asc', parse: (value) => value as 'asc' | 'desc' });
 
@@ -129,6 +135,12 @@ export default function ProductsPage() {
           icon={<Package className="h-8 w-8" />}
         />
       </CardHeader>
+      <div className="mr-5 ml-auto " onClick={() => setIsModalOpen(true)}>
+        <Button className="bg-indigo-600 hover:bg-indigo-700">
+          <Plus className="mr-2 h-4 w-4" />
+          Add Product
+        </Button>
+      </div>
 
       <CardContent className="px-6 flex-1 flex flex-col">
         <ProductsTab
@@ -139,7 +151,7 @@ export default function ProductsPage() {
           onSortChange={(by, order) => {
             setSortBy(by);
             setSortOrder(order);
-            setPage('1'); 
+            setPage('1');
           }}
           currentFilters={{
             search: search || '',
@@ -148,7 +160,7 @@ export default function ProductsPage() {
             sortOrder,
           }}
         />
-        
+
         <div className="mt-auto border-t pt-4">
           <Pagination
             currentPage={paginationProps.currentPage}
@@ -160,6 +172,11 @@ export default function ProductsPage() {
           />
         </div>
       </CardContent>
+      <CreateProductModal
+        isOpen={isModalOpen as boolean}
+        categories={categoriesData?.data ?? []}
+        onClose={setIsModalOpen}
+      />
     </Card>
   );
 }

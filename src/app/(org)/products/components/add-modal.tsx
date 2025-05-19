@@ -51,11 +51,12 @@ export const AddProductMinimalSchema = BaseProductSchema.extend({
 type ProductFormValues = z.infer<typeof AddProductMinimalSchema>;
 
 interface CreateProductModalProps {
+  isOpen: boolean;
+  onClose:(v: boolean)=>boolean;
   categories: { id: string; name: string }[];
 }
 
-export function CreateProductModal({ categories }: CreateProductModalProps) {
-  const [open, setOpen] = useState(false);
+export function CreateProductModal({ isOpen, onClose, categories }: CreateProductModalProps) {
   const [isUploading, setIsUploading] = useState(false);
 
   const { mutateAsync: createProductMutation, isPending: creatingProduct } = useCreateProduct();
@@ -123,13 +124,7 @@ export function CreateProductModal({ categories }: CreateProductModalProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="bg-indigo-600 hover:bg-indigo-700">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Product
-        </Button>
-      </DialogTrigger>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[550px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">Create New Product</DialogTitle>
@@ -410,7 +405,7 @@ export function CreateProductModal({ categories }: CreateProductModalProps) {
             />
 
             <DialogFooter className="gap-2 sm:gap-0">
-              <Button type="button" variant="outline" onClick={() => setOpen(false)} className="mt-2 sm:mt-0">
+              <Button type="button" variant="outline" onClick={() => onClose(false)} className="mt-2 sm:mt-0">
                 Cancel
               </Button>
               <Button

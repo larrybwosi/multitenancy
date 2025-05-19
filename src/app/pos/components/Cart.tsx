@@ -212,7 +212,7 @@ function CartComponent({
     try {
       //@ts-expect-error Type 'Promise<unknown>' is not assignable to type 'Blob'.
       const pdfBlob = await generateAndSaveReceiptPdf(receipt);
-      const url = URL.createObjectURL(pdfBlob);
+      const url = URL.createObjectURL(pdfBlob!);
       const a = document.createElement('a');
       a.href = url;
       a.download = `receipt-${receipt.saleNumber}.pdf`;

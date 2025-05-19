@@ -100,10 +100,7 @@ model Member {
 
   mpesaPaymentRequests MpesaPaymentRequest[]
 
-  departmentMemberships      DepartmentMember[]
-  submittedWorkflowInstances WorkflowInstance[]        @relation("SubmittedWorkflowInstances")
-  assignedWorkflowTasks      WorkflowInstance[]        @relation("AssignedWorkflowTasks")
-  workflowActionHistory      WorkflowInstanceHistory[] @relation("WorkflowActorHistory")
+  departmentMemberships DepartmentMember[]
 
   // --- Attendance Tracking Fields ---
   isCheckedIn              Boolean            @default(false)
@@ -182,7 +179,6 @@ model Organization {
 
   // Relation to all workflows defined for this org
   approvalWorkflows        ApprovalWorkflow[] @relation("OrgWorkflows")
-  workflows                Workflow[]
   expenseApprovalWorkflows ApprovalWorkflow[] @relation("ExpenseApprovalWorkflows")
   defaultExpenseCurrency   String             @default("USD")
   expenseTagOptions        String[]
@@ -211,13 +207,6 @@ model Department {
   activeBudgetId    String?            @unique
   activeBudget      Budget?            @relation("DepartmentBudget", fields: [activeBudgetId], references: [id], onDelete: SetNull)
   budgets           Budget[]           @relation("DepartmentBudgets")
-
-  // --- Generic Workflow Relations ---
-  // Department can have multiple generic workflows defined for various processes
-  workflows         Workflow[] @relation("DepartmentWorkflows")
-  // Default generic workflow for new tasks/processes initiated in this department
-  defaultWorkflowId String?    @unique
-  defaultWorkflow   Workflow?  @relation("DefaultDepartmentWorkflow", fields: [defaultWorkflowId], references: [id], onDelete: SetNull)
 
   customFields Json?
 
@@ -1434,262 +1423,6 @@ model ApprovalStepCondition {
   @@index([locationId])
 }
 
-model Workflow {
-  id                   String       @id @default(cuid())
-  name                 String // e.g., "Document Approval FY2025", "New Client Onboarding"
-  description          String?
-  organizationId       String
-  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  departmentId         String? // Optional: if workflow is department-specific
-  department           Department?  @relation("DepartmentWorkflows", fields: [departmentId], references: [id], onDelete: SetNull)
-  defaultForDepartment Department?  @relation("DefaultDepartmentWorkflow")
-
-  triggerType WorkflowTriggerType @default(MANUAL)
-  version     Int                 @default(1)
-  isActive    Boolean             @default(true)
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-
-  steps         WorkflowStep[]
-  initialStepId String? // ID of the first step in this workflow (references WorkflowStep.id)
-  initialStep   WorkflowStep?  @relation("InitialWorkflowStep", fields: [initialStepId], references: [id], onDelete: SetNull) // Can't have two relations with same fields
-
-  instances WorkflowInstance[]
-
-  @@unique([organizationId, name, version])
-  @@index([departmentId])
-  @@map("workflow_template") // Renamed to avoid confusion with instances
-}
-
-model WorkflowInstance {
-  id             String                 @id @default(cuid())
-  workflowId     String
-  workflow       Workflow               @relation(fields: [workflowId], references: [id], onDelete: Cascade) // If workflow def changes, old instances use old def (captured in 'context' or 'workflowVersion' if needed)
-  status         WorkflowInstanceStatus @default(PENDING) // e.g., PENDING, IN_PROGRESS, COMPLETED, FAILED, CANCELLED
-  context        Json? // Data relevant to this particular instance (e.g., submitted form data, current state variables)
-  currentStepId  String?
-  currentStep    WorkflowStep?          @relation(fields: [currentStepId], references: [id], onDelete: SetNull) // If step template deleted, instance might be stuck or need manual intervention.
-  assignedToId   String? // Member ID if a specific user is assigned to the current step
-  assignedTo     Member?                @relation("AssignedWorkflowTasks", fields: [assignedToId], references: [id], onDelete: SetNull)
-  submittedById  String
-  submittedBy    Member                 @relation("SubmittedWorkflowInstances", fields: [submittedById], references: [id], onDelete: Restrict)
-  organizationId String // Denormalized for easier querying
-  departmentId   String? // Denormalized for easier querying
-
-  // For tracking deadlines or escalations
-  dueDate     DateTime?
-  completedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  // Relation to track history of steps taken (optional, but good for audit)
-  historyEntries WorkflowInstanceHistory[]
-
-  @@index([workflowId])
-  @@index([status])
-  @@index([submittedById])
-  @@index([assignedToId])
-  @@index([organizationId])
-  @@index([departmentId])
-  @@map("workflow_instance")
-}
-
-// Optional: For detailed logging of each step transition within a workflow instance
-model WorkflowInstanceHistory {
-  id                 String           @id @default(cuid())
-  workflowInstanceId String
-  workflowInstance   WorkflowInstance @relation(fields: [workflowInstanceId], references: [id], onDelete: Cascade)
-  stepId             String // The ID of the step from Workflow.definition
-  enteredAt          DateTime         @default(now())
-  exitedAt           DateTime?
-  actorId            String? // Member who actioned this step
-  actor              Member?          @relation("WorkflowActorHistory", fields: [actorId], references: [id], onDelete: SetNull)
-  actionTaken        String? // e.g., "Submitted", "Approved", "Rejected", "Commented"
-  comments           String?
-  dataSnapshot       Json? // Snapshot of WorkflowInstance.context at this point
-
-  @@index([workflowInstanceId])
-  @@map("workflow_instance_history")
-}
-
-enum WorkflowTriggerType {
-  MANUAL // User initiates the workflow
-  EVENT_BASED // Triggered by an application event (e.g., new customer created, document uploaded)
-  SCHEDULED // Runs on a predefined schedule (e.g., daily report generation)
-  API_CALL // Triggered by an external system via API
-}
-
-enum WorkflowInstanceStatus {
-  PENDING // Workflow has been initiated but not started
-  IN_PROGRESS // Workflow is actively being worked on
-  COMPLETED // Workflow finished successfully
-  FAILED // Workflow terminated due to an error
-  CANCELLED // Workflow was manually cancelled
-  ON_HOLD // Workflow is paused
-  AWAITING_INPUT // Workflow is waiting for external input or a condition to be met
-}
-
-model WorkflowStep {
-  id          String   @id @default(cuid())
-  workflowId  String
-  workflow    Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  name        String // e.g., "Draft Document", "Manager Review", "Legal Sign-off"
-  description String?
-  order       Int // Order of the step in a typical sequence
-
-  assigneeLogic StepAssigneeLogic? // How this step is assigned
-  formFields    StepFormField[] // Custom form fields for this step
-  actions       StepAction[] // Actions that can be taken from this step
-
-  outgoingTransitions StepTransition[]   @relation("FromStepTransitions") // Transitions originating from this step
-  incomingTransitions StepTransition[]   @relation("ToStepTransitions") // Transitions leading to this step
-  isInitialStepFor    Workflow[]         @relation("InitialWorkflowStep") // If this is the initial step for a workflow
-  currentStepFor      WorkflowInstance[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([workflowId])
-  @@map("workflow_step_template")
-}
-
-model StepAssigneeLogic {
-  id               String       @id @default(cuid())
-  stepId           String       @unique // One-to-one with WorkflowStep
-  step             WorkflowStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
-  assigneeType     AssigneeType
-  specificRoleId   String? // If assigneeType is SPECIFIC_ROLE (e.g., link to a custom Role model or use MemberRole/DepartmentMemberRole)
-  // specificRole      DepartmentMemberRole? // Example if using existing enum
-  specificMemberId String? // If assigneeType is SPECIFIC_MEMBER
-  // specificMember    Member?        @relation(fields: [specificMemberId], references: [id], onDelete:SetNull)
-
-  @@map("step_assignee_logic_template")
-}
-
-enum AssigneeType {
-  SUBMITTER // The user who initiated the workflow instance
-  SPECIFIC_ROLE // A user with a specific role in the department or organization
-  SPECIFIC_MEMBER // A particular user
-  REPORTING_MANAGER // The submitter's reporting manager (requires org chart data)
-  DEPARTMENT_HEAD // The head of the department the workflow instance belongs to
-  UNASSIGNED // Step is not assigned, or assignment happens via context
-  PREVIOUS_STEP_ASSIGNEE // The user who was assigned to the previous step
-}
-
-model StepFormField {
-  id              String        @id @default(cuid())
-  stepId          String
-  step            WorkflowStep  @relation(fields: [stepId], references: [id], onDelete: Cascade)
-  fieldName       String // Unique identifier for the field within the step (e.g., "documentTitle", "leaveStartDate")
-  label           String // Human-readable label for the UI
-  fieldType       FormFieldType
-  isRequired      Boolean       @default(false)
-  placeholder     String?
-  defaultValue    String?
-  options         Json? // For DROPDOWN, RADIO, CHECKBOX_GROUP (e.g., [{ "value": "opt1", "label": "Option 1" }])
-  validationRules Json? // e.g., { "minLength": 5, "pattern": "^[A-Za-z]+$" }
-  order           Int // Order of field in the form
-
-  @@unique([stepId, fieldName])
-  @@map("step_form_field_template")
-}
-
-enum FormFieldType {
-  TEXT
-  TEXTAREA
-  NUMBER
-  DATE
-  DATETIME
-  BOOLEAN // Typically a checkbox
-  FILE_UPLOAD
-  DROPDOWN
-  RADIO_GROUP
-  CHECKBOX_GROUP
-  EMAIL
-  INFO_TEXT // For displaying read-only information or instructions
-}
-
-model StepAction {
-  id         String         @id @default(cuid())
-  stepId     String
-  step       WorkflowStep   @relation(fields: [stepId], references: [id], onDelete: Cascade)
-  name       String // Internal name/key (e.g., "approve", "reject_with_comments")
-  label      String // UI Button label (e.g., "Approve Document", "Reject & Send Back")
-  actionType StepActionType @default(PRIMARY) // e.g., primary, secondary, destructive for UI hints
-  order      Int // Order of actions on the UI
-
-  // This action directly leads to one or more transitions
-  transitions StepTransition[]
-
-  @@unique([stepId, name])
-  @@map("step_action_template")
-}
-
-enum StepActionType {
-  PRIMARY // Default positive action
-  SECONDARY // Alternative positive or neutral action
-  DESTRUCTIVE // Negative action like reject or cancel
-  INFO // Action that might provide more info or open a modal
-}
-
-model StepTransition {
-  id          String       @id @default(cuid())
-  workflowId  String // Denormalized for easier querying, ensures transition is within the same workflow
-  fromStepId  String
-  fromStep    WorkflowStep @relation("FromStepTransitions", fields: [fromStepId], references: [id], onDelete: Cascade)
-  toStepId    String
-  toStep      WorkflowStep @relation("ToStepTransitions", fields: [toStepId], references: [id], onDelete: Cascade) // On target step deletion, this transition becomes invalid.
-  actionId    String? // The StepAction on fromStep that triggers this transition. Can be null if transition is automatic.
-  action      StepAction?  @relation(fields: [actionId], references: [id], onDelete: SetNull) // If action deleted, transition might become automatic or invalid.
-  description String? // "Transition if 'urgent' is checked and amount > 1000"
-  priority    Int          @default(0) // If multiple transitions can be triggered by one action, highest priority wins.
-  isAutomatic Boolean      @default(false) // If true, this transition occurs automatically when fromStep is completed, if conditions met.
-
-  conditions TransitionCondition[] // Conditions that ALL must be met for this transition to occur
-
-  @@index([fromStepId])
-  @@index([toStepId])
-  @@index([actionId])
-  @@map("step_transition_template")
-}
-
-model TransitionCondition {
-  id              String              @id @default(cuid())
-  transitionId    String
-  transition      StepTransition      @relation(fields: [transitionId], references: [id], onDelete: Cascade)
-  sourceType      ConditionSourceType // Where to get the data for comparison
-  sourceFieldName String? // Field name from StepFormField, or property from context/submitter
-  operator        ConditionOperator
-  comparisonValue String // Value to compare against (type casting needed based on fieldType)
-  valueType       FormFieldType       @default(TEXT) // Helps interpret comparisonValue (e.g. "NUMBER", "BOOLEAN", "DATE")
-
-  @@map("transition_condition_template")
-}
-
-enum ConditionSourceType {
-  FORM_FIELD_VALUE // Value from a form field on the current step
-  INSTANCE_CONTEXT // A value stored in the WorkflowInstance.context
-  SUBMITTER_PROPERTY // e.g., Submitter's role, department (requires access to Member data)
-  WORKFLOW_VARIABLE // Predefined variables within the workflow itself
-}
-
-enum ConditionOperator {
-  EQUALS
-  NOT_EQUALS
-  GREATER_THAN
-  LESS_THAN
-  GREATER_THAN_OR_EQUAL
-  LESS_THAN_OR_EQUAL
-  CONTAINS
-  NOT_CONTAINS
-  STARTS_WITH
-  ENDS_WITH
-  IS_EMPTY
-  IS_NOT_EMPTY
-  IS_TRUE
-  IS_FALSE
-}
-
 enum ConditionType {
   AMOUNT_RANGE // Based on minAmount/maxAmount
   EXPENSE_CATEGORY // Based on expenseCategoryId
@@ -1705,7 +1438,6 @@ model ApprovalStepAction {
   step   ApprovalWorkflowStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
   type   ApprovalActionType // Type of approver required
 
-  // --- Action Values (only relevant fields used based on 'type') ---
   approverRole     MemberRole? // Specific role required (e.g., MANAGER)
   specificMemberId String? // Specific member ID required
   specificMember   Member?     @relation("ApprovalStepActionMember", fields: [specificMemberId], references: [id], onDelete: SetNull) // SetNull: Action becomes invalid if member deleted

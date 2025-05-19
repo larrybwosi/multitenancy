@@ -185,7 +185,6 @@ exports.Prisma.DepartmentScalarFieldEnum = {
   updatedAt: 'updatedAt',
   headId: 'headId',
   activeBudgetId: 'activeBudgetId',
-  defaultWorkflowId: 'defaultWorkflowId',
   customFields: 'customFields'
 };
 
@@ -721,110 +720,6 @@ exports.Prisma.ApprovalStepConditionScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
-exports.Prisma.WorkflowScalarFieldEnum = {
-  id: 'id',
-  name: 'name',
-  description: 'description',
-  organizationId: 'organizationId',
-  departmentId: 'departmentId',
-  triggerType: 'triggerType',
-  version: 'version',
-  isActive: 'isActive',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt',
-  initialStepId: 'initialStepId'
-};
-
-exports.Prisma.WorkflowInstanceScalarFieldEnum = {
-  id: 'id',
-  workflowId: 'workflowId',
-  status: 'status',
-  context: 'context',
-  currentStepId: 'currentStepId',
-  assignedToId: 'assignedToId',
-  submittedById: 'submittedById',
-  organizationId: 'organizationId',
-  departmentId: 'departmentId',
-  dueDate: 'dueDate',
-  completedAt: 'completedAt',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-};
-
-exports.Prisma.WorkflowInstanceHistoryScalarFieldEnum = {
-  id: 'id',
-  workflowInstanceId: 'workflowInstanceId',
-  stepId: 'stepId',
-  enteredAt: 'enteredAt',
-  exitedAt: 'exitedAt',
-  actorId: 'actorId',
-  actionTaken: 'actionTaken',
-  comments: 'comments',
-  dataSnapshot: 'dataSnapshot'
-};
-
-exports.Prisma.WorkflowStepScalarFieldEnum = {
-  id: 'id',
-  workflowId: 'workflowId',
-  name: 'name',
-  description: 'description',
-  order: 'order',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-};
-
-exports.Prisma.StepAssigneeLogicScalarFieldEnum = {
-  id: 'id',
-  stepId: 'stepId',
-  assigneeType: 'assigneeType',
-  specificRoleId: 'specificRoleId',
-  specificMemberId: 'specificMemberId'
-};
-
-exports.Prisma.StepFormFieldScalarFieldEnum = {
-  id: 'id',
-  stepId: 'stepId',
-  fieldName: 'fieldName',
-  label: 'label',
-  fieldType: 'fieldType',
-  isRequired: 'isRequired',
-  placeholder: 'placeholder',
-  defaultValue: 'defaultValue',
-  options: 'options',
-  validationRules: 'validationRules',
-  order: 'order'
-};
-
-exports.Prisma.StepActionScalarFieldEnum = {
-  id: 'id',
-  stepId: 'stepId',
-  name: 'name',
-  label: 'label',
-  actionType: 'actionType',
-  order: 'order'
-};
-
-exports.Prisma.StepTransitionScalarFieldEnum = {
-  id: 'id',
-  workflowId: 'workflowId',
-  fromStepId: 'fromStepId',
-  toStepId: 'toStepId',
-  actionId: 'actionId',
-  description: 'description',
-  priority: 'priority',
-  isAutomatic: 'isAutomatic'
-};
-
-exports.Prisma.TransitionConditionScalarFieldEnum = {
-  id: 'id',
-  transitionId: 'transitionId',
-  sourceType: 'sourceType',
-  sourceFieldName: 'sourceFieldName',
-  operator: 'operator',
-  comparisonValue: 'comparisonValue',
-  valueType: 'valueType'
-};
-
 exports.Prisma.ApprovalStepActionScalarFieldEnum = {
   id: 'id',
   stepId: 'stepId',
@@ -1294,79 +1189,6 @@ exports.ConditionType = exports.$Enums.ConditionType = {
   LOCATION: 'LOCATION'
 };
 
-exports.WorkflowTriggerType = exports.$Enums.WorkflowTriggerType = {
-  MANUAL: 'MANUAL',
-  EVENT_BASED: 'EVENT_BASED',
-  SCHEDULED: 'SCHEDULED',
-  API_CALL: 'API_CALL'
-};
-
-exports.WorkflowInstanceStatus = exports.$Enums.WorkflowInstanceStatus = {
-  PENDING: 'PENDING',
-  IN_PROGRESS: 'IN_PROGRESS',
-  COMPLETED: 'COMPLETED',
-  FAILED: 'FAILED',
-  CANCELLED: 'CANCELLED',
-  ON_HOLD: 'ON_HOLD',
-  AWAITING_INPUT: 'AWAITING_INPUT'
-};
-
-exports.AssigneeType = exports.$Enums.AssigneeType = {
-  SUBMITTER: 'SUBMITTER',
-  SPECIFIC_ROLE: 'SPECIFIC_ROLE',
-  SPECIFIC_MEMBER: 'SPECIFIC_MEMBER',
-  REPORTING_MANAGER: 'REPORTING_MANAGER',
-  DEPARTMENT_HEAD: 'DEPARTMENT_HEAD',
-  UNASSIGNED: 'UNASSIGNED',
-  PREVIOUS_STEP_ASSIGNEE: 'PREVIOUS_STEP_ASSIGNEE'
-};
-
-exports.FormFieldType = exports.$Enums.FormFieldType = {
-  TEXT: 'TEXT',
-  TEXTAREA: 'TEXTAREA',
-  NUMBER: 'NUMBER',
-  DATE: 'DATE',
-  DATETIME: 'DATETIME',
-  BOOLEAN: 'BOOLEAN',
-  FILE_UPLOAD: 'FILE_UPLOAD',
-  DROPDOWN: 'DROPDOWN',
-  RADIO_GROUP: 'RADIO_GROUP',
-  CHECKBOX_GROUP: 'CHECKBOX_GROUP',
-  EMAIL: 'EMAIL',
-  INFO_TEXT: 'INFO_TEXT'
-};
-
-exports.StepActionType = exports.$Enums.StepActionType = {
-  PRIMARY: 'PRIMARY',
-  SECONDARY: 'SECONDARY',
-  DESTRUCTIVE: 'DESTRUCTIVE',
-  INFO: 'INFO'
-};
-
-exports.ConditionSourceType = exports.$Enums.ConditionSourceType = {
-  FORM_FIELD_VALUE: 'FORM_FIELD_VALUE',
-  INSTANCE_CONTEXT: 'INSTANCE_CONTEXT',
-  SUBMITTER_PROPERTY: 'SUBMITTER_PROPERTY',
-  WORKFLOW_VARIABLE: 'WORKFLOW_VARIABLE'
-};
-
-exports.ConditionOperator = exports.$Enums.ConditionOperator = {
-  EQUALS: 'EQUALS',
-  NOT_EQUALS: 'NOT_EQUALS',
-  GREATER_THAN: 'GREATER_THAN',
-  LESS_THAN: 'LESS_THAN',
-  GREATER_THAN_OR_EQUAL: 'GREATER_THAN_OR_EQUAL',
-  LESS_THAN_OR_EQUAL: 'LESS_THAN_OR_EQUAL',
-  CONTAINS: 'CONTAINS',
-  NOT_CONTAINS: 'NOT_CONTAINS',
-  STARTS_WITH: 'STARTS_WITH',
-  ENDS_WITH: 'ENDS_WITH',
-  IS_EMPTY: 'IS_EMPTY',
-  IS_NOT_EMPTY: 'IS_NOT_EMPTY',
-  IS_TRUE: 'IS_TRUE',
-  IS_FALSE: 'IS_FALSE'
-};
-
 exports.ApprovalActionType = exports.$Enums.ApprovalActionType = {
   ROLE: 'ROLE',
   SPECIFIC_MEMBER: 'SPECIFIC_MEMBER'
@@ -1461,15 +1283,6 @@ exports.Prisma.ModelName = {
   ApprovalWorkflow: 'ApprovalWorkflow',
   ApprovalWorkflowStep: 'ApprovalWorkflowStep',
   ApprovalStepCondition: 'ApprovalStepCondition',
-  Workflow: 'Workflow',
-  WorkflowInstance: 'WorkflowInstance',
-  WorkflowInstanceHistory: 'WorkflowInstanceHistory',
-  WorkflowStep: 'WorkflowStep',
-  StepAssigneeLogic: 'StepAssigneeLogic',
-  StepFormField: 'StepFormField',
-  StepAction: 'StepAction',
-  StepTransition: 'StepTransition',
-  TransitionCondition: 'TransitionCondition',
   ApprovalStepAction: 'ApprovalStepAction',
   Budget: 'Budget',
   BudgetReport: 'BudgetReport',

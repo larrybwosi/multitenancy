@@ -68,15 +68,13 @@ export const useUpdateExpenseCategory = () => {
   });
 };
 
-// ... existing hooks ...
-
 // Delete an expense category
 export const useDeleteExpenseCategory = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (categoryId: string) => {
-      const res = await axios.delete(`/api/expense-categories/${categoryId}`);
+      const res = await axios.delete(`/api/finance/expenses/categories/${categoryId}`);
       return res.data;
     },
     onSuccess: () => {

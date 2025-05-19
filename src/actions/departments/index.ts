@@ -1,7 +1,7 @@
-import { createDepartmentSchema } from '@/lib/validations/department';
+// import { createDepartmentSchema } from '@/lib/validations/department';
 import prisma from '@/lib/db';
-import { createStandardDocumentApprovalWorkflow } from './workflows-templates';
-import { Department, DepartmentMemberRole, Prisma } from '@/prisma/client';
+// import { createStandardDocumentApprovalWorkflow } from './workflows-templates';
+import { Department, Prisma } from '@/prisma/client';
 import { ApiResponse, PaginatedResponse, UpdateDepartmentDto } from './types';
 import { logger } from './logger';
 import { getServerAuthContext } from '../auth';
@@ -19,12 +19,13 @@ import { NotFoundError } from '@/utils/errors';
 /**
  * Creates a new department and generates a default GENERIC workflow using Gemini API.
  */
-export async function createDepartmentWithGenericDefaults({name, organizationId, banner,description, image, departmentHeadAssignments}:
+export async function createDepartmentWithGenericDefaults({name, organizationId, banner,description, image, departmentHeadAssignments, head}:
   {organizationId: string,
   name: string,
   description?: string,
   image?: string,
   banner?:string,
+  head: string,
   departmentHeadAssignments?: Array<{ memberId: string }>},
 ) {
   console.log(`[DepartmentService] Attempting to create department (generic workflow): ${name} in org: ${organizationId}`);
@@ -41,7 +42,7 @@ export async function createDepartmentWithGenericDefaults({name, organizationId,
     // createDepartmentSchema.parse({ name, organizationId, description });
 
     const department = await prisma.department.create({
-      data: { name, description, organizationId, headId: memberId, image, banner },
+      data: { name, description, organizationId, headId: head, image, banner },
     });
     console.log(`[DepartmentService] Department created with ID: ${department.id}`);
 
@@ -59,14 +60,14 @@ export async function createDepartmentWithGenericDefaults({name, organizationId,
       }
     }
 
-    const defaultWorkflow = await createStandardDocumentApprovalWorkflow(
-      organizationId,
-      `${department.name} - Default Document Approval`,
-      DepartmentMemberRole.MANAGER, // Or another default role
-      department.id
-    );
+    // const defaultWorkflow = await createStandardDocumentApprovalWorkflow(
+    //   organizationId,
+    //   `${department.name} - Default Document Approval`,
+    //   DepartmentMemberRole.MANAGER, // Or another default role
+    //   department.id
+    // );
 
-    console.log(`[DepartmentService] Default GENERIC workflow created with ID: ${defaultWorkflow?.id}`);
+    // console.log(`[DepartmentService] Default GENERIC workflow created with ID: ${defaultWorkflow?.id}`);
 
     await prisma.departmentMember.create({
       data: {
@@ -77,14 +78,14 @@ export async function createDepartmentWithGenericDefaults({name, organizationId,
         canManageBudget: true,
       },
     });
-    await prisma.department.update({
-      where: { id: department.id },
-      data: { defaultWorkflowId: defaultWorkflow?.id },
-      include:{head:true,}
-    });
+    // await prisma.department.update({
+    //   where: { id: department.id },
+    //   data: { defaultWorkflowId: defaultWorkflow?.id },
+    //   include:{head:true,}
+    // });
 
     // console.log(`[DepartmentService] Department ${department.id} updated with default generic workflow ${defaultWorkflow.id}`);
-    return { department, defaultWorkflow };
+    return { department };
   } catch (error) {
     logger.error(`[DepartmentService] Error creating department with generic workflow ${name}:`, error);
     // Handle ZodError specifically if input validation is done here
@@ -242,13 +243,6 @@ interface DepartmentDetails {
     periodStart: Date;
     periodEnd: Date;
   }[];
-  workflows: {
-    id: string;
-    name: string;
-    description?: string | null;
-    isActive: boolean;
-    isDefault: boolean;
-  }[];
   customFields?: any | null;
 }
 
@@ -334,21 +328,21 @@ export async function getDepartmentWithDetails(
             periodEnd: true,
           },
         },
-        workflows: {
-          // Include related workflows
-          select: {
-            id: true,
-            name: true,
-            description: true,
-            isActive: true,
-          },
-        },
-        defaultWorkflow: {
-          // Include default workflow to check if it exists
-          select: {
-            id: true,
-          },
-        },
+        // workflows: {
+        //   // Include related workflows
+        //   select: {
+        //     id: true,
+        //     name: true,
+        //     description: true,
+        //     isActive: true,
+        //   },
+        // },
+        // defaultWorkflow: {
+        //   // Include default workflow to check if it exists
+        //   select: {
+        //     id: true,
+        //   },
+        // },
       },
     });
 
@@ -407,13 +401,13 @@ export async function getDepartmentWithDetails(
         periodStart: budget.periodStart,
         periodEnd: budget.periodEnd,
       })),
-      workflows: department.workflows.map((workflow) => ({
-        id: workflow.id,
-        name: workflow.name,
-        description: workflow.description,
-        isActive: workflow.isActive,
-        isDefault: department.defaultWorkflow?.id === workflow.id,
-      })),
+      // workflows: department.workflows.map((workflow) => ({
+      //   id: workflow.id,
+      //   name: workflow.name,
+      //   description: workflow.description,
+      //   isActive: workflow.isActive,
+      //   isDefault: department.defaultWorkflow?.id === workflow.id,
+      // })),
       customFields: department.customFields,
     };
 

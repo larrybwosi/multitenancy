@@ -30,7 +30,7 @@ export function formatCurrency(
     style: "currency",
     currency,
     ...options,
-  }).format(amount);
+  }).format(parseFloat(amount.toString()));
 }
 
 /**

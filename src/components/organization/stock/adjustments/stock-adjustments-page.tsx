@@ -9,8 +9,6 @@ import { CreateStockAdjustmentSheet } from "./create-stock-adjustment-sheet"
 
 export function StockAdjustmentsPage() {
   const [adjustments, setAdjustments] = useState([])
-  const [warehouses, setWarehouses] = useState([])
-  const [loading, setLoading] = useState(false)
   const [createSheetOpen, setCreateSheetOpen] = useState(false)
 
   return (

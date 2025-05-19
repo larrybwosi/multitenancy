@@ -15,8 +15,10 @@ import {
 import { Form, FormControl, FormField, FormItem, FormLabel, FormDescription, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Image as ImageIcon, Upload } from 'lucide-react';
+import { PlusCircle, Image as ImageIcon, Upload, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useMembers } from '@/lib/hooks/use-org';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue, Separator } from '@/components/ui';
 
 // Define the form schema
 const departmentFormSchema = z.object({
@@ -25,7 +27,7 @@ const departmentFormSchema = z.object({
     .min(2, { message: 'Department name must be at least 2 characters' })
     .max(50, { message: 'Department name cannot exceed 50 characters' }),
   description: z.string().nullable().optional(),
-  head: z.string().min(2, { message: 'Department head name must be at least 2 characters' }),
+  head: z.string().min(2, { message: 'Department head must be provided' }),
   banner: z.string().nullable().optional(),
   image: z.string().nullable().optional(),
 });
@@ -39,18 +41,19 @@ interface CreateDepartmentProps {
 
 const CreateDepartment = ({isOpen, onOpenChange}: CreateDepartmentProps) => {
   const createMutation = useCreateDepartment();
+    const { data: members, isLoading } = useMembers();
 
   const form = useForm<DepartmentFormValues>({
     resolver: zodResolver(departmentFormSchema),
     defaultValues: {
       name: '',
       description: '',
-      head: '',
       banner: '',
       image: '',
     },
   });
 
+  
   const handleFileUpload = async (file: File): Promise<string> => {
     try {
       const formData = new FormData();
@@ -90,12 +93,6 @@ const CreateDepartment = ({isOpen, onOpenChange}: CreateDepartmentProps) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md hover:shadow-lg transition-all duration-300">
-          <PlusCircle className="h-4 w-4 mr-2" />
-          <span>Add Department</span>
-        </Button>
-      </DialogTrigger>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Create New Department</DialogTitle>
@@ -144,7 +141,28 @@ const CreateDepartment = ({isOpen, onOpenChange}: CreateDepartmentProps) => {
                   <FormItem>
                     <FormLabel>Department Head</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. Jane Smith" {...field} />
+                      <Select value={field.value} onValueChange={field.onChange} disabled={isLoading}>
+                        <SelectTrigger>
+                          <SelectValue placeholder={isLoading ? 'Loading...' : 'Select...'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectLabel>Choose a member</SelectLabel>
+                            <Separator />
+                            {isLoading ? (
+                              <div className="flex justify-center py-4">
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                              </div>
+                            ) : (
+                              members?.map(member => (
+                                <SelectItem key={member.id} value={member.id}>
+                                  {member.name}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
                     </FormControl>
                     <FormDescription>The person who leads this department</FormDescription>
                     <FormMessage />

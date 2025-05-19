@@ -46,8 +46,8 @@ export function DeleteCategoryModal({ open, onOpenChange, categoryId, onSuccess 
             Are you sure you want to delete this category? This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="gap-4 sm:gap-0">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className='mr-2'>
             Cancel
           </Button>
           <Button variant="destructive" onClick={handleDeleteCategory} disabled={deletingExpenseCategory}>

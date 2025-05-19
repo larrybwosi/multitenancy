@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, description, departmentHeadAssignments, image, banner } = body;
+    const { name, description, departmentHeadAssignments, image, banner, head } = body;
 
     const result = await createDepartmentWithGenericDefaults({
       organizationId,
@@ -20,11 +20,12 @@ export async function POST(request: Request) {
       description,
       departmentHeadAssignments,
       image,
-      banner
+      banner,
+      head
     });
 
     return NextResponse.json(result);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ success: false, error: 'Failed to create department' }, { status: 500 });
   }
 }
