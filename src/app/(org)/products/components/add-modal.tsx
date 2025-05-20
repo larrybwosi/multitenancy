@@ -19,7 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, ImagePlus, UploadCloud } from 'lucide-react';
+import { Loader2, Plus, ImagePlus, UploadCloud, Smartphone } from 'lucide-react';
 import { useCreateProduct } from '@/lib/hooks/use-products';
 import { QRUploadModal } from '@/components/file-upload-device';
 import Image from 'next/image';
@@ -306,7 +306,7 @@ export function CreateProductModal({ isOpen, onClose, categories }: CreateProduc
               onImageUploaded={handleImageUploaded}
               trigger={
                 <Button variant="outline" type="button">
-                  <UploadCloud className="w-4 h-4 mr-2 textxl" />
+                  <Smartphone className="w-5 h-5 mr-2 text-xl" />
                   Upload from Phone
                 </Button>
               }

@@ -14,6 +14,7 @@ export interface OrganizationDetails {
   name: string;
   slug: string;
   logo?: string;
+  tax?:number
 }
 
 /**

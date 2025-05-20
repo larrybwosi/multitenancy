@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { ShoppingCart, ChevronLeft, ChevronRight, ImageIcon, Plus } from 'lucide-react';
 import Image from 'next/image';
-import { ExtendedProduct } from '../types';
 import { formatCurrency, getLocalCurrencyValues } from '@/lib/utils';
-import { motion } from 'framer-motion';
+import { MotionDiv } from '@/components/motion';
+import { ProductWithDetails } from '@/actions/product-get';
 
 export interface ProductCardProps {
-  product: ExtendedProduct;
+  product: ProductWithDetails;
   onAddToCart: (productId: string) => void;
   productUrl?: string;
 }
@@ -37,7 +37,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, 
   };
 
   return (
-    <motion.div
+    <MotionDiv
       whileHover={{ y: -5, boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05)' }}
       transition={{ duration: 0.2 }}
       className="relative w-full h-full rounded-2xl overflow-hidden bg-white dark:bg-neutral-800 shadow-md border border-gray-100 dark:border-neutral-700/50"
@@ -100,7 +100,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, 
         )}
 
         {/* Quick Add Button - Visible on hover */}
-        <motion.div 
+        <MotionDiv 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: isHovered ? 1 : 0, y: isHovered ? 0 : 20 }}
           transition={{ duration: 0.2 }}
@@ -113,7 +113,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, 
             <Plus size={18} className="mr-1" />
             Add to Cart
           </button>
-        </motion.div>
+        </MotionDiv>
 
         {/* Stock Badge */}
         {!isInStock && (
@@ -132,7 +132,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, 
         <div className="mt-3 flex items-center justify-between">
           <div className="flex flex-col">
             <span className="font-bold text-lg text-gray-900 dark:text-white">
-              {formatCurrency(sellingPrice, 'KSH', 'en-KE')}
+              {formatCurrency(sellingPrice?.toString() || '0', 'KSH', 'en-KE')}
             </span>
             {isInStock && (
               <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -155,7 +155,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, 
           </button>
         </div>
       </div>
-    </motion.div>
+    </MotionDiv>
   );
 };
 

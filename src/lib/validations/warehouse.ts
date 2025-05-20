@@ -28,8 +28,6 @@ const inventoryLocationBaseSchema = z.object({
   managerId: z
     .string()
     .cuid({ message: "Invalid Manager ID format" })
-    .nullable()
-    .optional(),
 });
 
 // Schema for creating a new InventoryLocation
@@ -46,6 +44,7 @@ export const createInventoryLocationSchema = inventoryLocationBaseSchema.refine(
   }
 );
 
+export type CreateInventoryLocation = z.infer<typeof createInventoryLocationSchema>;
 // Schema for updating an existing InventoryLocation (all fields optional)
 export const updateInventoryLocationSchema = inventoryLocationBaseSchema
   .partial()

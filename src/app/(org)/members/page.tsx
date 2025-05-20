@@ -1,52 +1,33 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { MembersList } from "./list"
 import { Button } from "@/components/ui/button"
 import { UserPlus, Users, RefreshCw } from "lucide-react"
 import Link from "next/link"
 import { SectionHeader } from "@/components/ui/SectionHeader"
-import { Member } from "@/prisma/client"
-import { toast } from "sonner"
+import { useQueryState } from "nuqs"
+import UserCreationModal from "./components/add-modal"
+import { useMembers } from "@/lib/hooks/use-org"
 
 export default function MembersPage() {
-  const [loading, setLoading] = useState(true)
-  const [members, setMembers] = useState<Member[]>([])
   const [refreshing, setRefreshing] = useState(false)
-
-  const fetchMembers = async () => {
-    try {
-      setLoading(true)
-      const response = await fetch("/api/members")
-      
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to fetch members")
-      }
-      
-      const data = await response.json()
-      setMembers(data.members)
-    } catch (error) {
-      console.error("Error fetching members:", error)
-      toast.error("Failed to fetch members", {
-        description: error instanceof Error ? error.message : "An unexpected error occurred",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-  
+  const { data: members, isLoading: loading, refetch } = useMembers();
+  const [isModalOpen, setIsModalOpen] = useQueryState('modal', {
+    parse: v => v === 'true',
+    serialize: v => (v ? 'true' : 'false'),
+  });
+    
   const handleRefresh = async () => {
     setRefreshing(true)
-    await fetchMembers()
+    await refetch()
     setRefreshing(false)
   }
 
-  useEffect(() => {
-    fetchMembers()
-  }, [])
-
+  if(loading) {
+    return
+  }
   return (
     <div className="space-y-6 container mx-auto py-6">
       <div className="flex justify-between items-center">
@@ -65,7 +46,7 @@ export default function MembersPage() {
             Refresh
           </Button>
           <Button asChild>
-            <Link href="/invite">
+            <Link href="/members?modal=true">
               <UserPlus className="mr-2 h-4 w-4" />
               Invite Member
             </Link>
@@ -85,6 +66,7 @@ export default function MembersPage() {
           <MembersList loading={loading} members={members} />
         </CardContent>
       </Card>
+      <UserCreationModal isOpen={isModalOpen as boolean} onOpenChange={() => setIsModalOpen(false)} />
     </div>
   );
 }

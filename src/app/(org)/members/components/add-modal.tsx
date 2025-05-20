@@ -1,20 +1,19 @@
-
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useForm } from 'react-hook-form';
 import { useState } from 'react';
 import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui';
-import { UploadCloud, UserPlus } from 'lucide-react';
+import { SmartphoneIcon, UploadCloud, User, UserPlus } from 'lucide-react';
 import Image from 'next/image';
 import { useDepartments } from '@/lib/hooks/use-departments';
 import { useCreateUserAndMember } from '@/lib/hooks/use-org';
+import { QRUploadModal } from '@/components/file-upload-device';
 
 interface UserCreationModal {
   isOpen: boolean;
@@ -58,7 +57,9 @@ const UserCreationModal = ({isOpen, onOpenChange}:UserCreationModal) => {
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md md:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold">Add New Employee</DialogTitle>
+          <DialogTitle className="text-2xl font-bold flex flex-row items-center gap-2">
+            Add New Employee <UserPlus className="font-bold h-6 w-6 text-zinc-600" />
+          </DialogTitle>
           <DialogDescription>
             Enter the details for the new employee. All fields except image are required.
           </DialogDescription>
@@ -200,6 +201,15 @@ const UserCreationModal = ({isOpen, onOpenChange}:UserCreationModal) => {
                 )}
               />
             </div>
+            <QRUploadModal
+              onImageUploaded={() => {}}
+              trigger={
+                <Button variant="outline" type="button">
+                  <SmartphoneIcon className="w-4 h-4 mr-2 textxl" />
+                  Upload image from Phone
+                </Button>
+              }
+            />
 
             <FormField
               name="image"

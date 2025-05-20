@@ -57,11 +57,11 @@ interface MembersListProps {
   members: MemberWithUserRelationship[]
 }
 interface MemberWithUserRelationship extends Member {
-  user: {
-    email: string,
-    name: string,
-    banned: boolean
-  }
+  email: string;
+  name: string;
+  banned: boolean;
+  image?: string | null;
+  statistics:any
 }
 
 export function MembersList({ loading, members }: MembersListProps) {
@@ -82,8 +82,8 @@ export function MembersList({ loading, members }: MembersListProps) {
   
   const filteredMembers = members.filter(
     (member) =>
-      member.user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      member.user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      member.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       member.role.toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
@@ -223,7 +223,7 @@ export function MembersList({ loading, members }: MembersListProps) {
               placeholder="Search members..."
               className="pl-8"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={e => setSearchQuery(e.target.value)}
             />
           </div>
         </div>
@@ -265,10 +265,16 @@ export function MembersList({ loading, members }: MembersListProps) {
                   </TableRow>
                 ))
               ) : filteredMembers.length > 0 ? (
-                filteredMembers.map((member) => (
+                filteredMembers.map(member => (
                   <TableRow key={member.id}>
-                    <TableCell className="font-medium">{member.user.name}</TableCell>
-                    <TableCell>{member.user.email}</TableCell>
+                    <TableCell className="flex items-center space-x-2 gap-2">
+                      <Avatar>
+                        <AvatarImage src={member?.image || ''} alt={member.name} />
+                        <AvatarFallback>{member?.name?.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      {member.name}
+                    </TableCell>
+                    <TableCell>{member.email}</TableCell>
                     <TableCell>
                       <RoleBadge role={member.role} />
                     </TableCell>
@@ -288,17 +294,17 @@ export function MembersList({ loading, members }: MembersListProps) {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          
+
                           <DropdownMenuItem onClick={() => openActivitySheet(member)}>
                             <Activity className="mr-2 h-4 w-4" />
                             <span>View Activity</span>
                           </DropdownMenuItem>
 
-                          <DropdownMenuItem onClick={() => (window.location.href = `mailto:${member.user.email}`)}>
+                          <DropdownMenuItem onClick={() => (window.location.href = `mailto:${member.email}`)}>
                             <Mail className="mr-2 h-4 w-4" />
                             <span>Email</span>
                           </DropdownMenuItem>
-                          
+
                           <DropdownMenuSeparator />
 
                           <DropdownMenuSub>
@@ -308,12 +314,15 @@ export function MembersList({ loading, members }: MembersListProps) {
                             </DropdownMenuSubTrigger>
                             <DropdownMenuPortal>
                               <DropdownMenuSubContent>
-                                <DropdownMenuRadioGroup value={member.role} onValueChange={(value) => {
-                                  setSelectedMember(member)
-                                  setNewRole(value)
-                                  setRoleChangeOpen(true)
-                                }}>
-                                  {Object.values(MemberRole).map((role) => (
+                                <DropdownMenuRadioGroup
+                                  value={member.role}
+                                  onValueChange={value => {
+                                    setSelectedMember(member);
+                                    setNewRole(value);
+                                    setRoleChangeOpen(true);
+                                  }}
+                                >
+                                  {Object.values(MemberRole).map(role => (
                                     <DropdownMenuRadioItem key={role} value={role}>
                                       {role.charAt(0) + role.slice(1).toLowerCase()}
                                     </DropdownMenuRadioItem>
@@ -322,37 +331,35 @@ export function MembersList({ loading, members }: MembersListProps) {
                               </DropdownMenuSubContent>
                             </DropdownMenuPortal>
                           </DropdownMenuSub>
-                          
+
                           <DropdownMenuSeparator />
-                          
-                          {member.user.banned ? (
-                            <DropdownMenuItem 
-                              onClick={() => handleBanMember(member.id, false)}
-                            >
+
+                          {member.banned ? (
+                            <DropdownMenuItem onClick={() => handleBanMember(member.id, false)}>
                               <ShieldCheck className="mr-2 h-4 w-4" />
                               <span>Unban User</span>
                             </DropdownMenuItem>
                           ) : (
                             <DropdownMenuItem
                               onClick={() => {
-                                setMemberToBan(member)
-                                setBanReason("")
-                                setBanExpiry("")
-                                setBanDialogOpen(true)
+                                setMemberToBan(member);
+                                setBanReason('');
+                                setBanExpiry('');
+                                setBanDialogOpen(true);
                               }}
                             >
                               <ShieldAlert className="mr-2 h-4 w-4" />
                               <span>Ban User</span>
                             </DropdownMenuItem>
                           )}
-                          
+
                           <DropdownMenuSeparator />
-                          
+
                           <DropdownMenuItem
                             className="text-destructive focus:text-destructive"
                             onClick={() => {
-                              setMemberToDelete(member)
-                              setConfirmDeleteOpen(true)
+                              setMemberToDelete(member);
+                              setConfirmDeleteOpen(true);
                             }}
                           >
                             <UserMinus className="mr-2 h-4 w-4" />
@@ -374,24 +381,25 @@ export function MembersList({ loading, members }: MembersListProps) {
           </Table>
         </div>
       </div>
-      
+
       {/* Role Change Confirmation Dialog */}
       <Dialog open={roleChangeOpen} onOpenChange={setRoleChangeOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Change Member Role</DialogTitle>
             <DialogDescription>
-              Are you sure you want to change the role of {selectedMember?.user.name} to {newRole?.charAt(0) + newRole?.slice(1).toLowerCase()}?
+              Are you sure you want to change the role of {selectedMember?.name} to{' '}
+              {newRole?.charAt(0) + newRole?.slice(1).toLowerCase()}?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRoleChangeOpen(false)}>
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={() => {
-                handleChangeRole(selectedMember?.id||"", newRole)
-                setRoleChangeOpen(false)
+                handleChangeRole(selectedMember?.id || '', newRole);
+                setRoleChangeOpen(false);
               }}
             >
               Change Role
@@ -406,18 +414,19 @@ export function MembersList({ loading, members }: MembersListProps) {
           <DialogHeader>
             <DialogTitle>Remove Member</DialogTitle>
             <DialogDescription>
-              Are you sure you want to remove {memberToDelete?.user.name} from the organization? This action cannot be undone.
+              Are you sure you want to remove {memberToDelete?.name} from the organization? This action cannot be
+              undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmDeleteOpen(false)}>
               Cancel
             </Button>
-            <Button 
+            <Button
               variant="destructive"
               onClick={() => {
-                handleRemoveMember(memberToDelete?.id || "")
-                setConfirmDeleteOpen(false)
+                handleRemoveMember(memberToDelete?.id || '');
+                setConfirmDeleteOpen(false);
               }}
             >
               Remove Member
@@ -425,14 +434,14 @@ export function MembersList({ loading, members }: MembersListProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
+
       {/* Ban Member Dialog */}
       <Dialog open={banDialogOpen} onOpenChange={setBanDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Ban User</DialogTitle>
+            <DialogTitle className="flex flex-row gap-2.5 items-center">Ban User <ShieldAlert className="text-red-500"/> </DialogTitle>
             <DialogDescription>
-              This will prevent {memberToBan?.user.name} from logging into the platform.
+              This will prevent {memberToBan?.name} from logging into the platform.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -440,22 +449,22 @@ export function MembersList({ loading, members }: MembersListProps) {
               <label className="text-sm font-medium" htmlFor="banReason">
                 Reason for ban
               </label>
-              <Textarea 
-                id="banReason" 
-                placeholder="Provide a reason for the ban" 
-                value={banReason} 
-                onChange={(e) => setBanReason(e.target.value)}
+              <Textarea
+                id="banReason"
+                placeholder="Provide a reason for the ban"
+                value={banReason}
+                onChange={e => setBanReason(e.target.value)}
               />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium" htmlFor="banExpiry">
                 Ban expiry (optional)
               </label>
-              <Input 
-                id="banExpiry" 
-                type="datetime-local" 
-                value={banExpiry} 
-                onChange={(e) => setBanExpiry(e.target.value)}
+              <Input
+                id="banExpiry"
+                type="datetime-local"
+                value={banExpiry}
+                onChange={e => setBanExpiry(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">Leave blank for permanent ban</p>
             </div>
@@ -464,11 +473,11 @@ export function MembersList({ loading, members }: MembersListProps) {
             <Button variant="outline" onClick={() => setBanDialogOpen(false)}>
               Cancel
             </Button>
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               onClick={() => {
-                handleBanMember(memberToBan?.id, true, banReason, banExpiry)
-                setBanDialogOpen(false)
+                handleBanMember(memberToBan?.id, true, banReason, banExpiry);
+                setBanDialogOpen(false);
               }}
             >
               Ban User
@@ -476,17 +485,15 @@ export function MembersList({ loading, members }: MembersListProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
+
       {/* Member Activity Sheet */}
       <Sheet open={activitySheetOpen} onOpenChange={setActivitySheetOpen}>
         <SheetContent className="sm:max-w-xl w-full">
           <SheetHeader>
-            <SheetTitle>Member Activity - {activityMember?.user.name}</SheetTitle>
-            <SheetDescription>
-              Recent activity and performance details
-            </SheetDescription>
+            <SheetTitle>Member Activity - {activityMember?.name}</SheetTitle>
+            <SheetDescription>Recent activity and performance details</SheetDescription>
           </SheetHeader>
-          
+
           <div className="py-6 space-y-6">
             {/* Status Card */}
             <Card>
@@ -496,23 +503,21 @@ export function MembersList({ loading, members }: MembersListProps) {
               <CardContent className="space-y-4">
                 <div className="flex items-center space-x-4">
                   <Avatar className="h-12 w-12">
-                    <AvatarImage src={activityMember?.user.image || ''} alt={activityMember?.user.name} />
-                    <AvatarFallback>
-                      {activityMember?.user.name?.charAt(0).toUpperCase() || 'U'}
-                    </AvatarFallback>
+                    <AvatarImage src={activityMember?.image || ''} alt={activityMember?.name} />
+                    <AvatarFallback>{activityMember?.name?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="font-medium">{activityMember?.user.name}</p>
-                    <p className="text-sm text-muted-foreground">{activityMember?.user.email}</p>
+                    <p className="font-medium">{activityMember?.name}</p>
+                    <p className="text-sm text-muted-foreground">{activityMember?.email}</p>
                     <div className="flex items-center mt-1 space-x-2">
-                      <RoleBadge role={activityMember?.role} />
+                      <RoleBadge role={activityMember?.role || 'Not assigned'} />
                       <StatusBadge member={activityMember} />
                     </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
-            
+
             {/* Stats Cards */}
             {loadingActivity ? (
               <div className="grid grid-cols-2 gap-4">
@@ -543,9 +548,10 @@ export function MembersList({ loading, members }: MembersListProps) {
                   </CardHeader>
                   <CardContent>
                     <p className="text-2xl font-bold">
-                      ${memberActivity.statistics.totalRevenue.toLocaleString(undefined, {
+                      $
+                      {memberActivity.statistics.totalRevenue.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
+                        maximumFractionDigits: 2,
                       })}
                     </p>
                   </CardContent>
@@ -556,9 +562,10 @@ export function MembersList({ loading, members }: MembersListProps) {
                   </CardHeader>
                   <CardContent>
                     <p className="text-2xl font-bold">
-                      ${memberActivity.statistics.averageSaleValue.toLocaleString(undefined, {
+                      $
+                      {memberActivity.statistics.averageSaleValue.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
+                        maximumFractionDigits: 2,
                       })}
                     </p>
                   </CardContent>
@@ -574,12 +581,10 @@ export function MembersList({ loading, members }: MembersListProps) {
               </div>
             ) : (
               <Card>
-                <CardContent className="p-6 text-center text-muted-foreground">
-                  No activity data available
-                </CardContent>
+                <CardContent className="p-6 text-center text-muted-foreground">No activity data available</CardContent>
               </Card>
             )}
-            
+
             {/* Recent Sales */}
             <Card>
               <CardHeader>
@@ -606,14 +611,15 @@ export function MembersList({ loading, members }: MembersListProps) {
                         <div className="space-y-1">
                           <p className="font-medium">Sale #{sale.saleNumber}</p>
                           <p className="text-sm text-muted-foreground">
-                            {sale.customer ? sale.customer.name : "No customer"} - 
+                            {sale.customer ? sale.customer.name : 'No customer'} -
                             {format(new Date(sale.saleDate), "MMM d, yyyy 'at' h:mm a")}
                           </p>
                         </div>
                         <p className="font-medium">
-                          ${sale.finalAmount.toLocaleString(undefined, {
+                          $
+                          {sale.finalAmount.toLocaleString(undefined, {
                             minimumFractionDigits: 2,
-                            maximumFractionDigits: 2
+                            maximumFractionDigits: 2,
                           })}
                         </p>
                       </div>
@@ -624,7 +630,7 @@ export function MembersList({ loading, members }: MembersListProps) {
                 )}
               </CardContent>
             </Card>
-            
+
             {/* Audit Logs */}
             <Card>
               <CardHeader>
@@ -653,7 +659,7 @@ export function MembersList({ loading, members }: MembersListProps) {
                           <p className="text-sm text-muted-foreground">{log.description}</p>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          {format(new Date(log.performedAt), "MMM d, h:mm a")}
+                          {format(new Date(log.performedAt), 'MMM d, h:mm a')}
                         </p>
                       </div>
                     ))}
@@ -667,7 +673,7 @@ export function MembersList({ loading, members }: MembersListProps) {
         </SheetContent>
       </Sheet>
     </>
-  )
+  );
 }
 
 function RoleBadge({ role }: { role: string }) {
@@ -691,7 +697,7 @@ function RoleBadge({ role }: { role: string }) {
 }
 
 function StatusBadge({ member }: { member: any }) {
-  if (member.user.banned) {
+  if (member.banned) {
     return (
       <Badge variant="outline" className="bg-red-100 text-red-800 hover:bg-red-200 border-red-200">
         <XCircle className="mr-1 h-3 w-3" />

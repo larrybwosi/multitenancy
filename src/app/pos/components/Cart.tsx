@@ -31,6 +31,7 @@ import { generateAndSaveReceiptPdf } from '@/utils/pdf';
 import { formatCurrency } from '@/lib/utils';
 import { pusherClient } from '@/utils/pusher';
 import { CartItem, Customer, SaleData, SaleResult } from '../types';
+import { useAppStore } from '@/store/app';
 
 /**
  * Props for the Cart component
@@ -87,6 +88,14 @@ function CartComponent({
   const [phoneNumber, setPhoneNumber] = useState<string>('');
   const [mpesaPayment, setMpesaPayment] = useState<MpesaPayment | null>(null);
   const [isMpesaProcessing, setIsMpesaProcessing] = useState(false);
+
+  
+    const tax = 0.16
+    const taxAmount = tax * Number(cartTotal); 
+    const totalPrice = Number(cartTotal) + taxAmount
+    
+    const org = useAppStore((o)=>o.organization)
+    console.log(org)
 
   useEffect(() => {
     const channel = pusherClient.subscribe('mpesa-payments');
@@ -374,8 +383,8 @@ function CartComponent({
               <span className="font-medium text-gray-800 dark:text-gray-200">{formatCurrency(cartTotal)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-400">Tax (0%)</span>
-              <span className="font-medium text-gray-800 dark:text-gray-200">{formatCurrency(0.0)}</span>
+              <span className="text-gray-600 dark:text-gray-400">Tax ({tax *100}%)</span>
+              <span className="font-medium text-gray-800 dark:text-gray-200">{formatCurrency(taxAmount.toFixed(2))}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-600 dark:text-gray-400">Discount</span>
@@ -385,7 +394,7 @@ function CartComponent({
 
           <div className="flex justify-between pt-3 text-lg font-bold">
             <span className="text-gray-800 dark:text-white">Total</span>
-            <span className="text-blue-700 dark:text-blue-400">{formatCurrency(cartTotal)}</span>
+            <span className="text-blue-700 dark:text-blue-400">{formatCurrency(totalPrice)}</span>
           </div>
 
           <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 text-right">

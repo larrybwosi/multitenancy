@@ -83,8 +83,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { memberId, organizationId } = await getServerAuthContext();
+    const { organizationId } = await getServerAuthContext();
     const data = await request.json();
+    
 
     // Validate request data using the new schema
     const {name,...parsedData} = createInventoryLocationSchema.parse(data);
@@ -101,7 +102,7 @@ export async function POST(request: Request) {
         capacityTracking: parsedData.capacityTracking,
         totalCapacity: parsedData.totalCapacity,
         capacityUnit: parsedData.capacityUnit,
-        managerId: memberId,
+        managerId: data.memberId,
         organizationId,
         // Include any new fields from the updated schema
         parentLocationId: parsedData.parentLocationId? parsedData.parentLocationId : undefined,

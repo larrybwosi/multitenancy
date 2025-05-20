@@ -137,14 +137,15 @@ export async function fetchProducts(category) {
         id: 11,
         name: 'Chili Crab',
         price: 180000,
-        image: '/placeholder.svg?height=200&width=300',
+        image:
+          'https://media.istockphoto.com/id/1408374876/photo/oatmeal-porridge-bowl-with-berry-fruits-in-female-hands.jpg?b=1&s=612x612&w=0&k=20&c=NMzSgZxmvwKg2228h-9RuKDUhQ0UYNI1wQS1XGDRQxA=',
         variants: ['Medium', 'Extra spicy'],
       },
       {
         id: 12,
         name: 'Butter Garlic Crab',
         price: 190000,
-        image: '/placeholder.svg?height=200&width=300',
+        image: 'https://www.pexels.com/photo/croissant-bread-on-a-wooden-tray-1510682/',
         variants: ['Original'],
       },
     ],
@@ -153,18 +154,19 @@ export async function fetchProducts(category) {
         id: 13,
         name: 'Salt and Pepper Squid',
         price: 75000,
-        image: '/placeholder.svg?height=200&width=300',
+        image: 'https://images.pexels.com/photos/936611/pexels-photo-936611.jpeg?auto=compress&cs=tinysrgb&w=600',
         variants: ['Original', 'Extra crispy'],
       },
       {
         id: 14,
         name: 'Grilled Squid',
         price: 85000,
-        image: '/placeholder.svg?height=200&width=300',
+        image: 'https://images.pexels.com/photos/1065030/pexels-photo-1065030.jpeg?auto=compress&cs=tinysrgb&w=600',
         variants: ['Original', 'Spicy'],
       },
     ],
     Rice: [
+      //butter
       {
         id: 15,
         name: 'Seafood Fried Rice',

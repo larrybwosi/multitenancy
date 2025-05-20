@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      imageUrl: result.url,
+      imageUrl: result.url+'?fm=webp&q=75&auto=format',
       message: 'Image uploaded successfully',
     });
   } catch (error) {

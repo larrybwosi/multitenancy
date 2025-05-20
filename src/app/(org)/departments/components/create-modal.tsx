@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogTrigger,
   DialogHeader,
   DialogTitle,
   DialogDescription,
@@ -15,10 +14,9 @@ import {
 import { Form, FormControl, FormField, FormItem, FormLabel, FormDescription, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Image as ImageIcon, Upload, Loader2 } from 'lucide-react';
+import { Image as ImageIcon, Upload } from 'lucide-react';
 import { toast } from 'sonner';
-import { useMembers } from '@/lib/hooks/use-org';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue, Separator } from '@/components/ui';
+import MembersSelect from '@/components/members-select';
 
 // Define the form schema
 const departmentFormSchema = z.object({
@@ -41,7 +39,6 @@ interface CreateDepartmentProps {
 
 const CreateDepartment = ({isOpen, onOpenChange}: CreateDepartmentProps) => {
   const createMutation = useCreateDepartment();
-    const { data: members, isLoading } = useMembers();
 
   const form = useForm<DepartmentFormValues>({
     resolver: zodResolver(departmentFormSchema),
@@ -141,28 +138,7 @@ const CreateDepartment = ({isOpen, onOpenChange}: CreateDepartmentProps) => {
                   <FormItem>
                     <FormLabel>Department Head</FormLabel>
                     <FormControl>
-                      <Select value={field.value} onValueChange={field.onChange} disabled={isLoading}>
-                        <SelectTrigger>
-                          <SelectValue placeholder={isLoading ? 'Loading...' : 'Select...'} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            <SelectLabel>Choose a member</SelectLabel>
-                            <Separator />
-                            {isLoading ? (
-                              <div className="flex justify-center py-4">
-                                <Loader2 className="h-5 w-5 animate-spin" />
-                              </div>
-                            ) : (
-                              members?.map(member => (
-                                <SelectItem key={member.id} value={member.id}>
-                                  {member.name}
-                                </SelectItem>
-                              ))
-                            )}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
+                      <MembersSelect value={field.value} onChange={field.onChange} />
                     </FormControl>
                     <FormDescription>The person who leads this department</FormDescription>
                     <FormMessage />

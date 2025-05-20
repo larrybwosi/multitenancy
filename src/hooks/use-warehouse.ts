@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { InventoryLocation, StorageZone, StorageUnit, MovementType } from '@/prisma/client';
+import { CreateInventoryLocation } from '@/lib/validations/warehouse';
 
 // Type definitions
 // Extended interfaces for better type safety
@@ -79,6 +80,33 @@ export const useGetWarehouse = (id: string) => {
   });
 };
 
+
+export const useCreateWarehouse = () => {
+  return useMutation({
+    mutationFn: async (warehouseData: CreateInventoryLocation) => {
+      const response = await fetch('/api/warehouse', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(warehouseData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to create warehouse');
+      }
+
+      return response.json();
+    },
+    onError:(e)=>{
+      console.log(e)
+      toast.error('Error', {
+        description: 'Failed to create warehouse. Please try again.',
+      });
+    }
+  });
+};
 export const useDeleteWarehouse = () => {
   const queryClient = useQueryClient();
   const router = useRouter();
