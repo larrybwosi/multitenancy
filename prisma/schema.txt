@@ -113,6 +113,8 @@ model Member {
   attendanceLogs           AttendanceLog[]
   // --- End Attendance Tracking Fields ---
 
+  orders         Order[]     // Orders managed by this member
+
   @@unique([organizationId, userId])
   @@index([userId])
   @@index([organizationId])
@@ -141,6 +143,7 @@ model Organization {
   products             Product[]
   suppliers            Supplier[]
   sales                Sale[]
+  orders                Order[]
   purchases            Purchase[]
   returns              Return[]
   stockBatches         StockBatch[]
@@ -188,6 +191,7 @@ model Organization {
   attendanceLogs       AttendanceLog[]
 
   @@map("organization")
+  @@index([slug])
 }
 
 
@@ -319,6 +323,7 @@ model ProductVariant {
   buyingPrice    Decimal  @db.Decimal(10, 2)
   wholesalePrice Decimal? @db.Decimal(10, 2)
   retailPrice    Decimal? @db.Decimal(10, 2)
+  orderItems     OrderItem[]
 
   // Relations
   saleItems        SaleItem[]
@@ -408,9 +413,8 @@ model Customer {
   createdBy           Member               @relation("CustomerCreatedBy", fields: [createdById], references: [id], onDelete: Restrict) // Prevent deleting member if they created customers
   updatedBy           Member?              @relation("CustomerUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull) // Allow setting null if updater deleted
 
-  // Email should be unique per organization
-  // Keep general index if needed
-  // Index for filtering by org
+  orders         Order[]
+  
   @@unique([organizationId, email])
   @@index([name])
   @@index([email])
@@ -486,6 +490,140 @@ model SaleItem {
   @@index([variantId])
   @@index([stockBatchId])
 }
+
+
+enum OrderStatus {
+  PENDING_CONFIRMATION // Order placed, awaiting business confirmation (e.g., restaurant)
+  CONFIRMED            // Order confirmed by the business
+  PREPARING            // Order is being prepared (e.g., food, package)
+  READY_FOR_PICKUP     // Order is ready for customer pickup
+  OUT_FOR_DELIVERY     // Order is out for delivery
+  DELIVERED            // Order has been delivered
+  COMPLETED            // Order fulfilled and completed (especially for services/digital goods)
+  CANCELLED            // Order was cancelled
+  FAILED               // Order processing failed (e.g., payment issue)
+  ON_HOLD              // Order is temporarily on hold
+}
+
+enum OrderType {
+  RETAIL_SALE     // Corresponds to your current Sale model
+  ONLINE_ORDER    // For e-commerce type orders
+  RESTAURANT_DINE_IN // For restaurant dine-in
+  RESTAURANT_TAKEOUT // For restaurant takeout
+  RESTAURANT_DELIVERY // For restaurant's own delivery
+  SERVICE_BOOKING   // For booking services
+  SUBSCRIPTION      // For recurring orders/subscriptions
+  OTHER             // For any other type of order
+}
+
+enum FulfillmentType {
+  PHYSICAL_DELIVERY
+  DIGITAL_DOWNLOAD
+  PICKUP_IN_STORE
+  DINE_IN
+  SERVICE_PROVISION
+}
+
+// --- Order Models ---
+
+model Order {
+  id             String      @id @default(cuid())
+  orderNumber    String      // Human-readable unique order number
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete:Cascade)
+
+  customerId     String?
+  customer       Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  memberId       String?     // Member who placed or is managing the order
+  member         Member?     @relation(fields: [memberId], references: [id], onDelete: SetNull)
+
+  status         OrderStatus @default(PENDING_CONFIRMATION)
+  orderType      OrderType   @default(ONLINE_ORDER)
+  fulfillmentType FulfillmentType @default(PHYSICAL_DELIVERY)
+
+  items          OrderItem[]
+
+  subTotal       Decimal     @db.Decimal(12, 2) // Sum of (OrderItem.unitPrice * OrderItem.quantity) before discounts and taxes
+  discountAmount Decimal     @default(0) @db.Decimal(12, 2) // Order-level discount
+  taxAmount      Decimal     @default(0) @db.Decimal(12, 2) // Order-level tax
+  shippingAmount Decimal     @default(0) @db.Decimal(12, 2)
+  totalAmount    Decimal     @db.Decimal(12, 2) // Final amount to be paid
+
+  paymentMethod  PaymentMethod? // From your existing enum [cite: 188]
+  paymentStatus  PaymentStatus @default(PENDING) // From your existing enum [cite: 188]
+  paymentTransactionId String?  // Reference to a payment gateway transaction
+
+  // --- Timestamps ---
+  placedAt       DateTime    @default(now()) // When the customer placed the order
+  confirmedAt    DateTime?   // When the business confirmed the order
+  preparingAt    DateTime?
+  readyAt        DateTime?   // Ready for pickup/delivery
+  dispatchedAt   DateTime?
+  deliveredAt    DateTime?
+  completedAt    DateTime?   // When the order is fully resolved
+  cancelledAt    DateTime?
+  updatedAt      DateTime    @updatedAt
+
+  // --- Fulfillment Details ---
+  shippingAddress String?     // Could be JSON for structured address
+  billingAddress  String?     // Could be JSON
+  deliveryNotes   String?
+  pickupLocationId String?    // If pickup, link to InventoryLocation [cite: 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105]
+  pickupLocation  InventoryLocation? @relation("OrderPickupLocation", fields: [pickupLocationId], references: [id], onDelete:SetNull)
+
+  // --- Restaurant Specific ---
+  tableNumber    String?     // For dine-in
+  estimatedPreparationTime Int? // In minutes
+
+  // --- General ---
+  notes          String?     // Customer or internal notes
+  tags           String[]    // For categorization/filtering
+
+  // --- Potential Link to Sale (if you want to keep Sale for point-of-sale and Order for other channels) ---
+  // saleId         String?     @unique // If this order resulted in a direct Sale record
+  // sale           Sale?       @relation(fields: [saleId], references: [id])
+
+  @@unique([organizationId, orderNumber])
+  @@index([organizationId, customerId])
+  @@index([organizationId, status])
+  @@index([organizationId, orderType])
+  @@index([placedAt])
+  @@map("order")
+}
+
+model OrderItem {
+  id             String   @id @default(cuid())
+  orderId        String
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  variantId      String
+  variant        ProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict) // ProductVariant from your schema [cite: 46, 47, 48]
+  productName    String   // Snapshot of product name at time of order
+  variantName    String   // Snapshot of variant name
+
+  quantity       Int
+  unitPrice      Decimal  @db.Decimal(10, 2) // Price per unit at time of order (can include item-specific discounts)
+  totalPrice     Decimal  @db.Decimal(12, 2) // quantity * unitPrice
+
+  // --- Optional fields ---
+  discountAmount Decimal  @default(0) @db.Decimal(10, 2) // Item-specific discount amount
+  taxRate        Decimal? @db.Decimal(5, 4)  // Item-specific tax rate
+  taxAmount      Decimal? @db.Decimal(10, 2) // Item-specific tax amount
+
+  notes          String?  // E.g., customization for a food item
+
+  // --- Fulfillment related for this item ---
+  // stockBatchId   String?  // If tracking specific batches for this order item [cite: 73, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140]
+  // stockBatch     StockBatch? @relation(fields: [stockBatchId], references: [id], onDelete:SetNull)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([variantId])
+  @@map("order_item")
+}
+
 
 model Purchase {
   id             String         @id @default(cuid())
@@ -674,7 +812,6 @@ model InventoryLocation {
   zones        StorageZone[]
   storageUnits StorageUnit[] // Direct storage units (not in zones)
   // Relations for Attendance
-
   checkedInMembers       Member[]
   checkInAttendanceLogs  AttendanceLog[] @relation("CheckInLocationLogs")
   checkOutAttendanceLogs AttendanceLog[] @relation("CheckOutLocationLogs")
@@ -683,7 +820,9 @@ model InventoryLocation {
 
   // Expense relations
   expenses Expense[]
-  budgets  Budget[]
+  budgets  Budget[] 
+  
+  pickupOrders   Order[] @relation("OrderPickupLocation")
 
   @@unique([organizationId, name])
   @@index([name])

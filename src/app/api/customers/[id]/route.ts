@@ -1,7 +1,7 @@
 import { deleteCustomer, getCustomerById, saveCustomer } from '@/actions/customers.actions';
 import { NextResponse } from 'next/server';
 
-export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string, slug:string }> }) {
   const { id } = await params;
   try {
     const result = await getCustomerById(id);

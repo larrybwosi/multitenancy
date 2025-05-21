@@ -122,3 +122,8 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
+
+export function useStore (){
+  const org = useAppStore((o)=>o.organization)
+  return org;
+}

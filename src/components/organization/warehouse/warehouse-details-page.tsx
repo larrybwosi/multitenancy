@@ -65,6 +65,7 @@ import { UnitCreateDialog } from "./unit-create-dialog";
 import { WarehouseLayoutVisualization } from "./warehouse-layout-visualization";
 import { useQueryState } from "nuqs";
 import { useDeleteWarehouse, useUpdateWarehouse } from "@/hooks/use-warehouse";
+import { RestockModal } from "@/app/(org)/warehouses/components/restock";
 
 interface WarehouseDetailsPageProps {
   id: string;
@@ -114,6 +115,23 @@ const fetcher = (url: string) =>
   });
 
 export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
+  
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const mockProducts = [
+    { id: '1', name: 'Wireless Headphones', currentStock: 15 },
+    { id: '2', name: 'Bluetooth Speaker', currentStock: 8 },
+    { id: '3', name: 'USB-C Cable', currentStock: 42 },
+  ];
+
+  const mockLocation = { id: 'loc1', name: 'Main Warehouse' };
+
+  const handleRestock = async (productId: string, quantity: number) => {
+    // In a real app, this would call your API
+    console.log(`Restocking ${quantity} of product ${productId}`);
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+  };
+
   const router = useRouter();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [showEditSheet, setShowEditSheet] = useQueryState('eddit', {
@@ -224,11 +242,12 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
+          <Button onClick={() => setIsModalOpen(true)}>Restock Items</Button>
           <div>
             <h1 className="text-2xl font-bold">{warehouse.name}</h1>
             <p className="text-muted-foreground flex items-center gap-1">
               <MapPin className="h-4 w-4" />
-              {warehouse.address || "No address provided"}
+              {warehouse.address || 'No address provided'}
             </p>
           </div>
         </div>
@@ -243,10 +262,7 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
             <Edit className="mr-2 h-4 w-4" />
             Edit
           </Button>
-          <Button
-            variant="destructive"
-            onClick={() => setShowDeleteDialog(true)}
-          >
+          <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}>
             <Trash className="mr-2 h-4 w-4" />
             Delete
           </Button>
@@ -272,9 +288,7 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
                   <Warehouse className="h-5 w-5" />
                   Warehouse Information
                 </CardTitle>
-                <CardDescription>
-                  Detailed information about this warehouse location
-                </CardDescription>
+                <CardDescription>Detailed information about this warehouse location</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -283,23 +297,21 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
                       <MapPin className="h-4 w-4" />
                       Address
                     </h3>
-                    <p>{warehouse.address || "Not specified"}</p>
+                    <p>{warehouse.address || 'Not specified'}</p>
                   </div>
                   <div>
                     <h3 className="text-sm font-medium text-muted-foreground mb-1 flex items-center gap-1">
                       <User className="h-4 w-4" />
                       Manager
                     </h3>
-                    <p>{warehouse.managerId 
-                      ? "Manager assigned" 
-                      : "Not assigned"}</p>
+                    <p>{warehouse.managerId ? 'Manager assigned' : 'Not assigned'}</p>
                   </div>
                   <div>
                     <h3 className="text-sm font-medium text-muted-foreground mb-1 flex items-center gap-1">
                       <Info className="h-4 w-4" />
                       Type
                     </h3>
-                    <p className="capitalize">{warehouse.locationType?.toString().toLowerCase().replace(/_/g, " ")}</p>
+                    <p className="capitalize">{warehouse.locationType?.toString().toLowerCase().replace(/_/g, ' ')}</p>
                   </div>
                   <div>
                     <h3 className="text-sm font-medium text-muted-foreground mb-1 flex items-center gap-1">
@@ -309,28 +321,20 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
                     <p>{new Date(warehouse.updatedAt).toLocaleString()}</p>
                   </div>
                   <div>
-                    <h3 className="text-sm font-medium text-muted-foreground mb-1">
-                      Status
-                    </h3>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Status</h3>
                     <StatusBadge isActive={warehouse.isActive} />
                   </div>
                   <div>
-                    <h3 className="text-sm font-medium text-muted-foreground mb-1">
-                      Default Location
-                    </h3>
-                    <Badge variant={warehouse.isDefault ? "default" : "outline"}>
-                      {warehouse.isDefault ? "Yes" : "No"}
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Default Location</h3>
+                    <Badge variant={warehouse.isDefault ? 'default' : 'outline'}>
+                      {warehouse.isDefault ? 'Yes' : 'No'}
                     </Badge>
                   </div>
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-1">
-                    Description
-                  </h3>
-                  <p className="whitespace-pre-line">
-                    {warehouse.description || "No description provided"}
-                  </p>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Description</h3>
+                  <p className="whitespace-pre-line">{warehouse.description || 'No description provided'}</p>
                 </div>
               </CardContent>
             </Card>
@@ -342,35 +346,20 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
                   <Package className="h-5 w-5" />
                   Capacity Overview
                 </CardTitle>
-                <CardDescription>
-                  Current storage utilization and metrics
-                </CardDescription>
+                <CardDescription>Current storage utilization and metrics</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="flex flex-col items-center">
                   <div className="relative w-40 h-40">
                     <svg viewBox="0 0 100 100" className="w-full h-full">
-                      <circle
-                        cx="50"
-                        cy="50"
-                        r="45"
-                        fill="none"
-                        stroke="#e2e8f0"
-                        strokeWidth="10"
-                      />
+                      <circle cx="50" cy="50" r="45" fill="none" stroke="#e2e8f0" strokeWidth="10" />
                       {warehouse.totalCapacity && warehouse.capacityUsed && (
                         <circle
                           cx="50"
                           cy="50"
                           r="45"
                           fill="none"
-                          stroke={
-                            utilizationRate > 90
-                              ? "#ef4444"
-                              : utilizationRate > 70
-                                ? "#f59e0b"
-                                : "#10b981"
-                          }
+                          stroke={utilizationRate > 90 ? '#ef4444' : utilizationRate > 70 ? '#f59e0b' : '#10b981'}
                           strokeWidth="10"
                           strokeDasharray={`${utilizationRate * 2.83} 283`}
                           strokeDashoffset="0"
@@ -385,33 +374,26 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
                     </svg>
                   </div>
                   <div className="text-center mt-4">
-                    <p className="text-2xl font-bold">
-                      {warehouse.totalCapacity ? `${utilizationRate}%` : "N/A"}
-                    </p>
+                    <p className="text-2xl font-bold">{warehouse.totalCapacity ? `${utilizationRate}%` : 'N/A'}</p>
                     <p className="text-sm text-muted-foreground">
-                      {warehouse.capacityUsed?.toLocaleString() || "0"} /{" "}
-                      {warehouse.totalCapacity?.toLocaleString() || "0"} {warehouse.capacityUnit?.toString().toLowerCase() || "units"}
+                      {warehouse.capacityUsed?.toLocaleString() || '0'} /{' '}
+                      {warehouse.totalCapacity?.toLocaleString() || '0'}{' '}
+                      {warehouse.capacityUnit?.toString().toLowerCase() || 'units'}
                     </p>
                   </div>
                 </div>
 
                 <div className="space-y-4">
                   <div>
-                    <h3 className="text-sm font-medium text-muted-foreground mb-1">
-                      Capacity Tracking
-                    </h3>
-                    <Badge
-                      variant={warehouse.capacityTracking ? "default" : "outline"}
-                    >
-                      {warehouse.capacityTracking ? "Enabled" : "Disabled"}
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Capacity Tracking</h3>
+                    <Badge variant={warehouse.capacityTracking ? 'default' : 'outline'}>
+                      {warehouse.capacityTracking ? 'Enabled' : 'Disabled'}
                     </Badge>
                   </div>
                   {warehouse.capacityUnit && (
                     <div>
-                      <h3 className="text-sm font-medium text-muted-foreground mb-1">
-                        Capacity Unit
-                      </h3>
-                      <p className="capitalize">{warehouse.capacityUnit.toString().toLowerCase().replace(/_/g, " ")}</p>
+                      <h3 className="text-sm font-medium text-muted-foreground mb-1">Capacity Unit</h3>
+                      <p className="capitalize">{warehouse.capacityUnit.toString().toLowerCase().replace(/_/g, ' ')}</p>
                     </div>
                   )}
                 </div>
@@ -494,7 +476,10 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
                   </div>
                   <div>
                     <p className="text-sm text-purple-600 font-medium">Occupied Units</p>
-                    <p className="text-2xl font-bold">{storageMetrics.occupiedUnits} <span className="text-sm text-muted-foreground">of {storageMetrics.totalUnits}</span></p>
+                    <p className="text-2xl font-bold">
+                      {storageMetrics.occupiedUnits}{' '}
+                      <span className="text-sm text-muted-foreground">of {storageMetrics.totalUnits}</span>
+                    </p>
                   </div>
                 </CardContent>
               </Card>
@@ -520,12 +505,10 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
                       <Layers className="h-5 w-5 text-blue-600" />
                       Storage Zones
                     </CardTitle>
-                    <CardDescription>
-                      Manage storage zones and units within this warehouse
-                    </CardDescription>
+                    <CardDescription>Manage storage zones and units within this warehouse</CardDescription>
                   </div>
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     className="bg-blue-600 hover:bg-blue-700"
                     onClick={() => setShowZoneCreateDialog(true)}
                   >
@@ -537,7 +520,7 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
               <CardContent className="p-0">
                 {warehouse.zones && warehouse.zones.length > 0 ? (
                   <Accordion type="multiple" className="w-full">
-                    {warehouse.zones.map((zone) => (
+                    {warehouse.zones.map(zone => (
                       <AccordionItem key={zone.id} value={zone.id} className="border-b last:border-b-0">
                         <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/30">
                           <div className="flex justify-between items-center w-full pr-4">
@@ -548,27 +531,31 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
                               <div className="text-left">
                                 <div className="font-medium">{zone.name}</div>
                                 <div className="text-xs text-muted-foreground">
-                                  {zone.description ? zone.description.substring(0, 50) + (zone.description.length > 50 ? '...' : '') : 'No description'}
+                                  {zone.description
+                                    ? zone.description.substring(0, 50) + (zone.description.length > 50 ? '...' : '')
+                                    : 'No description'}
                                 </div>
                               </div>
                             </div>
                             <div className="flex items-center gap-6 ml-8">
                               <div className="text-sm text-right">
-                                <div className="font-medium">{zone.capacityUsed || 0}/{zone.capacity || 0}</div>
+                                <div className="font-medium">
+                                  {zone.capacityUsed || 0}/{zone.capacity || 0}
+                                </div>
                                 <div className="text-xs text-muted-foreground">
                                   {zone.capacityUnit?.toString().toLowerCase() || 'units'} used
                                 </div>
                               </div>
                               <div className="w-24">
-                                <Progress 
-                                  value={(zone.capacityUsed || 0) / (zone.capacity || 1) * 100} 
+                                <Progress
+                                  value={((zone.capacityUsed || 0) / (zone.capacity || 1)) * 100}
                                   className="h-2"
                                   indicatorClassName={
-                                    ((zone.capacityUsed || 0) / (zone.capacity || 1) * 100) > 90 
-                                      ? "bg-red-500" 
-                                      : ((zone.capacityUsed || 0) / (zone.capacity || 1) * 100) > 70 
-                                        ? "bg-orange-500" 
-                                        : "bg-green-500"
+                                    ((zone.capacityUsed || 0) / (zone.capacity || 1)) * 100 > 90
+                                      ? 'bg-red-500'
+                                      : ((zone.capacityUsed || 0) / (zone.capacity || 1)) * 100 > 70
+                                        ? 'bg-orange-500'
+                                        : 'bg-green-500'
                                   }
                                 />
                               </div>
@@ -580,29 +567,35 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
                             <div className="flex items-center justify-between">
                               <div className="space-y-1">
                                 <h4 className="text-sm font-medium">Zone Details</h4>
-                                <p className="text-sm text-muted-foreground">{zone.description || "No description available"}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {zone.description || 'No description available'}
+                                </p>
                               </div>
                               <div className="flex gap-2">
                                 <Button variant="outline" size="sm">
                                   <Edit className="h-3.5 w-3.5 mr-1.5" />
                                   Edit Zone
                                 </Button>
-                                <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                >
                                   <Trash className="h-3.5 w-3.5 mr-1.5" />
                                   Delete
                                 </Button>
                               </div>
                             </div>
-                            
+
                             <div className="border-t pt-4">
                               <div className="flex justify-between items-center mb-4">
                                 <h4 className="text-sm font-medium flex items-center gap-1.5">
                                   <Boxes className="h-4 w-4 text-muted-foreground" />
                                   Storage Units
                                 </h4>
-                                <Button 
-                                  size="sm" 
-                                  variant="outline" 
+                                <Button
+                                  size="sm"
+                                  variant="outline"
                                   className="h-8"
                                   onClick={() => {
                                     setSelectedZoneId(zone.id);
@@ -613,59 +606,68 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
                                   Add Unit
                                 </Button>
                               </div>
-                              
+
                               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-4">
                                 {/* We'll combine real data with some placeholders */}
-                                {warehouse.storageUnits && warehouse.storageUnits
-                                  .filter(unit => unit.zoneId === zone.id)
-                                  .map(unit => (
-                                    <Card key={unit.id} className="border shadow-sm hover:shadow-md transition-shadow">
-                                      <CardContent className="p-4">
-                                        <div className="flex justify-between items-start">
-                                          <div>
-                                            <h5 className="font-medium">{unit.name}</h5>
-                                            <p className="text-xs text-muted-foreground capitalize">
-                                              {unit.unitType?.toString().toLowerCase().replace(/_/g, ' ') || 'Standard unit'}
-                                            </p>
+                                {warehouse.storageUnits &&
+                                  warehouse.storageUnits
+                                    .filter(unit => unit.zoneId === zone.id)
+                                    .map(unit => (
+                                      <Card
+                                        key={unit.id}
+                                        className="border shadow-sm hover:shadow-md transition-shadow"
+                                      >
+                                        <CardContent className="p-4">
+                                          <div className="flex justify-between items-start">
+                                            <div>
+                                              <h5 className="font-medium">{unit.name}</h5>
+                                              <p className="text-xs text-muted-foreground capitalize">
+                                                {unit.unitType?.toString().toLowerCase().replace(/_/g, ' ') ||
+                                                  'Standard unit'}
+                                              </p>
+                                            </div>
+                                            <Badge
+                                              className={
+                                                unit.capacityUsed &&
+                                                unit.capacity &&
+                                                unit.capacityUsed / unit.capacity > 0.9
+                                                  ? 'bg-red-100 text-red-800 hover:bg-red-200 border-red-200'
+                                                  : (unit.capacityUsed || 0) > 0
+                                                    ? 'bg-orange-100 text-orange-800 hover:bg-orange-200 border-orange-200'
+                                                    : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-200'
+                                              }
+                                            >
+                                              {unit.capacityUsed && unit.capacity
+                                                ? `${Math.round((unit.capacityUsed / unit.capacity) * 100)}% Full`
+                                                : 'Empty'}
+                                            </Badge>
                                           </div>
-                                          <Badge className={
-                                            unit.capacityUsed && unit.capacity && 
-                                            (unit.capacityUsed / unit.capacity) > 0.9
-                                              ? 'bg-red-100 text-red-800 hover:bg-red-200 border-red-200'
-                                              : (unit.capacityUsed || 0) > 0
-                                                ? 'bg-orange-100 text-orange-800 hover:bg-orange-200 border-orange-200'
-                                                : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-200'
-                                          }>
-                                            {unit.capacityUsed && unit.capacity 
-                                              ? `${Math.round((unit.capacityUsed / unit.capacity) * 100)}% Full` 
-                                              : 'Empty'}
-                                          </Badge>
-                                        </div>
-                                        
-                                        <div className="mt-3 mb-2">
-                                          <Progress 
-                                            value={unit.capacity ? (unit.capacityUsed / unit.capacity) * 100 : 0}
-                                            className="h-1"
-                                          />
-                                        </div>
-                                        
-                                        <div className="flex justify-between text-xs text-muted-foreground mt-3">
-                                          <span>{unit.productCount || 0} products</span>
-                                          <div className="flex gap-2 text-gray-500">
-                                            <button className="hover:text-blue-600">
-                                              <Edit className="h-3.5 w-3.5" />
-                                            </button>
-                                            <button className="hover:text-blue-600">
-                                              <Package className="h-3.5 w-3.5" />
-                                            </button>
+
+                                          <div className="mt-3 mb-2">
+                                            <Progress
+                                              value={unit.capacity ? (unit.capacityUsed / unit.capacity) * 100 : 0}
+                                              className="h-1"
+                                            />
                                           </div>
-                                        </div>
-                                      </CardContent>
-                                    </Card>
-                                  ))}
+
+                                          <div className="flex justify-between text-xs text-muted-foreground mt-3">
+                                            <span>{unit.productCount || 0} products</span>
+                                            <div className="flex gap-2 text-gray-500">
+                                              <button className="hover:text-blue-600">
+                                                <Edit className="h-3.5 w-3.5" />
+                                              </button>
+                                              <button className="hover:text-blue-600">
+                                                <Package className="h-3.5 w-3.5" />
+                                              </button>
+                                            </div>
+                                          </div>
+                                        </CardContent>
+                                      </Card>
+                                    ))}
 
                                 {/* Display placeholder units only if there are no real units for this zone */}
-                                {(!warehouse.storageUnits || warehouse.storageUnits.filter(unit => unit.zoneId === zone.id).length === 0) && (
+                                {(!warehouse.storageUnits ||
+                                  warehouse.storageUnits.filter(unit => unit.zoneId === zone.id).length === 0) && (
                                   <>
                                     <Card className="border shadow-sm hover:shadow-md transition-shadow">
                                       <CardContent className="p-4">
@@ -678,11 +680,11 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
                                             75% Full
                                           </Badge>
                                         </div>
-                                        
+
                                         <div className="mt-3 mb-2">
                                           <Progress value={75} className="h-1" />
                                         </div>
-                                        
+
                                         <div className="flex justify-between text-xs text-muted-foreground mt-3">
                                           <span>12 products</span>
                                           <div className="flex gap-2 text-gray-500">
@@ -696,7 +698,7 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
                                         </div>
                                       </CardContent>
                                     </Card>
-                                    
+
                                     <Card className="border shadow-sm hover:shadow-md transition-shadow">
                                       <CardContent className="p-4">
                                         <div className="flex justify-between items-start">
@@ -704,15 +706,13 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
                                             <h5 className="font-medium">Bin B3</h5>
                                             <p className="text-xs text-muted-foreground">Small items</p>
                                           </div>
-                                          <Badge variant="outline">
-                                            Empty
-                                          </Badge>
+                                          <Badge variant="outline">Empty</Badge>
                                         </div>
-                                        
+
                                         <div className="mt-3 mb-2">
                                           <Progress value={0} className="h-1" />
                                         </div>
-                                        
+
                                         <div className="flex justify-between text-xs text-muted-foreground mt-3">
                                           <span>0 products</span>
                                           <div className="flex gap-2 text-gray-500">
@@ -742,12 +742,10 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
                     </div>
                     <h3 className="text-lg font-medium mb-1">No Storage Zones</h3>
                     <p className="text-sm text-muted-foreground mb-6 text-center max-w-md">
-                      Storage zones help you organize your warehouse into logical areas. Create your first zone to start organizing inventory.
+                      Storage zones help you organize your warehouse into logical areas. Create your first zone to start
+                      organizing inventory.
                     </p>
-                    <Button 
-                      className="bg-blue-600 hover:bg-blue-700"
-                      onClick={() => setShowZoneCreateDialog(true)}
-                    >
+                    <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => setShowZoneCreateDialog(true)}>
                       <Plus className="h-4 w-4 mr-2" />
                       Create First Zone
                     </Button>
@@ -763,14 +761,12 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
                   <Grid3X3 className="h-5 w-5 text-blue-600" />
                   Layout Visualization
                 </CardTitle>
-                <CardDescription>
-                  Visual overview of your warehouse floor plan and storage areas
-                </CardDescription>
+                <CardDescription>Visual overview of your warehouse floor plan and storage areas</CardDescription>
               </CardHeader>
               <CardContent className="p-6">
                 {warehouse.zones && warehouse.zones.length > 0 ? (
-                  <WarehouseLayoutVisualization 
-                    warehouseId={id} 
+                  <WarehouseLayoutVisualization
+                    warehouseId={id}
                     zones={warehouse.zones || []}
                     units={warehouse.storageUnits || []}
                   />
@@ -781,13 +777,10 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
                     </div>
                     <h3 className="text-lg font-medium mb-2 text-center">Create Zones First</h3>
                     <p className="text-sm text-center text-muted-foreground max-w-md mb-6">
-                      Add storage zones to visualize your warehouse layout. 
-                      Once you&apos;ve created zones, the interactive layout will be available.
+                      Add storage zones to visualize your warehouse layout. Once you&apos;ve created zones, the
+                      interactive layout will be available.
                     </p>
-                    <Button 
-                      className="bg-blue-600 hover:bg-blue-700"
-                      onClick={() => setShowZoneCreateDialog(true)}
-                    >
+                    <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => setShowZoneCreateDialog(true)}>
                       <Layers className="mr-2 h-4 w-4" />
                       Create First Zone
                     </Button>
@@ -847,18 +840,26 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
                       <Package className="h-5 w-5 text-indigo-600" />
                       Inventory Items
                     </CardTitle>
-                    <CardDescription>
-                      Products and stock items stored in this warehouse
-                    </CardDescription>
+                    <CardDescription>Products and stock items stored in this warehouse</CardDescription>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <div className="relative">
-                      <Input
-                        className="h-9 pl-8 w-[180px] text-sm" 
-                        placeholder="Search items..." 
-                      />
+                      <Input className="h-9 pl-8 w-[180px] text-sm" placeholder="Search items..." />
                       <div className="absolute left-2.5 top-2.5 text-muted-foreground">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="15"
+                          height="15"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <circle cx="11" cy="11" r="8" />
+                          <path d="m21 21-4.3-4.3" />
+                        </svg>
                       </div>
                     </div>
                     <Select>
@@ -911,7 +912,7 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
                         </tr>
                       </thead>
                       <tbody className="divide-y">
-                        {warehouse.stockItems.map((item) => (
+                        {warehouse.stockItems.map(item => (
                           <tr key={item.id} className="bg-white hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
@@ -937,10 +938,9 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center text-sm text-gray-700">
                                 <MapPin className="h-3.5 w-3.5 mr-1 text-gray-500" />
-                                {item.location ? 
-                                  `${item.location.unitName} / ${item.location.position}` :
-                                  "General Storage"
-                                }
+                                {item.location
+                                  ? `${item.location.unitName} / ${item.location.position}`
+                                  : 'General Storage'}
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm space-x-1">
@@ -950,7 +950,10 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
                               <Button variant="ghost" className="h-8 px-2 text-indigo-700">
                                 Move
                               </Button>
-                              <Button variant="ghost" className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50">
+                              <Button
+                                variant="ghost"
+                                className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
                                 <Trash className="h-3.5 w-3.5" />
                               </Button>
                             </td>
@@ -958,15 +961,21 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
                         ))}
                       </tbody>
                     </table>
-                    
+
                     {/* Pagination */}
                     <div className="flex items-center justify-between border-t px-4 py-3 bg-white">
                       <div className="flex items-center text-sm text-gray-500">
-                        Showing <span className="font-medium mx-1">1</span> to <span className="font-medium mx-1">{warehouse.stockItems.length}</span> of <span className="font-medium mx-1">{warehouse.stockItems.length}</span> items
+                        Showing <span className="font-medium mx-1">1</span> to{' '}
+                        <span className="font-medium mx-1">{warehouse.stockItems.length}</span> of{' '}
+                        <span className="font-medium mx-1">{warehouse.stockItems.length}</span> items
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Button variant="outline" size="sm" disabled>Previous</Button>
-                        <Button variant="outline" size="sm" disabled>Next</Button>
+                        <Button variant="outline" size="sm" disabled>
+                          Previous
+                        </Button>
+                        <Button variant="outline" size="sm" disabled>
+                          Next
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -977,7 +986,8 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
                     </div>
                     <h3 className="text-lg font-medium mb-1">No Inventory Items</h3>
                     <p className="text-sm text-muted-foreground mb-6 text-center max-w-md">
-                      There are no inventory items stored in this warehouse yet. Add products to start tracking your inventory.
+                      There are no inventory items stored in this warehouse yet. Add products to start tracking your
+                      inventory.
                     </p>
                     <Button className="bg-indigo-600 hover:bg-indigo-700">
                       <Plus className="h-4 w-4 mr-2" />
@@ -998,17 +1008,15 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
                 <BarChart className="h-5 w-5" />
                 Warehouse Analytics
               </CardTitle>
-              <CardDescription>
-                Performance metrics and analytics for this warehouse
-              </CardDescription>
+              <CardDescription>Performance metrics and analytics for this warehouse</CardDescription>
             </CardHeader>
             <CardContent className="h-[400px] flex items-center justify-center">
               <div className="text-center">
                 <BarChart2 className="h-16 w-16 text-muted-foreground/50 mx-auto mb-4" />
                 <h3 className="text-lg font-medium mb-1">Analytics Coming Soon</h3>
                 <p className="text-sm text-muted-foreground max-w-md">
-                  We&apos;re working on comprehensive analytics for your warehouse operations.
-                  Check back soon for utilization trends, inventory turnover, and more.
+                  We&apos;re working on comprehensive analytics for your warehouse operations. Check back soon for
+                  utilization trends, inventory turnover, and more.
                 </p>
               </div>
             </CardContent>
@@ -1030,17 +1038,21 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
         onSave={handleUpdate}
       />
 
-      <ZoneCreateDialog 
-        open={showZoneCreateDialog}
-        onOpenChange={setShowZoneCreateDialog}
-        warehouseId={id}
-      />
+      <ZoneCreateDialog open={showZoneCreateDialog} onOpenChange={setShowZoneCreateDialog} warehouseId={id} />
 
       <UnitCreateDialog
         open={showUnitCreateDialog}
         onOpenChange={setShowUnitCreateDialog}
         warehouseId={id}
-        zoneId={selectedZoneId || ""}
+        zoneId={selectedZoneId || ''}
+      />
+
+      <RestockModal
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        products={mockProducts}
+        location={mockLocation}
+        onRestock={handleRestock}
       />
     </div>
   );

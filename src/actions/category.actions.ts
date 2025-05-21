@@ -62,7 +62,7 @@ export type GetCategoriesWithStatsParams = {
   filter?: string;
   page?: number;
   pageSize?: number;
-}
+};
 
 export async function getCategoriesWithStats({
   search,
@@ -75,19 +75,20 @@ export async function getCategoriesWithStats({
   totalPages: number;
 }> {
   try {
-  const { organizationId } = await getServerAuthContext();
-    const where: Prisma.CategoryWhereInput = {organizationId};
+    const { organizationId} = await getServerAuthContext()
+    
+    const where: Prisma.CategoryWhereInput = { organizationId };
 
     if (search) {
       where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { description: { contains: search, mode: "insensitive" } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
       ];
     }
 
-    if (filter === "withProducts") {
+    if (filter === 'withProducts') {
       where.products = { some: {} };
-    } else if (filter === "noProducts") {
+    } else if (filter === 'noProducts') {
       where.products = { none: {} };
     }
 
@@ -132,18 +133,15 @@ export async function getCategoriesWithStats({
 
     const totalPages = Math.ceil(totalItems / pageSize);
 
-    const data = categories.map((category) => {
+    const data = categories.map(category => {
       let totalRevenue = new Prisma.Decimal(0);
       let potentialProfit = new Prisma.Decimal(0);
-      const productSales: Record<string, { name: string; totalSold: number }> =
-        {};
+      const productSales: Record<string, { name: string; totalSold: number }> = {};
 
-      category.products.forEach((product) => {
-        product.variants[0].saleItems.forEach((item) => {
+      category.products.forEach(product => {
+        product.variants[0].saleItems.forEach(item => {
           totalRevenue = totalRevenue.add(item.totalAmount);
-          const itemProfit = item.unitPrice
-            .sub(item.unitCost)
-            .mul(item.quantity);
+          const itemProfit = item.unitPrice.sub(item.unitCost).mul(item.quantity);
           potentialProfit = potentialProfit.add(itemProfit);
 
           if (!productSales[product.id]) {
@@ -155,10 +153,7 @@ export async function getCategoriesWithStats({
 
       let bestSeller: { name: string | null; totalSold: number } | null = null;
       for (const productId in productSales) {
-        if (
-          !bestSeller ||
-          productSales[productId].totalSold > bestSeller.totalSold
-        ) {
+        if (!bestSeller || productSales[productId].totalSold > bestSeller.totalSold) {
           bestSeller = productSales[productId];
         }
       }
@@ -177,23 +172,23 @@ export async function getCategoriesWithStats({
 
     return { data, totalItems, totalPages };
   } catch (error) {
-    console.error("Failed to fetch categories with stats:", error);
-    throw new Error("Database error: Could not fetch categories.");
+    console.error('Failed to fetch categories with stats:', error);
+    throw new Error('Database error: Could not fetch categories.');
   }
 }
 
 /**
  * Fetches a list of categories suitable for a dropdown (e.g., parent selection).
  */
-export async function getCategoryOptions(): Promise<
+export async function getCategoryOptions(slug:string): Promise<
   { value: string; label: string }[]
 > {
-  const { organizationId } = await getServerAuthContext();
+  
   try {
     const categories = await db.category.findMany({
-      where: { organizationId },
+      where: { organization: { slug } },
       select: { id: true, name: true, parentId: true },
-      orderBy: { name: "asc" },
+      orderBy: { name: 'asc' },
     });
     return categories.map((cat) => ({ value: cat.id, label: cat.name }));
   } catch (error) {

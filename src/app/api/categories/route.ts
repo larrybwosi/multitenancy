@@ -2,20 +2,19 @@ import { deleteCategory, getCategoriesWithStats, GetCategoriesWithStatsParams, s
 import { handleApiError } from "@/lib/api-utils";
 import { NextResponse } from "next/server";
 
-export async function GET(request: Request) {
+export async function GET(request: Request, { params }: { params: Promise<{ orgslug: string }> }) {
   const { searchParams } = new URL(request.url);
 
-  const params: GetCategoriesWithStatsParams = {
-    search: searchParams.get("search") || undefined,
-    filter: searchParams.get("filter") || undefined,
-    page: searchParams.get("page") ? parseInt(searchParams.get("page")!) : 1,
-    pageSize: searchParams.get("pageSize")
-      ? parseInt(searchParams.get("pageSize")!)
-      : 10,
+
+  const pr: GetCategoriesWithStatsParams = {
+    search: searchParams.get('search') || undefined,
+    filter: searchParams.get('filter') || undefined,
+    page: searchParams.get('page') ? parseInt(searchParams.get('page')!) : 1,
+    pageSize: searchParams.get('pageSize') ? parseInt(searchParams.get('pageSize')!) : 10,
   };
 
   try {
-    const result = await getCategoriesWithStats(params);
+    const result = await getCategoriesWithStats(pr);
     return NextResponse.json(result);
   } catch (error) {
     return handleApiError(error);

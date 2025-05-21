@@ -114,7 +114,7 @@ export async function getCustomers(searchParams?: {
  * ensuring they belong to the user's organization.
  */
 export async function getCustomerById(
-  customerId: string
+  customerId: string,
 ): Promise<ActionResponse<CustomerWithDetails>> {
   const validatedId = CustomerIdSchema.safeParse({ id: customerId });
   if (!validatedId.success) {

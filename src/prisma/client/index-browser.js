@@ -246,7 +246,10 @@ exports.Prisma.ProductVariantScalarFieldEnum = {
   lowStockAlert: 'lowStockAlert',
   buyingPrice: 'buyingPrice',
   wholesalePrice: 'wholesalePrice',
-  retailPrice: 'retailPrice'
+  retailPrice: 'retailPrice',
+  baseUnitId: 'baseUnitId',
+  stockingUnitId: 'stockingUnitId',
+  sellingUnitId: 'sellingUnitId'
 };
 
 exports.Prisma.SupplierScalarFieldEnum = {
@@ -328,7 +331,8 @@ exports.Prisma.SaleItemScalarFieldEnum = {
   taxAmount: 'taxAmount',
   totalAmount: 'totalAmount',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  sellingUnitId: 'sellingUnitId'
 };
 
 exports.Prisma.OrderScalarFieldEnum = {
@@ -410,7 +414,8 @@ exports.Prisma.PurchaseItemScalarFieldEnum = {
   unitCost: 'unitCost',
   totalCost: 'totalCost',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  orderedUnitId: 'orderedUnitId'
 };
 
 exports.Prisma.PurchasePaymentScalarFieldEnum = {
@@ -469,6 +474,18 @@ exports.Prisma.InventoryLocationScalarFieldEnum = {
   updatedAt: 'updatedAt',
   managerId: 'managerId',
   organizationId: 'organizationId'
+};
+
+exports.Prisma.UnitOfMeasureScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  symbol: 'symbol',
+  baseUnitId: 'baseUnitId',
+  conversionFactor: 'conversionFactor',
+  unitType: 'unitType',
+  organizationId: 'organizationId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
 };
 
 exports.Prisma.StorageZoneScalarFieldEnum = {
@@ -1152,6 +1169,16 @@ exports.LocationType = exports.$Enums.LocationType = {
   OTHER: 'OTHER'
 };
 
+exports.UnitType = exports.$Enums.UnitType = {
+  COUNT: 'COUNT',
+  WEIGHT: 'WEIGHT',
+  VOLUME: 'VOLUME',
+  LENGTH: 'LENGTH',
+  AREA: 'AREA',
+  TIME: 'TIME',
+  OTHER: 'OTHER'
+};
+
 exports.StorageUnitType = exports.$Enums.StorageUnitType = {
   SHELF: 'SHELF',
   RACK: 'RACK',
@@ -1352,6 +1379,7 @@ exports.Prisma.ModelName = {
   Return: 'Return',
   ReturnItem: 'ReturnItem',
   InventoryLocation: 'InventoryLocation',
+  UnitOfMeasure: 'UnitOfMeasure',
   StorageZone: 'StorageZone',
   StorageUnit: 'StorageUnit',
   StoragePosition: 'StoragePosition',

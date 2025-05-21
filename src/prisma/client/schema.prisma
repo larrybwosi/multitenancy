@@ -189,6 +189,9 @@ model Organization {
   mpesaPaymentRequests MpesaPaymentRequest[]
   attendanceLogs       AttendanceLog[]
 
+  unitsOfMeasure UnitOfMeasure[]
+
+  @@index([slug])
   @@map("organization")
 }
 
@@ -329,6 +332,15 @@ model ProductVariant {
   variantStocks    ProductVariantStock[] // One variant can have stock in multiple locations
 
   suppliers ProductSupplier[]
+
+  baseUnitId String // The absolute smallest unit for inventory tracking (e.g., "Piece").
+  baseUnit   UnitOfMeasure @relation("PVBaseUnit", fields: [baseUnitId], references: [id], onDelete: Restrict)
+
+  stockingUnitId String // Unit typically used for purchasing/stocking (e.g., "Case of 24 Pieces").
+  stockingUnit   UnitOfMeasure @relation("PVStockingUnit", fields: [stockingUnitId], references: [id], onDelete: Restrict)
+
+  sellingUnitId String // Unit typically used for selling (e.g., "Piece" or "Pack of 6 Pieces").
+  sellingUnit   UnitOfMeasure @relation("PVSellingUnit", fields: [sellingUnitId], references: [id], onDelete: Restrict)
 
   @@unique([productId, sku])
   @@unique([productId, barcode])
@@ -480,6 +492,9 @@ model SaleItem {
 
   // Relations
   returns ReturnItem[] // Items returned referencing this sale item
+
+  sellingUnitId String // Unit in which quantity [cite: 75] is expressed.
+  sellingUnit   UnitOfMeasure @relation("SISellingUnit", fields: [sellingUnitId], references: [id], onDelete: Restrict)
 
   @@index([saleId])
   @@index([variantId])
@@ -669,6 +684,11 @@ model PurchaseItem {
   // When items are received, they create StockBatch records
   stockBatches StockBatch[]
 
+  orderedUnitId String // Unit in which orderedQuantity [cite: 109] is expressed.
+  orderedUnit   UnitOfMeasure @relation("PIOrderUnit", fields: [orderedUnitId], references: [id], onDelete: Restrict)
+
+  // unitCost [cite: 109] is per orderedUnit.
+  // receivedQuantity [cite: 109] is also in orderedUnit. Conversion to base units happens when creating StockBatches.
   @@index([purchaseId])
   @@index([variantId])
 }
@@ -824,6 +844,56 @@ model InventoryLocation {
   @@index([locationType])
   @@index([isDefault])
   @@index([parentLocationId])
+}
+
+enum UnitType {
+  COUNT // For discrete items like pieces, dozens, boxes
+  WEIGHT // For items measured by weight like kg, g, lb
+  VOLUME // For items measured by volume like L, mL
+  LENGTH // For items measured by length like m, cm
+  AREA // For items measured by area like sq m
+  TIME // For service items measured by time like hour, minute
+  OTHER
+}
+
+// Add this new Model
+model UnitOfMeasure {
+  id     String @id @default(cuid())
+  name   String // e.g., "Piece", "Dozen", "Kilogram", "Box of 24"
+  symbol String // e.g., "pc", "dz", "kg", "box24"
+
+  // For derived units, specify their base and conversion factor
+  // e.g., "Dozen" would have baseUnit "Piece" and conversionFactor 12
+  // e.g., "Case of 24" could have baseUnit "Piece" and conversionFactor 24,
+  // or baseUnit "Dozen" and conversionFactor 2.
+  baseUnitId       String?
+  baseUnit         UnitOfMeasure?  @relation("DerivedToBaseUnit", fields: [baseUnitId], references: [id], onDelete: Restrict)
+  derivedUnits     UnitOfMeasure[] @relation("DerivedToBaseUnit")
+  conversionFactor Decimal? // How many of the immediate baseUnit make one of this unit.
+
+  unitType UnitType @default(COUNT)
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // ProductVariant relations: A product variant will have its fundamental unit, stocking unit, and selling unit.
+  productVariantBaseUnits     ProductVariant[] @relation("PVBaseUnit")
+  productVariantStockingUnits ProductVariant[] @relation("PVStockingUnit")
+  productVariantSellingUnits  ProductVariant[] @relation("PVSellingUnit")
+
+  // PurchaseItem relation: Specifies the unit for ordered quantity.
+  purchaseItemOrderUnits PurchaseItem[] @relation("PIOrderUnit")
+
+  // SaleItem relation: Specifies the unit for sold quantity.
+  saleItemSellingUnits SaleItem[] @relation("SISellingUnit")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, name])
+  @@unique([organizationId, symbol])
+  @@index([organizationId])
+  @@map("unit_of_measure")
 }
 
 model StorageZone {
