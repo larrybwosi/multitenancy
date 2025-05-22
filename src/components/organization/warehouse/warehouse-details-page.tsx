@@ -65,7 +65,7 @@ import { UnitCreateDialog } from "./unit-create-dialog";
 import { WarehouseLayoutVisualization } from "./warehouse-layout-visualization";
 import { useQueryState } from "nuqs";
 import { useDeleteWarehouse, useUpdateWarehouse } from "@/hooks/use-warehouse";
-import { RestockModal } from "@/app/(org)/warehouses/components/restock";
+import { RestockProductsModal } from "@/app/(org)/warehouses/components/restock";
 
 interface WarehouseDetailsPageProps {
   id: string;
@@ -115,23 +115,10 @@ const fetcher = (url: string) =>
   });
 
 export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
-  
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-  const mockProducts = [
-    { id: '1', name: 'Wireless Headphones', currentStock: 15 },
-    { id: '2', name: 'Bluetooth Speaker', currentStock: 8 },
-    { id: '3', name: 'USB-C Cable', currentStock: 42 },
-  ];
-
-  const mockLocation = { id: 'loc1', name: 'Main Warehouse' };
-
-  const handleRestock = async (productId: string, quantity: number) => {
-    // In a real app, this would call your API
-    console.log(`Restocking ${quantity} of product ${productId}`);
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-  };
-
+  const [isModalOpen, setIsModalOpen] = useQueryState('restock', {
+    parse: v => v === 'true',
+    serialize: v => (v ? 'true' : 'false'),
+  });
   const router = useRouter();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [showEditSheet, setShowEditSheet] = useQueryState('eddit', {
@@ -242,7 +229,6 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
-          <Button onClick={() => setIsModalOpen(true)}>Restock Items</Button>
           <div>
             <h1 className="text-2xl font-bold">{warehouse.name}</h1>
             <p className="text-muted-foreground flex items-center gap-1">
@@ -877,7 +863,7 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
                       <ArrowRight className="h-4 w-4 mr-1.5" />
                       Move Items
                     </Button>
-                    <Button size="sm" className="h-9 bg-indigo-600 hover:bg-indigo-700">
+                    <Button size="sm" className="h-9 bg-indigo-600 hover:bg-indigo-700" onClick={()=>setIsModalOpen(true)}>
                       <Plus className="h-4 w-4 mr-1.5" />
                       Add Items
                     </Button>
@@ -1047,12 +1033,11 @@ export function WarehouseDetailsPage({ id }: WarehouseDetailsPageProps) {
         zoneId={selectedZoneId || ''}
       />
 
-      <RestockModal
-        open={isModalOpen}
+      <RestockProductsModal
+        isOpen={isModalOpen as boolean}
         onOpenChange={setIsModalOpen}
-        products={mockProducts}
-        location={mockLocation}
-        onRestock={handleRestock}
+        variantList={[]}
+        locationId={id}
       />
     </div>
   );

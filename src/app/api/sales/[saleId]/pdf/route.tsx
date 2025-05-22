@@ -50,7 +50,13 @@ export async function GET(
     const stream = await renderToStream( <InvoiceDocument sale={sale} />);
     
     // Return the PDF stream in the response
-    return new NextResponse(stream as unknown as ReadableStream);
+    return new NextResponse(stream as unknown as ReadableStream, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="invoice-${sale.saleNumber}.pdf"`,
+      },
+    });
 
   } catch (error) {
     console.error('Error generating PDF:', error);

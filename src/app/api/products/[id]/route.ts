@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { getServerAuthContext } from "@/actions/auth";
 import { updateProduct } from "@/actions/products";
+import { editProduct } from "@/actions/product-add-edit";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -87,8 +88,9 @@ export async function PUT(
 ) {
   try {
     const { organizationId } = await getServerAuthContext();
-    const {id: productId } = await params;
-    if (!productId) {
+    const { id } = await params;
+    console.log("Product ID:", id);
+    if (!id) {
       return NextResponse.json(
         { error: "Product ID is required" },
         { status: 400 }
@@ -97,7 +99,7 @@ export async function PUT(
 
     // Verify the product exists
     const existingProduct = await prisma.product.findUnique({
-      where: { id: productId, organizationId },
+      where: { id, organizationId },
       include: {
         variants: {
           take: 1 // Get just the first variant
@@ -115,10 +117,16 @@ export async function PUT(
     // Parse and validate form data
     const formData = await request.formData();
     
-    
     // Update the product in the database
-    const updatedProduct = await updateProduct(formData)
+    const updatedProduct = await editProduct(formData);
+    console.log("Updated Product:", updatedProduct);
 
+    if(updateProduct.error) {
+      return NextResponse.json(
+        { error: updateProduct.error, fieldErrors: updateProduct.fieldErrors },
+        { status: 400 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

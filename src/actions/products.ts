@@ -362,7 +362,6 @@ export async function updateProduct(formData: FormData) {
   }
 
   const {
-    productId:id,
     categoryId,
     variants: submittedVariants,
     suppliers: submittedSuppliers,

@@ -11,6 +11,7 @@ import {
   CreditCard,
   Tag,
 } from 'lucide-react';
+import { formatCurrency } from '@/lib/utils';
 
 // Mock data for demonstration
 const mockSale = {
@@ -62,15 +63,6 @@ const mockSale = {
   updatedAt: new Date('2025-05-07T14:35:12'),
 };
 
-// Format currency
-const formatCurrency = (amount: number | string) => {
-  if (typeof amount === 'number') {
-    return `$${amount.toFixed(2)}`;
-  } else if (amount && typeof amount.toString === 'function') {
-    return `$${amount.toString()}`;
-  }
-  return '$0.00';
-};
 
 // Format date
 const formatDate = (date: Date) => {

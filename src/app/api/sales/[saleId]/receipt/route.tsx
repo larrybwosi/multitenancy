@@ -1,6 +1,5 @@
-// app/api/receipt/[organizationId]/[saleId]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { Document, Page, Text, View, StyleSheet, Image, renderToStream } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, renderToStream } from '@react-pdf/renderer';
 import prisma from '@/lib/db';
 import { getServerAuthContext } from '@/actions/auth';
 
@@ -109,13 +108,13 @@ interface ReceiptPdfProps {
 
 const ReceiptPdfDocument: React.FC<ReceiptPdfProps> = ({ sale, organization, size }) => {
   const pageStyle = size === '80mm' ? styles.pageThermal80 : styles.page;
-  const currency = organization?.settings?.defaultCurrency || 'USD'; //
+  const currency = organization?.settings?.defaultCurrency || 'USD'; // auto
 
   return (
     <Document>
-      <Page size={size === '80mm' ? [226, 'auto'] : 'A4'} style={pageStyle}>
+      <Page size={size === '80mm' ? [226, 500] : 'A4'} style={pageStyle}>
         <View style={styles.header}>
-          {organization?.logo && <image style={styles.logo} src={organization.logo} />}
+          {/* {organization?.logo && <image style={styles.logo} src={organization.logo} />} */}
           <Text style={styles.orgName}>{organization?.name || 'Your Company'}</Text>
           <Text style={styles.address}>{organization?.address || '123 Main St, Anytown'}</Text>{' '}
           {/* Assuming address is available */}
@@ -226,44 +225,42 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   try {
     const sale = await prisma.sale.findUnique({
-      //
       where: { id: saleId, organizationId: organizationId },
       include: {
         items: {
-          //
           include: {
             variant: {
-              //
               include: {
-                product: true, //
+                product: true,
               },
             },
           },
         },
-        customer: true, //
-        member: true, //
-        location: true, //
+        customer: true,
+        member: true,
+        location: true,
         organization: {
-          //
           include: {
-            settings: true, //
+            settings: true,
           },
         },
       },
     });
-
+    
     if (!sale) {
       return NextResponse.json({ error: 'Sale not found' }, { status: 404 });
     }
-
-    // Use renderToStream for server-side PDF generation
-    // See: https://spacejelly.dev/posts/generate-a-pdf-from-html-in-javascript/
+    
     const stream = await renderToStream(
       <ReceiptPdfDocument sale={sale} organization={sale.organization} size={size} />
     );
 
     return new NextResponse(stream as unknown as ReadableStream, {
       status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="invoice-${sale.saleNumber}.pdf"`,
+      },
     });
   } catch (error) {
     console.error('Failed to generate PDF receipt:', error);

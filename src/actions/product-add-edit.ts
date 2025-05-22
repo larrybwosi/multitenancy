@@ -8,13 +8,13 @@ import crypto from 'crypto';
 import { getServerAuthContext } from './auth';
 import {
   AddProductSchema,
-  EditProductSchema,
-  ProductSupplierInput,
+  // EditProductSchema,
+  // ProductSupplierInput,
   AddProductMinimalSchema,
-  ProductSupplierSchema,
-  ProductVariantSchema,
+  // ProductSupplierSchema,
+  // ProductVariantSchema,
 } from '@/lib/validations/product';
-
+import { v4 as uuidv4 } from 'uuid';
 // --- Helper Functions ---
 
 // Parses JSON array from FormData, validates structure with Zod schema
@@ -78,7 +78,15 @@ const handlePrismaError = (error: unknown): { success: false; error: string; fie
       else if (fields.includes('productId') && fields.includes('supplierId') && fields.includes('ProductSupplier'))
         userFriendlyField = 'Product/Supplier combination'; // [cite: 47] ProductSupplier unique constraint
       else if (fields.includes('productId') && fields.includes('sku') && fields.includes('ProductVariant'))
-        userFriendlyField = 'Variant SKU for this Product'; // [cite: 40] ProductVariant unique constraint
+        userFriendlyField = 'Variant SKU for this Product'; // ProductVariant unique constraint
+
+      if (target?.includes('sku')) userFriendlyField = 'SKU';
+      if (target?.includes('Product_organizationId_name_key'))
+        userFriendlyField = 'Product Name (must be unique within the organization)';
+      if (target?.includes('ProductVariant_productId_sku_key')) userFriendlyField = 'Variant SKU (must be unique for this product)';
+      if (target?.includes('ProductVariant_productId_barcode_key'))
+        userFriendlyField = 'Variant Barcode (must be unique for this product)';
+
 
       errorMessage = `This ${userFriendlyField} already exists. Please use a unique value.`;
       const simpleField = target ? target.find(f => !f.toLowerCase().includes('id')) || target[0] : 'general';
@@ -179,6 +187,9 @@ export async function addProduct(
     height,
     length,
     weight,
+    baseUnitId,
+    sellingUnitId,
+    stockingUnitId,
     volumetricWeight,
     variants: validatedVariants, // ProductVariantInput[]
     suppliers: validatedSuppliers, // ProductSupplierInput[]
@@ -244,17 +255,20 @@ export async function addProduct(
         // --- Variants Creation --- [cite: 38]
         variants: {
           create: variantsWithSku.map(v => ({
-            name: v.name, // [cite: 40] String
-            sku: v.sku, // [cite: 40] String (now guaranteed)
-            barcode: v.barcode, // [cite: 40] String | null
-            buyingPrice: new Prisma.Decimal(v.buyingPrice || 0), // [cite: 40] Decimal
-            retailPrice: v.retailPrice ? new Prisma.Decimal(v.retailPrice) : null, // [cite: 40] Decimal
-            wholesalePrice: v.wholesalePrice ? new Prisma.Decimal(v.wholesalePrice) : null, // [cite: 40] Decimal
-            attributes: v.attributes ?? Prisma.JsonNull, // [cite: 40] Json | JsonNull
-            isActive: v.isActive, // [cite: 40] Boolean
-            reorderPoint: v.reorderPoint || 10, // [cite: 40] Int | null
-            reorderQty: v.reorderQty || 10, // [cite: 40] Int | null
-            lowStockAlert: v.lowStockAlert, // [cite: 40] Boolean
+            name: v.name, // String
+            sku: v.sku, // String (now guaranteed)
+            barcode: v.barcode, // String | null
+            buyingPrice: new Prisma.Decimal(v.buyingPrice || 0), // Decimal
+            retailPrice: v.retailPrice ? new Prisma.Decimal(v.retailPrice) : null, // Decimal
+            wholesalePrice: v.wholesalePrice ? new Prisma.Decimal(v.wholesalePrice) : null, // Decimal
+            baseUnitId,
+            sellingUnitId,
+            stockingUnitId,
+            attributes: v.attributes ?? Prisma.JsonNull, // Json | JsonNull
+            isActive: v.isActive, // Boolean
+            reorderPoint: v.reorderPoint || 10, // Int | null
+            reorderQty: v.reorderQty || 10, // Int | null
+            lowStockAlert: v.lowStockAlert, // Boolean
             suppliers: validatedSuppliers && validatedSuppliers.length > 0
               ? {
                   create: validatedSuppliers.map(s => ({
@@ -315,8 +329,6 @@ export async function addProductMinimal(
     return { success: false, error: 'Failed to retrieve user authentication context.' };
   }
 
-  console.log('Raw minimal form data received:', rawData);
-
   // 2. Validate the extracted data using the minimal schema
   const validatedFields = AddProductMinimalSchema.safeParse(rawData);
 
@@ -336,13 +348,13 @@ export async function addProductMinimal(
   }
 
   // 3. Extract validated minimal data
-  const { name, categoryId, buyingPrice, barcode, reorderPoint, isActive, retailPrice, wholesalePrice } =
+  const { name, categoryId, buyingPrice, barcode, reorderPoint, isActive, retailPrice, wholesalePrice, imageUrls } =
     validatedFields.data;
 
   // 4. Prepare Product and Default Variant Data
   const finalIsActive = isActive ?? true; // Use schema default if validation didn't set one
   const finalReorderPoint = reorderPoint ?? 5; // Use schema default if validation didn't set one
-  const productSku = `PROD-${crypto.randomUUID().slice(3, 9).toUpperCase()}`;
+  const productSku = `PROD-${uuidv4().slice(3, 9).toUpperCase()}`;
   const defaultVariantSku = `VAR-${productSku}-DEFAULT`;
 
   // 5. Database Create Operation
@@ -358,7 +370,7 @@ export async function addProductMinimal(
         sku: productSku,
         barcode: barcode,
         isActive: finalIsActive,
-        imageUrls: [],
+        imageUrls: imageUrls || [],
         width: null,
         height: null,
         length: null,
@@ -372,7 +384,7 @@ export async function addProductMinimal(
         variants: {
           create: [
             {
-              name: `Default - ${name}`, // Use product name for default variant name
+              name: `Default-${name}`, // Use product name for default variant name
               sku: defaultVariantSku, // Generate a default SKU
               barcode: barcode, // Inherit product barcode if provided
               attributes: Prisma.JsonNull, // Default attributes
@@ -383,6 +395,9 @@ export async function addProductMinimal(
               buyingPrice: new Prisma.Decimal(buyingPrice),
               retailPrice,
               wholesalePrice,
+              baseUnitId: validatedFields.data.baseUnitId,
+              sellingUnitId: validatedFields.data.sellingUnitId,
+              stockingUnitId: validatedFields.data.stockingUnitId,
             },
           ],
         },
@@ -413,6 +428,79 @@ export async function addProductMinimal(
 }
 
 // --- editProduct Function (Refactored and Aligned) ---
+
+
+// Schema for ProductVariant
+export const ProductVariantSchema = z.object({
+  id: z.string().optional(), // Optional for new variants
+  name: z.string().min(1, 'Variant name is required.'),
+  sku: z.string().optional(), // Will be auto-generated if new and not provided
+  barcode: z.string().nullable().optional(),
+  attributes: z.record(z.any()).nullable().optional(), // Prisma.JsonNull or JSON object
+  isActive: z.boolean().optional().default(true),
+  reorderPoint: z.number().int().min(0).optional().default(5),
+  reorderQty: z.number().int().min(0).optional().default(10),
+  lowStockAlert: z.boolean().optional().default(false),
+  buyingPrice: z.number().min(0, 'Buying price must be non-negative.'),
+  wholesalePrice: z.number().min(0).nullable().optional(),
+  retailPrice: z.number().min(0).nullable().optional(),
+  // Assuming these are IDs for existing UnitOfMeasure records
+  baseUnitId: z.string({ required_error: 'Base unit is required.' }),
+  stockingUnitId: z.string({ required_error: 'Stocking unit is required.' }),
+  sellingUnitId: z.string({ required_error: 'Selling unit is required.' }),
+});
+
+// Input type for ProductSupplier (useful for type safety)
+export type ProductSupplierInput = {
+  id?: string; // ID of the ProductSupplier record, if it exists
+  supplierId: string;
+  supplierSku?: string | null;
+  costPrice: number; // Make sure this is a number
+  minimumOrderQuantity?: number | null;
+  packagingUnit?: string | null;
+  isPreferred?: boolean | null;
+};
+
+// Schema for ProductSupplier
+export const ProductSupplierSchema = z.object({
+  id: z.string().optional(), // ID of the ProductSupplier link, not the supplier itself
+  supplierId: z.string().min(1, "Supplier ID is required for each supplier entry."),
+  supplierSku: z.string().nullable().optional(),
+  costPrice: z.number().min(0, "Cost price must be a non-negative number."),
+  minimumOrderQuantity: z.number().int().min(0).nullable().optional(),
+  packagingUnit: z.string().nullable().optional(),
+  isPreferred: z.boolean().optional().default(false),
+});
+
+// Schema for editing a Product (EditProductSchema)
+export const EditProductSchema = z.object({
+  productId: z.string().min(1, 'Product ID is required.'), // Changed from 'id' to 'productId' to match formData
+  name: z.string().min(1, 'Product name is required.'),
+  description: z.string().nullable().optional(),
+  sku: z.string().min(1, 'Product SKU is required.'),
+  barcode: z.string().nullable().optional(),
+  isActive: z.boolean().optional().default(true),
+  imageUrls: z.array(z.string().url('Image URL must be a valid URL.')).optional().default([]),
+  categoryId: z.string().min(1,'Category is required.'),
+  defaultLocationId: z.string().nullable().optional(),
+  width: z.number().min(0).nullable().optional(),
+  height: z.number().min(0).nullable().optional(),
+  length: z.number().min(0).nullable().optional(),
+  // dimensionUnit: MeasurementUnitSchema.optional(), // Or keep it fixed in the backend
+  weight: z.number().min(0).nullable().optional(),
+  // weightUnit: MeasurementUnitSchema.optional(), // Or keep it fixed in the backend
+  volumetricWeight: z.number().min(0).nullable().optional(),
+  customFields: z.record(z.any()).nullable().optional(), // Prisma.JsonNull or JSON object
+  variants: z.array(ProductVariantSchema).optional().default([]),
+  suppliers: z.array(ProductSupplierSchema).optional().default([]),
+  // These fields were present in the destructuring but not in the Prisma update data.
+  // Assuming they are not part of the Product model directly or are handled differently.
+  // If they are part of the Product model, they should be added to the Prisma update.
+  // buyingPrice: z.number().min(0).nullable().optional(), // This seems to be variant-specific
+  // retailPrice: z.number().min(0).nullable().optional(), // This seems to be variant-specific
+});
+
+
 export async function editProduct(
   formData: FormData
   //eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -431,24 +519,35 @@ export async function editProduct(
   const rawData = Object.fromEntries(formData.entries());
   console.log('Raw form data received for edit:', rawData);
 
-  // 1. Parse Variants and Suppliers JSON strings and validate structure
+  // 1. Parse Variants and Suppliers JSON strings
   const parsedVariantsResult = parseJsonArrayField(formData, 'variants', ProductVariantSchema);
-  if ('success' in parsedVariantsResult && !parsedVariantsResult.success) return parsedVariantsResult;
-  const parsedVariants = parsedVariantsResult;
-  console.log('Parsed & Structurally Validated Variants for Edit:', parsedVariants);
+  if (parsedVariantsResult && 'success' in parsedVariantsResult && !parsedVariantsResult.success)
+    return parsedVariantsResult;
+  const parsedVariants = parsedVariantsResult as any[]; // Cast to any[] for now, Zod will validate structure
+  console.log('Parsed Variants for Edit:', parsedVariants);
 
   const parsedSuppliersResult = parseJsonArrayField(formData, 'suppliers', ProductSupplierSchema);
-  if ('success' in parsedSuppliersResult && !parsedSuppliersResult.success) return parsedSuppliersResult;
+  if (parsedSuppliersResult && 'success' in parsedSuppliersResult && !parsedSuppliersResult.success)
+    return parsedSuppliersResult;
   const parsedSuppliers = parsedSuppliersResult as ProductSupplierInput[];
-  console.log('Parsed & Structurally Validated Suppliers for Edit:', parsedSuppliers);
+  console.log('Parsed Suppliers for Edit:', parsedSuppliers);
 
-  // 2. Prepare data for Zod validation (using EditProductSchema)
+  // 2. Prepare data for Zod validation
   const dataToValidate = {
     ...rawData,
-    productId: formData.get('productId'), // Ensure productId is present
+    productId: formData.get('productId'), // Ensure productId is present and matches schema
     variants: parsedVariants,
     suppliers: parsedSuppliers,
     imageUrls: formData.getAll('imageUrls').filter(url => typeof url === 'string' && url.trim()),
+    // Convert numeric fields from string to number if they are coming from FormData
+    width: formData.get('width') ? Number(formData.get('width')) : undefined,
+    height: formData.get('height') ? Number(formData.get('height')) : undefined,
+    length: formData.get('length') ? Number(formData.get('length')) : undefined,
+    weight: formData.get('weight') ? Number(formData.get('weight')) : undefined,
+    volumetricWeight: formData.get('volumetricWeight') ? Number(formData.get('volumetricWeight')) : undefined,
+    isActive:
+      formData.get('isActive') === 'true' || formData.get('isActive') === 'on' || formData.get('isActive') === '1',
+    customFields: formData.get('customFields') ? JSON.parse(formData.get('customFields') as string) : undefined,
   };
   console.log('Data prepared for edit validation:', dataToValidate);
 
@@ -472,40 +571,35 @@ export async function editProduct(
 
   // 4. Extract validated data
   const {
-    productId,
-    categoryId, 
+    productId, // string
+    categoryId,
     defaultLocationId,
-    buyingPrice,
-    retailPrice, 
     width,
     height,
     length, // number | null | undefined
     weight,
     volumetricWeight,
-    variants: validatedVariants, // ProductVariantInput[]
-    suppliers: validatedSuppliers, // ProductSupplierInput[]
+    variants: validatedVariants, // ProductVariantInput[] from schema
+    suppliers: validatedSuppliers, // ProductSupplierInput[] from schema
     customFields: validatedCustomFields, // JSON object | null | undefined
-    ...productData // name, description, isActive, sku, barcode, imageUrls (all potentially undefined if partial)
+    ...productData // name, description, isActive, sku, barcode, imageUrls
   } = validatedFields.data;
 
-  // We need the *original* product SKU to generate variant SKUs if new ones are added without an SKU
-  // Fetching it separately or ensuring it's part of the validated data if it's not updatable is needed.
-  // Assuming productData.sku contains the *intended* SKU (new or existing). If SKU is immutable, fetch original.
-  const productSkuForVariantGeneration = productData.sku; // Or fetch original if SKU is immutable
+  const productSkuForVariantGeneration = productData.sku;
 
-  // Ensure SKUs exist for upsert logic (variants need SKU for unique constraint [cite: 40])
+  // Ensure SKUs exist for upsert logic (variants need SKU for unique constraint)
   const variantsForUpsert = validatedVariants.map(v => ({
     ...v,
-    // Generate SKU only if it's missing AND no ID exists (i.e., it's a new variant being added)
     sku:
       v.sku ||
-      (!v.id
+      (!v.id // Only generate if it's a new variant (no ID) AND SKU is missing
         ? `${productSkuForVariantGeneration || 'PROD'}-VAR-${crypto.randomUUID().slice(0, 6).toUpperCase()}`
-        : undefined),
+        : undefined), // If ID exists and SKU is missing, it's an error or should be handled by DB schema if SKU is nullable
+    attributes: v.attributes ?? Prisma.JsonNull, // Ensure attributes are Prisma.JsonNull if null/undefined [cite: 47]
   }));
 
   const variantIdsFromInput = variantsForUpsert.map(v => v.id).filter(Boolean) as string[];
-  const supplierLinkIdsFromInput = validatedSuppliers.map(s => s.id).filter(Boolean) as string[]; // IDs of ProductSupplier records
+  const supplierLinkIdsFromInput = validatedSuppliers.map(s => s.id).filter(Boolean) as string[];
 
   // 5. Database Update Operation
   try {
@@ -514,101 +608,124 @@ export async function editProduct(
     const updatedProduct = await prisma.product.update({
       where: {
         id: productId,
-        organizationId: organizationId, // Ensure user owns the product
+        organizationId: organizationId,
       },
       data: {
-        name: productData.name, // Always present due to schema override
+        name: productData.name,
         description: productData.description,
-        sku: productData.sku ? productData.sku : undefined, // Update SKU if provided
+        sku: productData.sku,
         barcode: productData.barcode,
         isActive: productData.isActive,
         imageUrls: productData.imageUrls,
-        customFields: validatedCustomFields,
-        width: width,
-        height: height,
-        length: length,
-        dimensionUnit: MeasurementUnit.METER,
-        weight: weight,
-        weightUnit: MeasurementUnit.WEIGHT_KG,
+        // customFields: validatedCustomFields ?? Prisma.JsonNull, // [cite: 35, 56, 137, 151, 163, 170]
+        width: width, // [cite: 42]
+        height: height, // [cite: 43]
+        length: length, // [cite: 43]
+        dimensionUnit: length || width || height ? MeasurementUnit.METER : undefined, // Set if dimensions provided [cite: 44]
+        weight: weight, // [cite: 45]
+        weightUnit: weight ? MeasurementUnit.WEIGHT_KG : undefined, // Set if weight provided [cite: 45]
         volumetricWeight: volumetricWeight,
 
-        // Relations (only connect/disconnect if ID is present in validated data)
-        category: categoryId ? { connect: { id: categoryId } } : undefined,
+        category: categoryId ? { connect: { id: categoryId } } : undefined, // [cite: 38, 39]
         defaultLocation:
-          defaultLocationId === null
+          defaultLocationId === null || defaultLocationId === '' // Handle empty string as disconnect
             ? { disconnect: true }
             : defaultLocationId
-              ? { connect: { id: defaultLocationId } }
+              ? { connect: { id: defaultLocationId } } // [cite: 46]
               : undefined,
 
-        // --- Variants: Upsert and Delete ---
         variants: {
-          // Delete variants associated with this product NOT in the input array's IDs
           deleteMany: {
             productId: productId,
             id: { notIn: variantIdsFromInput },
           },
-          // Upsert variants based on the input array
           upsert: variantsForUpsert.map(v => {
             const createData = {
-              organization: { connect: { id: organizationId } },
-              name: v.name, // Required
-              sku: v.sku!, // Required, generated if missing for new variants
-              barcode: v.barcode,
-              attributes: v.attributes ?? Prisma.JsonNull,
+              // organization: { connect: { id: organizationId } }, // Not needed, Prisma infers from Product's organization
+              name: v.name, // [cite: 47]
+              sku: v.sku!, // Required, generated if missing for new variants [cite: 47]
+              barcode: v.barcode, // [cite: 48]
+              attributes: v.attributes ?? Prisma.JsonNull, // [cite: 47]
               isActive: v.isActive ?? true,
               reorderPoint: v.reorderPoint ?? 5,
               reorderQty: v.reorderQty ?? 10,
               lowStockAlert: v.lowStockAlert ?? false,
-              buyingPrice: v.buyingPrice
+              buyingPrice: new Prisma.Decimal(v.buyingPrice),
+              wholesalePrice:
+                v.wholesalePrice !== null && v.wholesalePrice !== undefined
+                  ? new Prisma.Decimal(v.wholesalePrice)
+                  : undefined, // [cite: 49]
+              retailPrice:
+                v.retailPrice !== null && v.retailPrice !== undefined
+                  ? new Prisma.Decimal(v.retailPrice)
+                  : undefined, // [cite: 49]
+              baseUnit: { connect: { id: v.baseUnitId } }, // [cite: 50]
+              stockingUnit: { connect: { id: v.stockingUnitId } }, // [cite: 51]
+              sellingUnit: { connect: { id: v.sellingUnitId } }, // [cite: 52]
             };
-            // Data for update (only include fields present in input 'v')
             const updateData = {
-              name: v.name, // Assume name is always provided for update
-              sku: v.sku, // Update SKU only if provided in input
+              name: v.name,
+              sku: v.sku, // Update SKU only if provided
               barcode: v.barcode,
               attributes: v.attributes, // Send null or JSON object
               isActive: v.isActive,
-              reorderPoint: v.reorderPoint || 10,
-              reorderQty: v.reorderQty || 10,
+              reorderPoint: v.reorderPoint,
+              reorderQty: v.reorderQty,
               lowStockAlert: v.lowStockAlert,
+              buyingPrice: v.buyingPrice !== undefined ? new Prisma.Decimal(v.buyingPrice) : undefined,
+              wholesalePrice:
+                v.wholesalePrice !== null && v.wholesalePrice !== undefined
+                  ? new Prisma.Decimal(v.wholesalePrice)
+                  : undefined,
+              retailPrice:
+                v.retailPrice !== null && v.retailPrice !== undefined
+                  ? new Prisma.Decimal(v.retailPrice)
+                  : undefined,
+              baseUnit: v.baseUnitId ? { connect: { id: v.baseUnitId } } : undefined,
+              stockingUnit: v.stockingUnitId ? { connect: { id: v.stockingUnitId } } : undefined,
+              sellingUnit: v.sellingUnitId ? { connect: { id: v.sellingUnitId } } : undefined,
             };
             return {
-              where: { id: v.id || crypto.randomUUID() }, // Use real ID or non-matching UUID for create
+              where: { id: v.id || crypto.randomUUID() },
               create: createData,
               update: updateData,
             };
           }),
         },
 
-        // --- Suppliers (ProductSupplier): Upsert and Delete ---
         suppliers: {
-          // Delete ProductSupplier links NOT in the input array's IDs
+          // This manages the ProductSupplier join table records
           deleteMany: {
             productId: productId,
-            id: { notIn: supplierLinkIdsFromInput },
+            id: { notIn: supplierLinkIdsFromInput }, // These are IDs of ProductSupplier records
           },
-          // Upsert ProductSupplier links based on the input array
           upsert: validatedSuppliers.map(s => {
-            // Data for creation
             const createData = {
-              supplier: { connect: { id: s.supplierId } }, // Required
-              supplierSku: s.supplierSku,
-              costPrice: new Prisma.Decimal(s.costPrice ?? 0), // Required
-              minimumOrderQuantity: s.minimumOrderQuantity,
-              packagingUnit: s.packagingUnit,
-              isPreferred: s.isPreferred ?? false, // Use default
+              // product is connected implicitly by Prisma as this is a nested write on Product
+              supplier: { connect: { id: s.supplierId } }, // [cite: 53, 54, 55]
+              supplierSku: s.supplierSku, // [cite: 58, 59]
+              costPrice: new Prisma.Decimal(s.costPrice),
+              minimumOrderQuantity: s.minimumOrderQuantity, // [cite: 60]
+              packagingUnit: s.packagingUnit, // [cite: 61]
+              isPreferred: s.isPreferred ?? false, // [cite: 62]
             };
-            // Data for update
             const updateData = {
               supplierSku: s.supplierSku,
               costPrice: s.costPrice !== undefined ? new Prisma.Decimal(s.costPrice) : undefined,
               minimumOrderQuantity: s.minimumOrderQuantity,
               packagingUnit: s.packagingUnit,
               isPreferred: s.isPreferred,
+              // supplier: s.supplierId ? { connect: { id: s.supplierId } } : undefined, // Not needed if supplierId doesn't change for an existing link
             };
             return {
-              where: { id: s.id || crypto.randomUUID() }, // Use real ProductSupplier ID or dummy
+              // 'where' needs a unique identifier for ProductSupplier.
+              // If 'id' is the ProductSupplier record's ID, this is correct.
+              // If creating, use a non-matching UUID to ensure create is triggered.
+              // The unique constraint for ProductSupplier is @@unique([productId, supplierId])
+              // So, for upserting on ProductSupplier, a compound unique key for 'where' is more robust if 's.id' is not always present or might be new.
+              // However, your current `where: { id: s.id || crypto.randomUUID() }` targets the ProductSupplier's own 'id' field.
+              where: { id: s.id || crypto.randomUUID() }, // This assumes s.id is the ID of the ProductSupplier record.
+              // For new ProductSupplier records, s.id will be undefined, triggering create.
               create: createData,
               update: updateData,
             };
@@ -616,22 +733,30 @@ export async function editProduct(
         },
       },
       include: {
-        // Include relations in the response
-        variants: true,
+        variants: {
+          include: {
+            baseUnit: true,
+            stockingUnit: true,
+            sellingUnit: true,
+          },
+        },
         category: true,
         defaultLocation: true,
+        // suppliers: {
+        //   include: {
+        //     supplier: true, // Include the actual supplier details
+        //   },
+        // },
       },
     });
 
     console.log(`Product ID: ${productId} updated successfully.`);
 
-    // 6. Revalidate Cache
     revalidatePath('/dashboard/inventory/products');
     revalidatePath(`/dashboard/inventory/products/${productId}`);
 
     return { success: true, data: updatedProduct };
   } catch (error) {
-    // 7. Handle Prisma Errors
     return handlePrismaError(error);
   }
 }

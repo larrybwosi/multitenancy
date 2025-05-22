@@ -295,6 +295,7 @@ model Product {
   // Relations
   variants     ProductVariant[]
   variantStock ProductVariantStock[]
+  suppliers ProductSupplier[]
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
@@ -334,7 +335,6 @@ model ProductVariant {
   stockMovements   StockMovement[]
   variantStocks    ProductVariantStock[] // One variant can have stock in multiple locations
 
-  suppliers ProductSupplier[]
 
 
   baseUnitId     String        // The absolute smallest unit for inventory tracking (e.g., "Piece").
@@ -387,7 +387,7 @@ model Supplier {
 model ProductSupplier {
   id                   String         @id @default(cuid())
   productId            String
-  product              ProductVariant @relation(fields: [productId], references: [id], onDelete: Cascade) // Added onDelete
+  product              Product @relation(fields: [productId], references: [id], onDelete: Cascade) // Added onDelete
   supplierId           String
   supplier             Supplier       @relation(fields: [supplierId], references: [id], onDelete: Cascade) // Added onDelete
   supplierSku          String? // The SKU used by the supplier for this product

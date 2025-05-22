@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { AddProductMinimalSchema } from '../validations/product';
 import { z } from 'zod';
 import { EditProductFormData } from '@/app/(org)/products/components/edit-product-dialog';
+import { MovementType, ProductVariant } from '@/prisma/client';
 
 export type ProductsQueryOptions = {
   includeVariants?: boolean;
@@ -211,6 +212,70 @@ export function useRestock({ onSuccess }: { onSuccess?: () => void } = {}) {
       toast.error('Error', {
         description: error instanceof Error ? error.message : 'Something went wrong',
       });
+    },
+  });
+}
+export interface RestockItemInput {
+  productVariantId: string;
+  quantityInRestockUnit: number;
+  restockUnitId: string;
+  purchasePricePerRestockUnit?: number;
+  expiryDate?: Date;
+  batchNumber?: string;
+  supplierId?: string;
+  purchaseItemId?: string;
+}
+
+export interface BulkRestockInput {
+  items: RestockItemInput[];
+  locationId: string;
+  restockDate?: Date;
+  notes?: string;
+  movementType?: MovementType;
+}
+
+
+export function useBulkRestock() {
+  return useMutation({
+    mutationFn: async (input: BulkRestockInput) => {
+      const response = await axios.post('/api/stock/bulk-restock', input);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      // You can add success handling here
+      console.log('Restock successful:', data);
+    },
+    //eslint-disable-next-line
+    onError: (error: any) => {
+      // You can add error handling here
+      console.error('Restock failed:', error.response?.data?.message || error.message);
+    },
+  });
+}
+
+// types/inventory.ts
+export interface ConfigureProductVariantUnitsInput {
+  productVariantId: string;
+  baseUnitId: string;
+  stockingUnitId: string;
+  sellingUnitId: string;
+}
+
+export function useConfigureProductVariantUnits() {
+  return useMutation<ProductVariant, Error, ConfigureProductVariantUnitsInput>({
+    mutationFn: async (input: ConfigureProductVariantUnitsInput) => {
+      const response = await axios.put(
+        `/api/product-variants/${input.productVariantId}/units`,
+        input
+      );
+      return response.data;
+    },
+    onSuccess: (data) => {
+      console.log('Unit configuration updated successfully:', data);
+    },
+    //eslint-disable-next-line
+    onError: (error: any) => {
+      console.error('Failed to update unit configuration:', error.response?.data?.message || error.message);
     },
   });
 }

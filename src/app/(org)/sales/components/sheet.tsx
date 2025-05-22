@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { jsPDF } from 'jspdf';
 import Image from 'next/image';
 import { Calendar, CreditCard, Download, Package, Printer, Receipt, User } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
@@ -17,6 +16,7 @@ import { Separator } from '@/components/ui/separator';
 import { useGetSale } from '@/lib/hooks/use-sales';
 import { MotionDiv, MotionSpan } from '@/components/motion';
 import { formatCurrency } from '@/lib/utils';
+import jsPDF from 'jspdf';
 
 // Color palette
 const COLORS = {
@@ -111,39 +111,38 @@ export function SaleDetailsSheet({
     }
 
     try {
-      const res = await fetch(`/api/sales/${saleId}/receipt`);
-      // toast.loading('Generating PDF...');
-      // const html2canvas = await require('html2canvas-pro');
-      // const canvas = await html2canvas(content, {
-      //   scale: 2,
-      //   logging: false,
-      //   useCORS: true,
-      // });
+      toast.loading('Generating PDF...');
+      const html2canvas = await require('html2canvas-pro');
+      const canvas = await html2canvas(content, {
+        scale: 2,
+        logging: false,
+        useCORS: true,
+      });
 
-      // const imgData = canvas.toDataURL('image/png');
-      // const pdf = new jsPDF({
-      //   orientation: 'portrait',
-      //   unit: 'mm',
-      //   format: 'a4',
-      // });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
 
-      // const imgWidth = 190;
-      // const pageHeight = 290;
-      // const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      // let heightLeft = imgHeight;
-      // let position = 10;
+      const imgWidth = 190;
+      const pageHeight = 290;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 10;
 
-      // pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
-      // heightLeft -= pageHeight;
+      pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
 
-      // while (heightLeft >= 0) {
-      //   position = heightLeft - imgHeight;
-      //   pdf.addPage();
-      //   pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
-      //   heightLeft -= pageHeight;
-      // }
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
 
-      // pdf.save(`Receipt-${saleDetails?.saleNumber || 'sale'}.pdf`);
+      pdf.save(`Receipt-${saleDetails?.saleNumber || 'sale'}.pdf`);
       toast.success('PDF downloaded successfully');
     } catch (err) {
       toast.error('Failed to generate PDF', {
@@ -488,7 +487,7 @@ export function SaleDetailsSheet({
                               </MotionSpan>
                             </div>
                             <div className="col-span-2 text-right font-medium" style={{ color: COLORS.text }}>
-                              {formatCurrency(item.price)}
+                              {formatCurrency(item.price || 0)}
                             </div>
                           </MotionDiv>
                         ))}
@@ -509,17 +508,17 @@ export function SaleDetailsSheet({
                   >
                     <div className="flex justify-between text-sm">
                       <span style={{ color: COLORS.muted }}>Subtotal</span>
-                      <span style={{ color: COLORS.text }}>{formatCurrency(saleDetails?.subTotal)}</span>
+                      <span style={{ color: COLORS.text }}>{formatCurrency(saleDetails?.subTotal || 0)}</span>
                     </div>
 
                     <div className="flex justify-between text-sm">
                       <span style={{ color: COLORS.muted }}>Tax</span>
-                      <span style={{ color: COLORS.text }}>{formatCurrency(saleDetails.taxAmount)}</span>
+                      <span style={{ color: COLORS.text }}>{formatCurrency(saleDetails.taxAmount || 0)}</span>
                     </div>
 
                     <div className="flex justify-between text-sm">
                       <span style={{ color: COLORS.muted }}>Discount</span>
-                      <span style={{ color: COLORS.text }}>{formatCurrency(saleDetails.discountAmount)}</span>
+                      <span style={{ color: COLORS.text }}>{formatCurrency(saleDetails.discountAmount || 0)}</span>
                     </div>
 
                     <Separator className="my-2" style={{ backgroundColor: COLORS.muted + '30' }} />

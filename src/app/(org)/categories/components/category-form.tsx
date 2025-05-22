@@ -52,7 +52,7 @@ export function CategoryForm({
   const [error, setError] = useState<string | null>(null);
   const { mutateAsync:createCategory, isPending} = useSaveCategory()
   const { data: categoryOptions, isPending: loadingCategoryOptions } = useCategoryOptions()
-console.log(categoryOptions)
+
   const isEditing = !!category;
   
   const form = useForm<CategoryFormValues>({
@@ -109,7 +109,7 @@ console.log(categoryOptions)
             <FormItem>
               <FormLabel>Category Name *</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Electronics" {...field} disabled={isPending} />
+                <Input placeholder="e.g., Electronics" {...field} disabled={isPending || loadingCategoryOptions} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -153,14 +153,15 @@ console.log(categoryOptions)
                 </FormControl>
                 <SelectContent>
                   <SelectItem value="null">-- No Parent --</SelectItem>
-                  {!!categoryOptions &&categoryOptions
-                    // Prevent selecting itself as parent during edit
-                    ?.filter(option => !(isEditing && option.value === category?.id))
-                    .map(option => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
+                  {!!categoryOptions &&
+                    categoryOptions
+                      // Prevent selecting itself as parent during edit
+                      ?.filter(option => !(isEditing && option.value === category?.id))
+                      .map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
                 </SelectContent>
               </Select>
               <FormDescription>Assigning a parent creates a subcategory.</FormDescription>

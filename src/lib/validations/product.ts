@@ -81,11 +81,11 @@ export type ProductSupplierInput = z.infer<typeof ProductSupplierSchema>;
 
 // --- Base Schema for Core Product Fields (Product model) ---
 export const BaseProductSchema = z.object({
-  name: z.string().min(1, 'Product name is required.'), // [cite: 30]
-  description: z.string().optional().nullable(), // [cite: 30]
-  sku: z.string().min(1, 'Product SKU is required.').optional().nullable(), // [cite: 30] Will generate if missing on add
-  barcode: z.string().optional().nullable(), // [cite: 31] Nullable string
-  categoryId: z.string().min(3, 'Invalid Category ID.'), // [cite: 31]
+  name: z.string().min(1, 'Product name is required.'), 
+  description: z.string().optional().nullable(), 
+  sku: z.string().min(1, 'Product SKU is required.').optional().nullable(), // Will generate if missing on add
+  barcode: z.string().optional().nullable(), // Nullable string
+  categoryId: z.string().min(3, 'Invalid Category ID.'), 
   // [cite: 31] Decimal
   buyingPrice: z
     .union([z.number(), z.string()])
@@ -133,12 +133,16 @@ export const BaseProductSchema = z.object({
   dimensionUnit: z.enum(['METER', 'CENTIMETER', 'MILLIMETER', 'INCH', 'FOOT', 'YARD']).optional().nullable(),
   weight: z.union([z.string(), z.number(), z.null()]).pipe(z.coerce.number().nonnegative().optional().nullable()),
   weightUnit: z.enum(['WEIGHT_KG', 'WEIGHT_G', 'WEIGHT_LB', 'WEIGHT_OZ']).optional().nullable(),
-  volumetricWeight: z.union([z.string(), z.number(), z.null()]).pipe(z.coerce.number().nonnegative().optional().nullable()),
+  volumetricWeight: z
+    .union([z.string(), z.number(), z.null()])
+    .pipe(z.coerce.number().nonnegative().optional().nullable()),
   restockUnit: z.string().optional().nullable(),
-  itemsPerUnit: z
-    .union([z.string(), z.number(), z.null()]),
-    sellingUnit: z.string().optional().nullable(),
+  itemsPerUnit: z.union([z.string(), z.number(), z.null()]),
+  sellingUnit: z.string().optional().nullable(),
   defaultLocationId: z.string().optional().nullable(),
+  baseUnitId: z.string().min(1, 'Base unit is required'),
+  stockingUnitId: z.string().min(1, 'Stocking unit is required'),
+  sellingUnitId: z.string().min(1, 'Selling unit is required'),
 });
 
 // --- Schema for Adding a Product ---
@@ -162,6 +166,9 @@ export const AddProductMinimalSchema = z.object({
   imageUrls: BaseProductSchema.shape.imageUrls.optional(), // Optional: string[] (array of URLs)
   reorderPoint: z.coerce.number().int().positive('Reorder point must be positive.').optional(), // Optional: number (non-negative int), default 5 will be handled by Prisma create if not provided here
   isActive: BaseProductSchema.shape.isActive.optional(), // Optional: boolean, default true will be handled by Prisma create if not provided here
+  baseUnitId: z.string().min(1, 'Base unit is required'),
+  stockingUnitId: z.string().min(1, 'Stocking unit is required'),
+  sellingUnitId: z.string().min(1, 'Selling unit is required'),
 });
 
 export type AddProductMinimalInput = z.infer<typeof AddProductMinimalSchema>;
@@ -170,10 +177,10 @@ export type AddProductMinimalInput = z.infer<typeof AddProductMinimalSchema>;
 export const EditProductSchema = BaseProductSchema
   .partial()
   .extend({
-    productId: z.string().cuid('Product ID is required for editing.'),
+    id: z.string().cuid('Product ID is required for editing.'),
     // Overwrite partial fields to make them required again for edit
-    name: z.string().min(1, 'Product name is required.'),
-    categoryId: z.string().min(4,'Invalid Category ID.'),
+    name: z.string().min(1, 'Product name is required.').optional(),
+    categoryId: z.string().min(4,'Invalid Category ID.').optional(),
     // Use the same variant/supplier schemas (which include optional 'id')
     variants: z.array(ProductVariantSchema).optional().default([]),
     suppliers: z.array(ProductSupplierSchema).optional().default([]),

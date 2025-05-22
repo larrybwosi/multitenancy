@@ -19,12 +19,12 @@ import {
 } from '@/utils/errors';
 import { z } from 'zod';
 import {
-  CreateOrganizationInput,
   CreateOrganizationInputSchema,
   UpdateOrganizationInput,
   UpdateOrganizationInputSchema,
 } from '@/lib/validations/organization';
 import { CreateInterface } from '@/lib/hooks/use-org';
+import { seedOrganizationUnits } from './units';
 
 interface CreationResponse {
   organization: Organization;
@@ -37,8 +37,9 @@ interface CreationResponse {
  * @returns The newly created organization and its default warehouse.
  * @throws Various AppError descendants for specific error conditions.
  */
+
 export async function createOrganization(
-  rawData: unknown // Accept unknown to validate first
+  rawData: unknown,
 ): Promise<CreationResponse> {
   // 1. Authentication
   const session = await auth.api.getSession({ headers: await headers() });
@@ -48,12 +49,12 @@ export async function createOrganization(
   const userId = session.user.id;
 
   // 2. Validation
-  let data: CreateOrganizationInput;
+  let data: z.infer<typeof CreateOrganizationInputSchema>;
   try {
     data = CreateOrganizationInputSchema.parse(rawData);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.log(error);
+      console.error('Validation error:', error.issues);
       throw new ValidationError('Invalid input data for creating organization.', error.issues);
     }
     throw new ValidationError('Invalid input data.');
@@ -79,7 +80,6 @@ export async function createOrganization(
     let counter = 1;
     const MAX_SLUG_ATTEMPTS = 10;
 
-    // Loop to find a unique slug
     while (true) {
       const existing = await prisma.organization.findUnique({
         where: { slug: slugCandidate },
@@ -98,94 +98,92 @@ export async function createOrganization(
       counter++;
     }
   } catch (error) {
-    if (error instanceof AppError) throw error;
     console.error('Error during slug generation:', error);
+    if (error instanceof AppError) throw error;
     throw new SlugGenerationError('An unexpected error occurred while generating the slug.');
   }
 
-  // 4. Database Operations
+  // 4. Database Operations (all in a single transaction)
   try {
-    const newOrganization = await prisma.organization.create({
-      data: {
-        id: `org-${finalSlug}`, // Consider using CUIDs or UUIDs if not strictly necessary to have slug in ID
-        name,
-        slug: finalSlug,
-        description,
-        logo,
-        members: {
-          create: {
-            // id: `user-org-${finalSlug}-${userId}`, // Prisma can autogenerate CUIDs
-            userId,
-            role: MemberRole.OWNER,
+    const result = await prisma.$transaction(async tx => {
+      // Create organization with settings and member
+      const newOrganization = await tx.organization.create({
+        data: {
+          name,
+          slug: finalSlug,
+          description,
+          logo,
+          members: {
+            create: {
+              userId,
+              role: MemberRole.OWNER,
+            },
+          },
+          settings: {
+            create: {
+              defaultCurrency,
+              defaultTimezone,
+              defaultTaxRate:
+                defaultTaxRate !== null && defaultTaxRate !== undefined ? new Prisma.Decimal(defaultTaxRate) : null,
+              inventoryPolicy,
+              lowStockThreshold,
+              negativeStock,
+            },
           },
         },
-        settings: {
-          create: {
-            defaultCurrency,
-            defaultTimezone,
-            defaultTaxRate:
-              defaultTaxRate !== null && defaultTaxRate !== undefined ? new Prisma.Decimal(defaultTaxRate) : null,
-            inventoryPolicy,
-            lowStockThreshold, // Zod ensures it's an int
-            negativeStock,
-          },
+        include: {
+          members: { where: { userId } },
+          settings: true,
         },
-      },
-      include: {
-        members: { where: { userId } },
-        settings: true,
-      },
-    });
+      });
 
-    const mainStore = await prisma.inventoryLocation.create({
-      data: {
-        name: 'Main Store',
-        description: 'Primary retail store location for ' + name,
-        locationType: LocationType.RETAIL_SHOP,
-        isDefault: true,
-        isActive: true,
-        capacityTracking: false,
-        organizationId: newOrganization.id,
-      },
-    });
+      // Create main store
+      const mainStore = await tx.inventoryLocation.create({
+        data: {
+          name: 'Main Store',
+          description: `Primary retail store location for ${name}`,
+          locationType: LocationType.RETAIL_SHOP,
+          isDefault: true,
+          isActive: true,
+          capacityTracking: false,
+          organizationId: newOrganization.id,
+        },
+      });
 
-    // Update user's active organization and organization's default location
-    await prisma.$transaction([
-      prisma.user.update({
+      // Update user's active organization and organization's default location
+      await tx.user.update({
         where: { id: userId },
         data: { activeOrganizationId: newOrganization.id },
-      }),
-      prisma.organization.update({
+      });
+
+      await tx.organization.update({
         where: { id: newOrganization.id },
         data: { defaultLocationId: mainStore.id },
-      }),
-    ]);
+      });
 
-    // Fetch the updated organization to include defaultLocationId in the returned object if needed immediately
-    // Or adjust the return type/logic based on whether newOrganization already contains this post-transaction.
-    // For simplicity, we return the initially created newOrganization and mainStore.
-    // If `defaultLocationId` must be in the returned `newOrganization` object, re-fetch or merge.
+      return { organization: newOrganization, warehouse: mainStore };
+    });
 
-    console.log('New Organization Created:', newOrganization.name);
-    return { organization: newOrganization, warehouse: mainStore };
+    // Seed organization units using the transaction client
+    await seedOrganizationUnits(result.organization.id, prisma);
+    
+    return result;
   } catch (error) {
     console.error('Failed to create organization:', error);
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === 'P2002') {
-        // Unique constraint violation
-        // This might happen in a race condition for the slug despite the check.
-        // Or if the id generation `org-${finalSlug}` clashes, though less likely with CUIDs for sub-models.
         const target = (error.meta?.target as string[])?.join(', ');
         throw new ConflictError(`An organization with similar attributes (${target || 'slug/id'}) already exists.`);
       }
       throw new DatabaseError(`Database error: ${error.message} (Code: ${error.code})`);
     }
-    if (error instanceof AppError) throw error; // Re-throw known app errors
+    if (error instanceof AppError) throw error;
     throw new DatabaseError(
       `Could not create organization. ${error instanceof Error ? error.message : 'Unknown database error'}`
     );
   }
 }
+
 
 /**
  * Retrieves a single organization by its slug, checking permissions.
@@ -387,7 +385,7 @@ export async function updateOrganization(organizationId: string, rawData: unknow
       include: { settings: true }, // Ensure settings are included
     });
     if (!currentOrganization) {
-      throw new NotFoundError(`Organization with ID ${organizationId} not found.`);
+      throw new NotFoundError(`Organization with ID ${organizationId} not found.`, { id: organizationId });
     }
     return currentOrganization; // No actual update performed
   }
@@ -414,7 +412,7 @@ export async function updateOrganization(organizationId: string, rawData: unknow
         // Record to update not found (either Org or related Settings if not handled by nested write correctly)
         // For a nested update on settings, if OrganizationSettings does not exist, P2025 might be "An operation failed because it depends on one or more records that were required but not found. No 'OrganizationSettings' record was found for a nested update on relation 'OrganizationToOrganizationSettings'."
         // This implies the settings record must exist. The createOrganization ensures this.
-        throw new NotFoundError(`Organization with ID ${organizationId} or its settings not found for update.`);
+        throw new NotFoundError(`Organization with ID ${organizationId} or its settings not found for update.`, error);
       }
       throw new DatabaseError(`Database error: ${error.message} (Code: ${error.code})`);
     }

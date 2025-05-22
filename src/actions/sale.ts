@@ -289,6 +289,9 @@ export async function processSale(inputData: unknown): Promise<ProcessSaleResult
 
           // --- 3c. Prepare Sale Item Data ---
           transactionSubTotal = transactionSubTotal.add(itemTotal);
+          const sellingUnit = await tx.productVariant.findUnique({
+            where:{id:product.variants[0].id }
+          })
 
           saleItemsCreateData.push({
             variantId: stockLookupVariantId, // Use the non-null variant ID
@@ -300,6 +303,7 @@ export async function processSale(inputData: unknown): Promise<ProcessSaleResult
             taxRate: new Prisma.Decimal(taxRate), // Assuming sale-level tax rate applies to all items
             taxAmount: itemTaxAmount, // Calculated tax amount for this item
             totalAmount: itemTotalWithTax, // Total including tax
+            sellingUnitId: sellingUnit?.sellingUnitId
           });
 
           // --- 3d. Aggregate Stock Updates (In Memory, IF Tracking Enabled) ---

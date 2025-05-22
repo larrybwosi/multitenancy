@@ -12,17 +12,18 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, ImagePlus, UploadCloud, Smartphone } from 'lucide-react';
+import { Loader2, ImagePlus, Smartphone, ExternalLink } from 'lucide-react';
 import { useCreateProduct } from '@/lib/hooks/use-products';
 import { QRUploadModal } from '@/components/file-upload-device';
 import Image from 'next/image';
+import Link from 'next/link';
+import { useUnitsOfMeasure } from '@/lib/hooks/use-units';
 
 // Schema definition
 const BaseProductSchema = z.object({
@@ -36,6 +37,9 @@ const BaseProductSchema = z.object({
   imageUrls: z.array(z.string()).default([]),
   reorderPoint: z.coerce.number().int().positive('Reorder point must be positive'),
   isActive: z.boolean().default(true),
+  baseUnitId: z.string().min(1, 'Base unit is required'),
+  stockingUnitId: z.string().min(1, 'Stocking unit is required'),
+  sellingUnitId: z.string().min(1, 'Selling unit is required'),
 });
 
 export const AddProductMinimalSchema = BaseProductSchema.extend({
@@ -52,7 +56,7 @@ type ProductFormValues = z.infer<typeof AddProductMinimalSchema>;
 
 interface CreateProductModalProps {
   isOpen: boolean;
-  onClose:(v: boolean)=>boolean;
+  onClose: (v: boolean) => boolean;
   categories: { id: string; name: string }[];
 }
 
@@ -60,6 +64,8 @@ export function CreateProductModal({ isOpen, onClose, categories }: CreateProduc
   const [isUploading, setIsUploading] = useState(false);
 
   const { mutateAsync: createProductMutation, isPending: creatingProduct } = useCreateProduct();
+  const { data: unitsOfMeasure, isLoading: unitsOfMeasureLoading, error: unitsError } = useUnitsOfMeasure();
+
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(AddProductMinimalSchema),
     defaultValues: {
@@ -72,11 +78,15 @@ export function CreateProductModal({ isOpen, onClose, categories }: CreateProduc
       imageUrls: [],
       reorderPoint: 5,
       isActive: true,
+      baseUnitId: '',
+      stockingUnitId: '',
+      sellingUnitId: '',
     },
   });
 
   const onSubmit = async (data: ProductFormValues) => {
     await createProductMutation(data);
+    onClose(false);
   };
 
   const handleNumberInputChange = (
@@ -103,9 +113,8 @@ export function CreateProductModal({ isOpen, onClose, categories }: CreateProduc
       }
 
       const data = await response.json();
-      const imageUrl = data.url; 
+      const imageUrl = data.url;
 
-      // Update the form field with the new image URL
       const currentImages = form.getValues('imageUrls') || [];
       form.setValue('imageUrls', [...currentImages, imageUrl]);
 
@@ -118,9 +127,12 @@ export function CreateProductModal({ isOpen, onClose, categories }: CreateProduc
     }
   };
 
-  const handleImageUploaded = async (imageUrl: string) => {
+  const removeImage = (index: number) => {
     const currentImages = form.getValues('imageUrls') || [];
-    form.setValue('imageUrls', [...currentImages, imageUrl]);
+    form.setValue(
+      'imageUrls',
+      currentImages.filter((_, i) => i !== index)
+    );
   };
 
   return (
@@ -186,6 +198,12 @@ export function CreateProductModal({ isOpen, onClose, categories }: CreateProduc
                             {category.name}
                           </SelectItem>
                         ))}
+                        <Link href={'/categories?modal=true'} className="items-center flex gap-1">
+                          <p className="text-blue-500 hover:text-blue-600 cursor-pointer text-sm font-light ">
+                            Create New
+                          </p>
+                          <ExternalLink className="h-3 w-3 text-blue-500" />
+                        </Link>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -302,8 +320,114 @@ export function CreateProductModal({ isOpen, onClose, categories }: CreateProduc
                 )}
               />
             </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <FormField
+                control={form.control}
+                name="baseUnitId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-medium flex items-center gap-2">
+                      Base Unit
+                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs font-normal">
+                        Required
+                      </Badge>
+                    </FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger disabled={unitsOfMeasureLoading || !!unitsError}>
+                          <SelectValue placeholder={unitsOfMeasureLoading ? 'Loading units...' : 'Select base unit'} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {unitsOfMeasure?.map(unit => (
+                          <SelectItem key={unit.id} value={unit.id}>
+                            {unit.name} ({unit.symbol})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription className="text-xs">The smallest unit for inventory tracking</FormDescription>
+                    {unitsError && <p className="text-sm text-red-500">Failed to load units: {unitsError.message}</p>}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="stockingUnitId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-medium flex items-center gap-2">
+                      Stocking Unit
+                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs font-normal">
+                        Required
+                      </Badge>
+                    </FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger disabled={unitsOfMeasureLoading || !!unitsError}>
+                          <SelectValue
+                            placeholder={unitsOfMeasureLoading ? 'Loading units...' : 'Select stocking unit'}
+                          />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {unitsOfMeasure?.map(unit => (
+                          <SelectItem key={unit.id} value={unit.id}>
+                            {unit.name} ({unit.symbol})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription className="text-xs">Unit used for purchasing/stocking</FormDescription>
+                    {unitsError && <p className="text-sm text-red-500">Failed to load units: {unitsError.message}</p>}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="sellingUnitId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-medium flex items-center gap-2">
+                      Selling Unit
+                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs font-normal">
+                        Required
+                      </Badge>
+                    </FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger disabled={unitsOfMeasureLoading || !!unitsError}>
+                          <SelectValue
+                            placeholder={unitsOfMeasureLoading ? 'Loading units...' : 'Select selling unit'}
+                          />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {unitsOfMeasure?.map(unit => (
+                          <SelectItem key={unit.id} value={unit.id}>
+                            {unit.name} ({unit.symbol})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription className="text-xs">Unit used for selling</FormDescription>
+                    {unitsError && <p className="text-sm text-red-500">Failed to load units: {unitsError.message}</p>}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
             <QRUploadModal
-              onImageUploaded={handleImageUploaded}
+              onImageUploaded={async (imageUrl: string) => {
+                const currentImages = form.getValues('imageUrls') || [];
+                form.setValue('imageUrls', [...currentImages, imageUrl]);
+              }}
               trigger={
                 <Button variant="outline" type="button">
                   <Smartphone className="w-5 h-5 mr-2 text-xl" />
@@ -370,6 +494,7 @@ export function CreateProductModal({ isOpen, onClose, categories }: CreateProduc
                         <input
                           id="dropzone-file"
                           type="file"
+                          accept="image/*"
                           className="hidden"
                           multiple
                           onChange={async e => {
@@ -386,13 +511,22 @@ export function CreateProductModal({ isOpen, onClose, categories }: CreateProduc
                     {!!field.value?.length && (
                       <div className="grid grid-cols-3 gap-2">
                         {field.value.map((url, index) => (
-                          <div key={index} className="relative group">
+                          <div key={index} className="relative group h-24">
                             <Image
-                              fill
                               src={url}
-                              alt={`Product preview ${index + 1}`}
-                              className="w-full h-24 object-cover rounded-md"
+                              alt={`Product image ${index + 1} for ${form.getValues('name') || 'new product'}`}
+                              fill
+                              className="object-cover rounded-md"
+                              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                             />
+                            <Button
+                              variant="destructive"
+                              size="icon"
+                              className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => removeImage(index)}
+                            >
+                              X
+                            </Button>
                           </div>
                         ))}
                       </div>
@@ -411,7 +545,7 @@ export function CreateProductModal({ isOpen, onClose, categories }: CreateProduc
               <Button
                 type="submit"
                 className="bg-indigo-600 hover:bg-indigo-700 mt-2 sm:mt-0"
-                disabled={creatingProduct || isUploading}
+                disabled={creatingProduct || isUploading || unitsOfMeasureLoading}
               >
                 {creatingProduct ? (
                   <>
@@ -422,6 +556,11 @@ export function CreateProductModal({ isOpen, onClose, categories }: CreateProduc
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Uploading...
+                  </>
+                ) : unitsOfMeasureLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Loading units...
                   </>
                 ) : (
                   'Create Product'

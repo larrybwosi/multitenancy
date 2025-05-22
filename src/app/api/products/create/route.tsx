@@ -3,7 +3,7 @@ import { z } from "zod";
 
 export async function POST(request: Request) {
   const body = await request.json();
-  console.log('Received body in POST /api/products/create:', body);
+  
   try {
     
     const result = await addProductMinimal(body);

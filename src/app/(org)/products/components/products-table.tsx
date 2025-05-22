@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Edit, Package, Trash2, MoreHorizontal, Grid, List, Plus, Info, Loader2, Settings } from 'lucide-react';
 import Image from 'next/image';
 import { FilterControls, FilterControlsProps } from '@/components/file-controls';
@@ -184,86 +184,174 @@ export const ProductTable: React.FC<ProductTableProps> = ({
       </TableCell>
     </TableRow>
   );
+  
+  // Define the ProductWithDetails type
+  interface ProductWithDetails {
+    id: string;
+    name: string;
+    sku: string | null;
+    imageUrls: string[];
+    isActive: boolean;
+    retailPrice: number | null;
+    totalStock: number;
+    reorderPoint: number;
+    category?: { name: string } | null;
+  }
 
-  const ProductCard: React.FC<{ product: ProductWithDetails }> = ({ product }) => (
-    <Card className="overflow-hidden hover:shadow-md transition-all duration-200">
-      <div
-        className="h-48 w-full bg-gray-100 relative cursor-pointer group"
-        onClick={() => setSelectedProduct(product)}
-      >
-        {product.imageUrls.length > 0 ? (
-          <Image
-            src={product.imageUrls[0]}
-            alt={product.name}
-            layout="fill"
-            objectFit="cover"
-            className="group-hover:scale-105 transition-transform"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Package className="h-12 w-12 text-gray-400" />
+  // Utility function to format currency (example implementation)
+  const formatCurrency = (value: string) => {
+    const num = parseFloat(value);
+    return isNaN(num) ? '$0.00' : `$${num.toFixed(2)}`;
+  };
+
+  // // Utility function to get status badge (example implementation)
+  // const getStatusBadge = (isActive: boolean) => (
+  //   <Badge variant={isActive ? 'default' : 'destructive'} className={isActive ? 'bg-green-500' : 'bg-red-500'}>
+  //     {isActive ? 'Active' : 'Inactive'}
+  //   </Badge>
+  // );
+
+  interface ProductCardProps {
+    product: ProductWithDetails;
+    setSelectedProduct: (product: ProductWithDetails) => void;
+    handleEditClick: (product: ProductWithDetails) => void;
+    onRestock: (product: ProductWithDetails) => void;
+    handleDeleteClick: (product: ProductWithDetails) => void;
+  }
+
+  const ProductCard: React.FC<ProductCardProps> = ({
+    product,
+    setSelectedProduct,
+    handleEditClick,
+    onRestock,
+    handleDeleteClick,
+  }) => {
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
+    const router = useRouter();
+
+    // Auto-change images if there are multiple
+    useEffect(() => {
+      if (product.imageUrls.length > 1) {
+        const interval = setInterval(() => {
+          setCurrentImageIndex(prev => (prev + 1) % product.imageUrls.length);
+        }, 3000); // Change every 3 seconds
+
+        return () => clearInterval(interval);
+      }
+    }, [product.imageUrls.length]);
+
+    // Handle clicking on an image indicator
+    const handleIndicatorClick = (index: number) => {
+      setCurrentImageIndex(index);
+    };
+
+    return (
+      <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 border-0 shadow-sm bg-white">
+        <div
+          className="h-40 w-full bg-gradient-to-br from-gray-50 to-gray-100 relative cursor-pointer group"
+          onClick={() => setSelectedProduct(product)}
+        >
+          {product.imageUrls.length > 0 ? (
+            <>
+              <Image
+                src={product.imageUrls[currentImageIndex]}
+                alt={`${product.name} - Image ${currentImageIndex + 1}`}
+                fill
+                className="object-cover group-hover:scale-105 transition-transform duration-300 rounded-t-md"
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                priority={currentImageIndex === 0} // Optimize loading for the first image
+              />
+              {/* Image indicators */}
+              {product.imageUrls.length > 1 && (
+                <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex space-x-1">
+                  {product.imageUrls.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleIndicatorClick(index)}
+                      className={`w-2 h-2 rounded-full transition-all duration-200 ${
+                        index === currentImageIndex ? 'bg-white scale-125' : 'bg-white/50'
+                      }`}
+                      aria-label={`View image ${index + 1}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <Package className="h-10 w-10 text-gray-300" />
+            </div>
+          )}
+          {/* Status indicator overlay */}
+          <div className="absolute top-2 left-2">{getStatusBadge(product.isActive)}</div>
+          {/* Category badge overlay */}
+          <div className="absolute top-2 right-2">
+            <Badge variant="secondary" className="text-xs bg-white/90 text-gray-700 border-0">
+              {product.category?.name ?? 'No Category'}
+            </Badge>
           </div>
-        )}
-      </div>
-      <CardHeader className="p-4 pb-0">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-medium text-gray-900 truncate">{product.name}</h3>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => router.push(`products/${product.id}`)}>
-                <Edit className="mr-2 h-4 w-4" />
-                <span>Product Config</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleEditClick(product)}>
-                <Settings className="mr-2 h-4 w-4" />
-                <span>Edit Product</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onRestock(product)}>
-                <Plus className="mr-2 h-4 w-4" />
-                <span>Restock Inventory</span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => handleDeleteClick(product)}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                <span>Delete Product</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
-      </CardHeader>
-      <CardContent className="p-4 pt-2">
-        <div className="mt-2 flex items-center gap-2">
-          {getStatusBadge(product.isActive)}
-          <Badge variant="outline" className="text-xs text-gray-500">
-            {product?.category?.name}
-          </Badge>
-        </div>
-        <div className="mt-3 flex items-center justify-between">
-          <div className="text-lg font-semibold text-gray-900">
-            {formatCurrency(product?.retailPrice?.toString() || '0')}
+
+        <div className="p-3 space-y-3">
+          {/* Header with title and menu */}
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <h3 className="text-base font-semibold text-gray-900 truncate leading-tight">{product.name}</h3>
+              <div className="text-xs text-gray-500 mt-0.5">SKU: {product.sku ?? 'N/A'}</div>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0">
+                  <MoreHorizontal className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => router.push(`/products/${product.id}`)}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  <span>Product Config</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleEditClick(product)}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Edit Product</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onRestock(product)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  <span>Restock Inventory</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-red-600 focus:text-red-600"
+                  onClick={() => handleDeleteClick(product)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  <span>Delete Product</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-          <div className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">SKU: {product.sku}</div>
-        </div>
-      </CardContent>
-      <CardFooter className="p-4 pt-0">
-        <div className="mt-2 grid grid-cols-2 gap-2 w-full">
-          <div className="text-sm bg-gray-50 p-2 rounded">
-            <span className="text-gray-500">Stock: </span>
-            <span className="font-medium">{product.totalStock}</span>
+
+          {/* Price */}
+          <div className="flex items-center justify-between">
+            <div className="text-xl font-bold text-gray-900">
+              {formatCurrency(product.retailPrice?.toString() ?? '0')}
+            </div>
           </div>
-          <div className="text-sm bg-gray-50 p-2 rounded">
-            <span className="text-gray-500">Reorder: </span>
-            <span className="font-medium">{product.reorderPoint}</span>
+
+          {/* Stock information */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-gray-50 p-2 rounded-md">
+              <div className="text-xs text-gray-500 mb-0.5">Stock</div>
+              <div className="text-sm font-semibold text-gray-900">{product.totalStock}</div>
+            </div>
+            <div className="bg-gray-50 p-2 rounded-md">
+              <div className="text-xs text-gray-500 mb-0.5">Reorder</div>
+              <div className="text-sm font-semibold text-gray-900">{product.reorderPoint}</div>
+            </div>
           </div>
         </div>
-      </CardFooter>
-    </Card>
-  );
+      </Card>
+    );
+  };
 
   return (
     <div className="w-full">
