@@ -124,7 +124,7 @@ All sales were processed by Larry Dean, the sole sales member identified in the 
         fontFamily: 'sans-serif',
       }}
     >
-      <PDFDownloadLink
+      {/* <PDFDownloadLink
         document={<MarkdownToPdfDocument markdownString={markdownReport} documentTitle="Sales Performance Report" />}
         fileName={reportFileName}
         style={{
@@ -139,12 +139,12 @@ All sales were processed by Larry Dean, the sole sales member identified in the 
         }}
       >
         {({ loading }) => (loading ? 'Loading document...' : `Download ${reportFileName}`)}
-      </PDFDownloadLink>
+      </PDFDownloadLink> */}
 
       <div style={{ width: '90%', height: '80vh', border: '1px solid #ccc' }}>
-        <PDFViewer width="100%" height="100%" showToolbar={true}>
+        {/* <PDFViewer width="100%" height="100%" showToolbar={true}>
           <MarkdownToPdfDocument markdownString={markdownReport} documentTitle="Sales Performance Report" />
-        </PDFViewer>
+        </PDFViewer> */}
       </div>
     </div>
   );

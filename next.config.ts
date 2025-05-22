@@ -50,9 +50,7 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // experimental: {
-  //   dynamicIO: true,
-  // },
+  // serverExternalPackages: ['@react-pdf/renderer'],
 };
 
 module.exports = nextConfig;
