@@ -271,6 +271,7 @@ exports.Prisma.SupplierScalarFieldEnum = {
 exports.Prisma.ProductSupplierScalarFieldEnum = {
   id: 'id',
   productId: 'productId',
+  variantId: 'variantId',
   supplierId: 'supplierId',
   supplierSku: 'supplierSku',
   costPrice: 'costPrice',

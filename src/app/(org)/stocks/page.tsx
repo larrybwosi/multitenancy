@@ -20,8 +20,8 @@ import {
   RefreshCw,
   AlertCircle,
 } from "lucide-react";
-import { getProducts } from "@/actions/products";
 import { getCategories } from "@/actions/category.actions";
+import { getProducts } from "@/actions/product";
 
 export const dynamic = "force-dynamic";
 

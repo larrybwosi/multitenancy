@@ -94,9 +94,6 @@ function CartComponent({
     const taxAmount = tax * Number(cartTotal); 
     const totalPrice = Number(cartTotal) + taxAmount
     
-    const org = useAppStore((o)=>o.organization)
-    console.log(org)
-
   useEffect(() => {
     const channel = pusherClient.subscribe('mpesa-payments');
     channel.bind('payment-status', (data: MpesaPayment) => {

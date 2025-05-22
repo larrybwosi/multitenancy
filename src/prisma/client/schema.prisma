@@ -292,6 +292,7 @@ model Product {
   // Relations
   variants     ProductVariant[]
   variantStock ProductVariantStock[]
+  suppliers    ProductSupplier[]
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade) // Added onDelete
@@ -381,18 +382,20 @@ model Supplier {
 }
 
 model ProductSupplier {
-  id                   String         @id @default(cuid())
+  id                   String          @id @default(cuid())
   productId            String
-  product              ProductVariant @relation(fields: [productId], references: [id], onDelete: Cascade) // Added onDelete
+  product              Product         @relation(fields: [productId], references: [id], onDelete: Cascade) // Added onDelete
+  variantId            String?
+  variant              ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade) // Added onDelete
   supplierId           String
-  supplier             Supplier       @relation(fields: [supplierId], references: [id], onDelete: Cascade) // Added onDelete
+  supplier             Supplier        @relation(fields: [supplierId], references: [id], onDelete: Cascade) // Added onDelete
   supplierSku          String? // The SKU used by the supplier for this product
-  costPrice            Decimal        @db.Decimal(10, 2)
+  costPrice            Decimal         @db.Decimal(10, 2)
   minimumOrderQuantity Int? // Added: Minimum quantity required by supplier
   packagingUnit        String? // Added: e.g., "Case of 12", "Pallet", "Each"
-  isPreferred          Boolean        @default(false) // Is this the preferred supplier for this product?
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @updatedAt
+  isPreferred          Boolean         @default(false) // Is this the preferred supplier for this product?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
 
   @@unique([productId, supplierId])
   @@index([supplierId])

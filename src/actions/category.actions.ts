@@ -139,7 +139,8 @@ export async function getCategoriesWithStats({
       const productSales: Record<string, { name: string; totalSold: number }> = {};
 
       category.products.forEach(product => {
-        product.variants[0].saleItems.forEach(item => {
+        
+        product.variants?.[0]?.saleItems.forEach(item => {
           totalRevenue = totalRevenue.add(item.totalAmount);
           const itemProfit = item.unitPrice.sub(item.unitCost).mul(item.quantity);
           potentialProfit = potentialProfit.add(itemProfit);

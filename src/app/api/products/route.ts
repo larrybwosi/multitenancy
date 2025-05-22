@@ -1,18 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { addProduct } from "@/actions/product-add-edit";
-import { getProducts } from "@/actions/product-get";
 import { GetProductsOptions } from "@/lib/hooks/use-products";
-// import { getProducts } from "@/actions/products";
+import { getProducts } from "@/actions/product";
 
-type ApiErrorResponse = {
-  error: string;
-  fieldErrors?: Record<string, string[]>;
-};
-
-type ApiSuccessResponse<T> = {
-  success: true;
-  data: T;
-};
 
 export async function GET(request: NextRequest) {
   try {
@@ -59,35 +48,5 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error in products API route:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const formData = await request.formData();
-    const result = await addProduct(formData);
-    
-    if ('error' in result) {
-      const errorResponse: ApiErrorResponse = { 
-        error: result.error || "An unknown error occurred",
-      };
-      if ('fieldErrors' in result && result.fieldErrors) {
-        errorResponse.fieldErrors = result.fieldErrors;
-      }
-      return NextResponse.json(errorResponse, { status: 400 });
-    }
-    
-    const response: ApiSuccessResponse<typeof result> = {
-      success: true,
-      data: result
-    };
-    
-    return NextResponse.json(response, { status: 201 });
-  } catch (error) {
-    console.error("Error in POST /api/products:", error);
-    return NextResponse.json(
-      { error: "Failed to create product" },
-      { status: 500 }
-    );
   }
 }

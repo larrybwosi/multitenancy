@@ -335,7 +335,7 @@ model ProductVariant {
   stockMovements   StockMovement[]
   variantStocks    ProductVariantStock[] // One variant can have stock in multiple locations
 
-
+  suppliers ProductSupplier[]
 
   baseUnitId     String        // The absolute smallest unit for inventory tracking (e.g., "Piece").
   baseUnit       UnitOfMeasure @relation("PVBaseUnit", fields: [baseUnitId], references: [id], onDelete:Restrict)
@@ -388,6 +388,8 @@ model ProductSupplier {
   id                   String         @id @default(cuid())
   productId            String
   product              Product @relation(fields: [productId], references: [id], onDelete: Cascade) // Added onDelete
+  variantId            String?
+  variant              ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade) // Added onDelete
   supplierId           String
   supplier             Supplier       @relation(fields: [supplierId], references: [id], onDelete: Cascade) // Added onDelete
   supplierSku          String? // The SKU used by the supplier for this product

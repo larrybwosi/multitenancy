@@ -89,7 +89,7 @@ export function PosClientWrapper({
         if (!product) return null;
         // Get default variant id
         // TODO: Use selected variant
-        const defaultVariantId = product.variants[0].id;
+        const defaultVariantId = product?.variants[0]?.id;
 
         const quantity = cartQuantities[productId] || 0;
         // Convert string price to number for display

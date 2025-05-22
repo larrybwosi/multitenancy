@@ -1,4 +1,4 @@
-import { addProductMinimal } from "@/actions/product-add-edit";
+import { addProductMinimal } from "@/actions/product";
 import { z } from "zod";
 
 export async function POST(request: Request) {

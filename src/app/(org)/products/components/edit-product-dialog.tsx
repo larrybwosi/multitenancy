@@ -137,6 +137,8 @@ export const EditProductDialog = ({
 
   // Handle form submission with only changed fields
   const handleSubmit = async (data: EditProductFormData) => {
+    console.log(data)
+    // return
     try {
       const changedData: Partial<EditProductFormData> = {};
       Object.keys(form.formState.dirtyFields).forEach(key => {
@@ -145,7 +147,11 @@ export const EditProductDialog = ({
         }
       });
       // Always include the ID
+      changedData.productId = data.id;
       changedData.id = data.id;
+      changedData.name = data.name;
+      changedData.categoryId = data.categoryId;
+      changedData.sku = data.sku;
       console.log('Submitting changed product data:', changedData);
       await updateProduct(changedData);
       onSuccess?.();

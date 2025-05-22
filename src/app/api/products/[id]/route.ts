@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { getServerAuthContext } from "@/actions/auth";
-import { updateProduct } from "@/actions/products";
-import { editProduct } from "@/actions/product-add-edit";
+import { editProduct } from "@/actions/product";
 
 type Params = { params: Promise<{ id: string }> };
 
