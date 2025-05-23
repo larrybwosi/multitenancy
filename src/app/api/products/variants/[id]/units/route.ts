@@ -3,10 +3,10 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { configureProductVariantUnits } from '@/actions/units';
 
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const input = await request.json();
-    const productVariantId = params.id;
+    const { id: productVariantId} = await params;
 
     // Validate input
     if (!input.baseUnitId || !input.stockingUnitId || !input.sellingUnitId) {

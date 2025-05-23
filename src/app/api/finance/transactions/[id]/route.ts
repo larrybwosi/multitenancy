@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
-  const id = params.id
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const id = await params
 
   // In a real application, you would fetch the transaction from a database
   // For this mock API, we'll just return a mock transaction
@@ -31,32 +31,4 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }
 
   return NextResponse.json(transaction)
-}
-
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
-  const id = params.id
-  const data = await request.json()
-
-  // In a real application, you would update the transaction in a database
-  // For this mock API, we'll just return the updated data
-  const updatedTransaction = {
-    id,
-    ...data,
-    metadata: {
-      createdAt: "2023-05-01T10:30:00Z",
-      updatedAt: new Date().toISOString(),
-      createdBy: "user_001",
-    },
-  }
-
-  return NextResponse.json(updatedTransaction)
-}
-
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
-  const id = params.id
-
-  // In a real application, you would delete the transaction from a database
-  // For this mock API, we'll just return a success message
-
-  return NextResponse.json({ success: true, message: `Transaction ${id} deleted successfully` })
 }

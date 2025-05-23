@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { AppError } from '@/utils/errors';
 import { getMemberAttendance } from '@/actions/attendance';
 
-export async function GET(request: NextRequest, { params }: { params: { memberId: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { memberId } = params;
+    const { id: memberId } = await params;
     const { searchParams } = new URL(request.url);
     const organizationId = searchParams.get('organizationId');
     const periodStart = searchParams.get('periodStart');

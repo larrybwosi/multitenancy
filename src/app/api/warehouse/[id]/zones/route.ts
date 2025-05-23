@@ -88,16 +88,17 @@ export async function POST(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-
-  const { organizationId } = await getServerAuthContext();
-    const warehouseId = params.id;
+    const { organizationId } = await getServerAuthContext();
+    const { id: warehouseId} = await params;
     if (!warehouseId) {
-      return NextResponse.json({ message: "Warehouse ID is required" }, { status: 400 });
+      return NextResponse.json(
+        { message: "Warehouse ID is required" },
+        { status: 400 }
+      );
     }
-
 
     // Verify warehouse belongs to organization
     const warehouse = await prisma.inventoryLocation.findFirst({
@@ -108,7 +109,10 @@ export async function GET(
     });
 
     if (!warehouse) {
-      return NextResponse.json({ message: "Warehouse not found" }, { status: 404 });
+      return NextResponse.json(
+        { message: "Warehouse not found" },
+        { status: 404 }
+      );
     }
 
     // Get all zones for this warehouse

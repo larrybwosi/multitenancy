@@ -10,7 +10,7 @@ export async function GET(
 
     // Get query parameters
     const { searchParams } = request.nextUrl;
-    const page = parseInt(searchParams.get('page')) || 1;
+    const page = parseInt(searchParams.get('page') || '1') || 1;
     const pageSize = parseInt(searchParams.get('pageSize') || '20');
 
     // Validate page and pageSize

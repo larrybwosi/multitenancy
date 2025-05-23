@@ -1,9 +1,10 @@
 import { deleteNotification } from '@/actions/notifications';
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const success = await deleteNotification(params.id);
+    const { id } = await params;
+    const success = await deleteNotification(id);
     
     if (!success) {
       return NextResponse.json(

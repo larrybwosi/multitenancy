@@ -207,9 +207,9 @@ export async function GET() {
     ])
 
     // Calculate financial metrics
-    const totalIncome = incomeData.reduce((sum, item) => sum + item._sum.finalAmount, 0)
-    const totalExpenses = payrollSummary.reduce((sum, item) => sum + item._sum.amount, 0) + 
-                         paymentVouchers.reduce((sum, item) => sum + item.amount, 0)
+    const totalIncome = incomeData.reduce((sum, item) => sum + Number(item._sum.finalAmount), 0)
+    const totalExpenses = payrollSummary.reduce((sum, item) => sum + Number(item._sum.amount), 0) + 
+                         paymentVouchers.reduce((sum, item) => sum + Number(item.amount), 0)
     const cashFlow = totalIncome - totalExpenses
 
     // Calculate growth percentages

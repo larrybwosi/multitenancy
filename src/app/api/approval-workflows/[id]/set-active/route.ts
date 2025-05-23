@@ -4,10 +4,10 @@ import prisma from "@/lib/db";
 // PUT /api/approval-workflows/:id/set-active - Set a workflow as active for an organization
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const workflowId = params.id;
+    const { id: workflowId } = await params;
     if (!workflowId) {
       return NextResponse.json({ error: "Workflow ID is required" }, { status: 400 });
     }

@@ -1,9 +1,11 @@
+import { getServerAuthContext } from "@/actions/auth";
 import { getCategoryOptions } from "@/actions/category.actions";
 import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    const options = await getCategoryOptions();
+    const { organizationId } = await getServerAuthContext();
+    const options = await getCategoryOptions(organizationId);
     return NextResponse.json(options);
   } catch (error) {
     console.log(error)

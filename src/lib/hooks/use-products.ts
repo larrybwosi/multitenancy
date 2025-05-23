@@ -19,6 +19,8 @@ export type ProductsQueryOptions = {
   sortOrder?: 'asc' | 'desc';
 };
 
+const endpoint = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+
 export function useProducts(options: ProductsQueryOptions = {}) {
   const queryKey = ['products', options];
 
@@ -32,7 +34,7 @@ export function useProducts(options: ProductsQueryOptions = {}) {
       }
     });
 
-    const response = await fetch(`/api/products?${params.toString()}`);
+    const response = await fetch(`${endpoint}/api/products?${params.toString()}`);
 
     if (!response.ok) {
       const error = await response.json();
@@ -59,7 +61,7 @@ export function useCreateProduct() {
     mutationKey: ['createProduct'],
 
     mutationFn: (data: ProductFormValues) => {
-      return axios.post('/api/products/create', data);
+      return axios.post(`${endpoint}/api/products/create`, data);
     },
     onSuccess: () => {
       toast.success('Product created', {
@@ -96,7 +98,7 @@ export function useDeleteProduct() {
   return useMutation({
     mutationKey: ['deleteProduct'],
     mutationFn: (productId: string) => {
-      return axios.delete(`/api/products/${productId}`);
+      return axios.delete(`${endpoint}/api/products/${productId}`);
     },
     onSuccess: (p) => {
       toast.success(`${p?.data?.name||'Product'} deleted`, {
@@ -137,7 +139,7 @@ export function useUpdateProduct() {
         }
       });
       
-      return axios.put(`/api/products/${data.id}`, formData);
+      return axios.put(`${endpoint}/api/products/${data.id}`, formData);
     },
     onSuccess: (response) => {
       const productName = response.data?.data?.product?.name || 'Product';
@@ -181,7 +183,7 @@ export function useRestock({ onSuccess }: { onSuccess?: () => void } = {}) {
 
   return useMutation({
     mutationFn: async (payload: RestockPayload) => {
-      const response = await fetch('/api/stock/restock', {
+      const response = await fetch(`${endpoint}/api/stock/restock`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -238,7 +240,7 @@ export interface BulkRestockInput {
 export function useBulkRestock() {
   return useMutation({
     mutationFn: async (input: BulkRestockInput) => {
-      const response = await axios.post('/api/stock/bulk-restock', input);
+      const response = await axios.post('${endpoint}/api/stock/bulk-restock', input);
       return response.data;
     },
     onSuccess: (data) => {
@@ -264,10 +266,7 @@ export interface ConfigureProductVariantUnitsInput {
 export function useConfigureProductVariantUnits() {
   return useMutation<ProductVariant, Error, ConfigureProductVariantUnitsInput>({
     mutationFn: async (input: ConfigureProductVariantUnitsInput) => {
-      const response = await axios.put(
-        `/api/product-variants/${input.productVariantId}/units`,
-        input
-      );
+      const response = await axios.put(`${endpoint}/api/product-variants/${input.productVariantId}/units`, input);
       return response.data;
     },
     onSuccess: (data) => {

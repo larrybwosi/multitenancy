@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
   try {
@@ -24,7 +24,7 @@ export async function DELETE(
 
     await db.invitation.delete({
       where: {
-        id: params.id,
+        id: id,
       },
     });
 
@@ -38,7 +38,7 @@ export async function DELETE(
 // PATCH /api/invitations/[id]/resend
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
   const { id } = await params;

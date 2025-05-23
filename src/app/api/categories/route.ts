@@ -2,7 +2,7 @@ import { deleteCategory, getCategoriesWithStats, GetCategoriesWithStatsParams, s
 import { handleApiError } from "@/lib/api-utils";
 import { NextResponse } from "next/server";
 
-export async function GET(request: Request, { params }: { params: Promise<{ orgslug: string }> }) {
+export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
 
 

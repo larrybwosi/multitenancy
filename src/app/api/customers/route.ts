@@ -6,12 +6,23 @@ export async function GET(request: Request) {
 
   try {
     const result = await getCustomers({
-      query: searchParams.get('query') || undefined,
-      status: (searchParams.get('status') as any) || 'all',
-      sortBy: (searchParams.get('sortBy') as any) || 'name',
-      sortOrder: (searchParams.get('sortOrder') as any) || 'asc',
-      page: Number(searchParams.get('page')) || 1,
-      pageSize: Number(searchParams.get('pageSize')) || 15,
+      query: searchParams.get("query") || undefined,
+      status:
+        (searchParams.get("status") as
+          | "all"
+          | "active"
+          | "inactive"
+          | undefined) || "all",
+      sortBy:
+        (searchParams.get("sortBy") as
+          | "name"
+          | "email"
+          | "loyaltyPoints"
+          | "createdAt"
+          | undefined) || "name",
+      sortOrder: (searchParams.get("sortOrder") as "asc" | "desc") || "asc",
+      page: Number(searchParams.get("page")) || 1,
+      pageSize: Number(searchParams.get("pageSize")) || 15,
     });
 
     if (!result.success) {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
-import { StorageUnitType } from "@prisma/client";
+import { StorageUnitType } from "@/prisma/client";
 import { z } from "zod";
 import { getServerAuthContext } from "@/actions/auth";
 
@@ -45,11 +45,11 @@ const createUnitSchema = z.object({
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
 
-    const warehouseId = params.id;
+    const {id :warehouseId} = await params;
     if (!warehouseId) {
       return NextResponse.json({ message: "Warehouse ID is required" }, { status: 400 });
     }
@@ -136,10 +136,10 @@ export async function POST(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const warehouseId = params.id;
+    const {id : warehouseId} = await params;
     if (!warehouseId) {
       return NextResponse.json({ message: "Warehouse ID is required" }, { status: 400 });
     }

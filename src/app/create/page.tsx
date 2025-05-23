@@ -1,729 +1,951 @@
-"use client";
-
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import Image from "next/image";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+'use client';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { z } from 'zod';
 import {
-  Loader2,
-  Building,
-  Save,
+  Building2,
+  Globe,
+  Mail,
+  Phone,
+  MapPin,
   DollarSign,
   Package,
-  Globe,
-  Phone,
-  Mail,
-  MapPin,
-  AlertTriangle,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Switch } from "@/components/ui/switch";
-import slugify from "slugify";
-import { appService } from "@/store/service";
+  Settings,
+  Info,
+  CheckCircle,
+  AlertCircle,
+  Clock,
+  Archive,
+  Upload,
+  X,
+  UploadCloud,
+} from 'lucide-react';
 
-// Define form schema using Zod
+// Shadcn UI Components
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import Image from 'next/image';
+import { MotionDiv } from '@/components/motion';
+
+// Schema and types
 const organizationSchema = z.object({
   // Basic Information
-  name: z.string().min(3, "Name must be at least 3 characters").max(100),
+  name: z.string().min(3, 'Name must be at least 3 characters').max(100),
   slug: z
     .string()
-    .min(3, "Slug must be at least 3 characters")
+    .min(3, 'Slug must be at least 3 characters')
     .max(50)
-    .regex(
-      /^[a-z0-9-]+$/i,
-      "Slug can only contain letters, numbers, and hyphens"
-    ),
-  description: z
-    .string()
-    .max(500, "Description cannot exceed 500 characters")
-    .optional(),
-  logo: z.string().url("Must be a valid URL").optional(),
+    .regex(/^[a-z0-9-]+$/i, 'Slug can only contain letters, numbers, and hyphens'),
+  description: z.string().max(500, 'Description cannot exceed 500 characters').optional(),
+  logo: z.string().url('Must be a valid URL').optional(),
 
   // Financial Settings
   defaultCurrency: z.string(),
-  taxRate: z
-    .string()
-    .regex(/^\d+(\.\d{1,2})?$/, "Tax rate must be a valid percentage"),
+  taxRate: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Tax rate must be a valid percentage'),
   fiscalYearStart: z.string(),
+  expenseApprovalThreshold: z.string().regex(/^\d+$/, 'Must be a positive number'),
+  expenseReceiptThreshold: z.string().regex(/^\d+$/, 'Must be a positive number'),
 
   // Inventory Settings
-  lowStockThreshold: z.string().regex(/^\d+$/, "Must be a positive number"),
+  lowStockThreshold: z.string().regex(/^\d+$/, 'Must be a positive number'),
   inventoryTrackingEnabled: z.boolean().default(true),
+  inventoryPolicy: z.enum(['FIFO', 'LIFO', 'FEFO']),
 
   // Contact Information
-  website: z.string().url("Must be a valid URL").optional().or(z.literal("")),
-  email: z.string().email("Must be a valid email").optional().or(z.literal("")),
-  phone: z.string().optional().or(z.literal("")),
-  address: z.string().optional().or(z.literal("")),
+  website: z.string().url('Must be a valid URL').optional().or(z.literal('')),
+  email: z.string().email('Must be a valid email'),
+  phone: z.string().optional().or(z.literal('')),
+  address: z.string().min(1, 'Address is required'),
+
+  // Additional Settings
+  autoCheckoutTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Must be in HH:mm format')
+    .optional()
+    .or(z.literal('')),
 });
 
 type OrganizationForm = z.infer<typeof organizationSchema>;
 
 const currencyOptions = [
-  { value: "USD", label: "US Dollar (USD)" },
-  { value: "EUR", label: "Euro (EUR)" },
-  { value: "GBP", label: "British Pound (GBP)" },
-  { value: "JPY", label: "Japanese Yen (JPY)" },
-  { value: "CAD", label: "Canadian Dollar (CAD)" },
-  { value: "AUD", label: "Australian Dollar (AUD)" },
-  { value: "INR", label: "Indian Rupee (INR)" },
-  { value: "CNY", label: "Chinese Yuan (CNY)" },
+  { value: 'USD', label: 'US Dollar (USD)' },
+  { value: 'EUR', label: 'Euro (EUR)' },
+  { value: 'GBP', label: 'British Pound (GBP)' },
+  { value: 'JPY', label: 'Japanese Yen (JPY)' },
+  { value: 'CAD', label: 'Canadian Dollar (CAD)' },
+  { value: 'AUD', label: 'Australian Dollar (AUD)' },
+  { value: 'INR', label: 'Indian Rupee (INR)' },
+  { value: 'CNY', label: 'Chinese Yuan (CNY)' },
+  { value: 'KSH', label: 'Kenyan Shilling (KSH)' },
 ];
 
-const tabs = ["basic", "financial", "inventory", "contact"];
+const monthOptions = [
+  { value: '01', label: 'January' },
+  { value: '02', label: 'February' },
+  { value: '03', label: 'March' },
+  { value: '04', label: 'April' },
+  { value: '05', label: 'May' },
+  { value: '06', label: 'June' },
+  { value: '07', label: 'July' },
+  { value: '08', label: 'August' },
+  { value: '09', label: 'September' },
+  { value: '10', label: 'October' },
+  { value: '11', label: 'November' },
+  { value: '12', label: 'December' },
+];
 
-export default function CreateOrganizationPage() {
-  const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState(tabs[0]);
-  const [slugPreview, setSlugPreview] = useState("");
-  const [isSlugManuallyEdited, setIsSlugManuallyEdited] = useState(false);
+const inventoryPolicyOptions = [
+  { value: 'FIFO', label: 'First-In, First-Out (FIFO)' },
+  { value: 'LIFO', label: 'Last-In, First-Out (LIFO)' },
+  { value: 'FEFO', label: 'First-Expired, First-Out (FEFO)' },
+];
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isValid },
-    setValue,
-    watch,
-    trigger,
-  } = useForm({
-    resolver: zodResolver(organizationSchema),
-    mode: "onChange",
+// Slugify function
+const slugify = (text: string): string => {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/[\s_-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+};
+
+const OrganizationForm = () => {
+  const [formData, setFormData] = useState<Partial<OrganizationForm>>({
+    name: '',
+    slug: '',
+    description: '',
+    logo: '',
+    defaultCurrency: 'USD',
+    taxRate: '',
+    fiscalYearStart: '01',
+    expenseApprovalThreshold: '',
+    expenseReceiptThreshold: '',
+    lowStockThreshold: '10',
+    inventoryTrackingEnabled: true,
+    inventoryPolicy: 'FIFO',
+    website: '',
+    email: '',
+    phone: '',
+    address: '',
+    autoCheckoutTime: '',
   });
 
-  const nameValue = watch("name");
-  const slugValue = watch("slug");
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
-  // Generate slug preview when name changes
+  // Auto-generate slug from name
   useEffect(() => {
-    if (nameValue && !isSlugManuallyEdited) {
-      const generatedSlug = slugify(nameValue, {
-        lower: true,
-        strict: true,
-        remove: /[*+~.()'"!:@]/g,
-      });
-      setSlugPreview(generatedSlug);
-      setValue("slug", generatedSlug, { shouldValidate: true });
+    if (formData.name) {
+      const newSlug = slugify(formData.name);
+      setFormData(prev => ({ ...prev, slug: newSlug }));
     }
-  }, [nameValue, isSlugManuallyEdited, setValue]);
+  }, [formData.name]);
 
-  const handleSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    const slugifiedValue = slugify(value, {
-      lower: true,
-      strict: true,
-      remove: /[*+~.()'"!:@]/g,
-    });
-    setValue("slug", slugifiedValue, { shouldValidate: true });
-    setIsSlugManuallyEdited(true);
+  // Create preview for selected file
+  useEffect(() => {
+    if (!selectedFile) {
+      setPreviewUrl(null);
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(selectedFile);
+    setPreviewUrl(objectUrl);
+
+    // Clean up
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [selectedFile]);
+
+  const validateField = (name: string, value: any) => {
+    try {
+      const fieldSchema = organizationSchema.shape[name as keyof typeof organizationSchema.shape];
+      fieldSchema.parse(value);
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        setErrors(prev => ({ ...prev, [name]: error.errors[0].message }));
+      }
+    }
   };
 
-  const onSubmit = async (data: OrganizationForm) => {
-    if (!isLastTab || !isValid) return;
+  const handleInputChange = (name: string, value: any) => {
+    setFormData(prev => ({ ...prev, [name]: value }));
+    validateField(name, value);
+  };
 
-    setIsSubmitting(true);
-    setError(null);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) {
+      setSelectedFile(null);
+      return;
+    }
+
+    const file = e.target.files[0];
+    // Validate file type and size
+    if (!file.type.startsWith('image/')) {
+      setErrors(prev => ({ ...prev, logo: 'File must be an image' }));
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setErrors(prev => ({ ...prev, logo: 'File size must be less than 5MB' }));
+      return;
+    }
+
+    setSelectedFile(file);
+    setErrors(prev => ({ ...prev, logo: '' }));
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile) return;
+
+    setIsUploading(true);
+    setErrors(prev => ({ ...prev, logo: '' }));
 
     try {
-      const refined = {
-        ...data,
-        lowStockThreshold: parseInt(data.lowStockThreshold)
-      };
-      console.log(refined)
-      const response = await fetch('/api/organization', {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      const response = await fetch('/api/upload', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(refined),
+        body: formData,
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create organization");
+        throw new Error('Upload failed');
       }
-      const res = await response.json();
 
-      appService.setOrganization(res.organization);
-      appService.setCurrentWarehouse(res.warehouse);
-      router.push("/dashboard");
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "An unexpected error occurred"
-      );
+      const data = await response.json();
+      if (!data.url) {
+        throw new Error('No URL returned');
+      }
+
+      handleInputChange('logo', data.url);
+      setSelectedFile(null);
+    } catch (error) {
+      setErrors(prev => ({
+        ...prev,
+        logo: 'Failed to upload image. Please try again.',
+      }));
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setSelectedFile(null);
+    handleInputChange('logo', '');
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+console.log('Submitting form data:', formData);
+    try {
+      const res = organizationSchema.parse(formData);
+      console.log(res)
+
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      setSubmitSuccess(true);
+      setTimeout(() => setSubmitSuccess(false), 3000);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const newErrors: Record<string, string> = {};
+        error.errors.forEach(err => {
+          if (err.path[0]) {
+            newErrors[err.path[0] as string] = err.message;
+          }
+        });
+        setErrors(newErrors);
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleCurrencyChange = (value: string) => {
-    setValue("defaultCurrency", value);
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+      },
+    },
   };
 
-  const handleInventoryTrackingChange = (checked: boolean) => {
-    setValue("inventoryTrackingEnabled", checked);
+  const cardVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.5,
+        ease: 'easeOut',
+      },
+    },
   };
-
-  const handleNext = async () => {
-    const currentTabFields = {
-      basic: ["name", "slug", "description", "logo"],
-      financial: ["defaultCurrency", "taxRate", "fiscalYearStart"],
-      inventory: ["lowStockThreshold", "inventoryTrackingEnabled"],
-      contact: ["website", "email", "phone", "address"],
-    }[activeTab];
-
-    //eslint-disable-next-line
-    const isValid = await trigger(currentTabFields as any);
-    if (isValid) {
-      const currentIndex = tabs.indexOf(activeTab);
-      if (currentIndex < tabs.length - 1) {
-        setActiveTab(tabs[currentIndex + 1]);
-      }
-    }
-  };
-
-  const handlePrevious = () => {
-    const currentIndex = tabs.indexOf(activeTab);
-    if (currentIndex > 0) {
-      setActiveTab(tabs[currentIndex - 1]);
-    }
-  };
-
-  const isLastTab = activeTab === tabs[tabs.length - 1];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
-      <div className="container mx-auto p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-          {/* Main Form Section */}
-          <div className="lg:col-span-3">
-            <Card className="shadow-xl border-t-4 border-blue-500">
-              <CardHeader className="bg-gray-50 border-b">
-                <CardTitle className="flex items-center gap-2 text-2xl font-bold text-gray-800">
-                  <Building className="h-6 w-6 text-blue-500" />
-                  Create New Organization
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                  <Tabs value={activeTab} onValueChange={setActiveTab}>
-                    <TabsList className="grid grid-cols-4 mb-6">
-                      <TabsTrigger value="basic">Basic Info</TabsTrigger>
-                      <TabsTrigger value="financial">Financial</TabsTrigger>
-                      <TabsTrigger value="inventory">Inventory</TabsTrigger>
-                      <TabsTrigger value="contact">Contact</TabsTrigger>
-                    </TabsList>
+    <TooltipProvider>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex">
+            <MotionDiv
+              initial="hidden"
+              animate="visible"
+              variants={containerVariants}
+              className="w-full lg:w-3/5 space-y-8 pr-8"
+            >
+              {/* Header */}
+              <MotionDiv variants={cardVariants} className="text-center space-y-4">
+                <div className="flex items-center justify-center space-x-3">
+                  <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-full">
+                    <Building2 className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <h1 className="text-4xl font-bold text-slate-900 dark:text-slate-100">Organization Settings</h1>
+                </div>
+                <p className="text-slate-600 dark:text-slate-400 text-lg max-w-2xl mx-auto">
+                  Configure your organization&#39;s basic information, financial settings, and contact details
+                </p>
+              </MotionDiv>
 
-                    {/* Basic Information Tab */}
-                    <TabsContent value="basic" className="space-y-6">
-                      {/* Name Field */}
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="name"
-                          className="text-gray-700 font-medium"
-                        >
-                          Organization Name*
-                        </Label>
-                        <Input
-                          id="name"
-                          placeholder="Acme Corp"
-                          {...register("name")}
-                          className={errors.name ? "border-red-500" : ""}
-                        />
-                        {errors.name && (
-                          <p className="text-red-500 text-sm">
-                            {errors.name.message}
-                          </p>
-                        )}
+              {/* Success Alert */}
+              <AnimatePresence>
+                {submitSuccess && (
+                  <MotionDiv
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                  >
+                    <Alert className="border-green-200 bg-green-50 dark:bg-green-900/20">
+                      <CheckCircle className="h-4 w-4" />
+                      <AlertDescription className="text-green-800 dark:text-green-200">
+                        Organization settings saved successfully!
+                      </AlertDescription>
+                    </Alert>
+                  </MotionDiv>
+                )}
+              </AnimatePresence>
+
+              <div className="space-y-8">
+                {/* Basic Information */}
+                <MotionDiv variants={cardVariants}>
+                  <Card className="hover:shadow-lg transition-all duration-300 border-slate-200 dark:border-slate-700">
+                    <CardHeader className="pb-4">
+                      <div className="flex items-center space-x-2">
+                        <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                        <CardTitle className="text-xl">Basic Information</CardTitle>
                       </div>
-
-                      {/* Slug Field */}
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="slug"
-                          className="text-gray-700 font-medium"
-                        >
-                          Slug*
-                        </Label>
-                        <div className="flex items-center">
-                          <span className="bg-gray-100 p-2 text-gray-500 border border-r-0 rounded-l-md">
-                            org/
-                          </span>
+                      <CardDescription>Set up your organization&#39;s core identity and branding</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Label htmlFor="name">Organization Name *</Label>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <Info className="h-4 w-4 text-slate-400" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>The official name of your organization</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
                           <Input
-                            id="slug"
-                            placeholder="acme-corp"
-                            {...register("slug")}
-                            className={`rounded-l-none ${errors.slug ? "border-red-500" : ""}`}
-                            value={slugValue}
-                            onChange={handleSlugChange}
+                            id="name"
+                            value={formData.name}
+                            onChange={e => handleInputChange('name', e.target.value)}
+                            placeholder="Enter organization name"
+                            className={errors.name ? 'border-red-500' : ''}
                           />
+                          {errors.name && (
+                            <p className="text-sm text-red-500 flex items-center space-x-1">
+                              <AlertCircle className="h-3 w-3" />
+                              <span>{errors.name}</span>
+                            </p>
+                          )}
                         </div>
-                        {errors.slug && (
-                          <p className="text-red-500 text-sm">
-                            {errors.slug.message}
-                          </p>
-                        )}
-                        {slugPreview && !isSlugManuallyEdited && (
-                          <p className="text-gray-500 text-sm">
-                            Suggested slug:{" "}
-                            <span className="font-mono">org/{slugPreview}</span>
-                          </p>
-                        )}
+
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Label htmlFor="slug">URL Slug *</Label>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <Info className="h-4 w-4 text-slate-400" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>URL-friendly version of your organization name</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                          <div className="relative">
+                            <Input
+                              id="slug"
+                              value={formData.slug}
+                              onChange={e => handleInputChange('slug', e.target.value)}
+                              placeholder="organization-slug"
+                              className={errors.slug ? 'border-red-500' : ''}
+                            />
+                            <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                              <MotionDiv
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                className="text-xs bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded"
+                              >
+                                yoursite.com/{formData.slug}
+                              </MotionDiv>
+                            </div>
+                          </div>
+                          {errors.slug && (
+                            <p className="text-sm text-red-500 flex items-center space-x-1">
+                              <AlertCircle className="h-3 w-3" />
+                              <span>{errors.slug}</span>
+                            </p>
+                          )}
+                        </div>
                       </div>
 
-                      {/* Description Field */}
                       <div className="space-y-2">
-                        <Label
-                          htmlFor="description"
-                          className="text-gray-700 font-medium"
-                        >
-                          Description
-                        </Label>
+                        <div className="flex items-center space-x-2">
+                          <Label htmlFor="description">Description</Label>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="h-4 w-4 text-slate-400" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Brief description of your organization (max 500 characters)</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
                         <Textarea
                           id="description"
+                          value={formData.description}
+                          onChange={e => handleInputChange('description', e.target.value)}
                           placeholder="Describe your organization..."
-                          {...register("description")}
-                          className={`min-h-[120px] ${errors.description ? "border-red-500" : ""}`}
+                          className={`resize-none ${errors.description ? 'border-red-500' : ''}`}
+                          rows={3}
                         />
-                        {errors.description && (
-                          <p className="text-red-500 text-sm">
-                            {errors.description.message}
-                          </p>
-                        )}
+                        <div className="flex justify-between text-xs text-slate-500">
+                          <span>
+                            {errors.description && <span className="text-red-500">{errors.description}</span>}
+                          </span>
+                          <span>{formData.description?.length || 0}/500</span>
+                        </div>
                       </div>
 
-                      {/* Logo URL Field */}
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="logo"
-                          className="text-gray-700 font-medium"
-                        >
-                          Logo URL
-                        </Label>
-                        <Input
-                          id="logo"
-                          type="url"
-                          placeholder="https://example.com/logo.png"
-                          {...register("logo")}
-                          className={errors.logo ? "border-red-500" : ""}
-                        />
-                        {errors.logo && (
-                          <p className="text-red-500 text-sm">
-                            {errors.logo.message}
-                          </p>
-                        )}
-                      </div>
-                    </TabsContent>
+                      <div className="space-y-4">
+                        <div className="flex items-center space-x-2">
+                          <Label htmlFor="logo">Organization Logo</Label>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="h-4 w-4 text-slate-400" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Upload your organization&#39;s logo image</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                        <div className="flex flex-col space-y-4">
+                          {/* Preview area */}
+                          {(previewUrl || formData.logo) && (
+                            <div className="relative w-32 h-32 rounded-md overflow-hidden border border-slate-200 dark:border-slate-700">
+                              <Image
+                                src={previewUrl || formData.logo || ''}
+                                alt="Logo preview"
+                                fill
+                                className="object-contain p-2 bg-white dark:bg-slate-800"
+                              />
+                              <button
+                                type="button"
+                                onClick={handleRemoveLogo}
+                                className="absolute top-1 right-1 p-1 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors"
+                                aria-label="Remove logo"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                          )}
 
-                    {/* Financial Settings Tab */}
-                    <TabsContent value="financial" className="space-y-6">
-                      {/* Default Currency Field */}
+                          {/* Upload controls */}
+                          {!formData.logo && (
+                            <div className="space-y-2">
+                              <div className="flex items-center space-x-2">
+                                <Label htmlFor="file-upload" className="cursor-pointer">
+                                  <Button variant="outline" type="button" className="space-x-2">
+                                    <UploadCloud className="h-4 w-4" />
+                                    <span>{selectedFile ? 'Change File' : 'Select File'}</span>
+                                  </Button>
+                                </Label>
+                                <input
+                                  id="file-upload"
+                                  type="file"
+                                  accept="image/png,image/jpeg,image/jpg,image/gif"
+                                  className="w-full cursor-pointer hidden"
+                                  onChange={handleFileChange}
+                                />
+
+                                {selectedFile && (
+                                  <Button
+                                    type="button"
+                                    onClick={handleUpload}
+                                    disabled={isUploading}
+                                    className="space-x-2"
+                                  >
+                                    {isUploading ? (
+                                      <>
+                                        <Settings className="h-4 w-4 animate-spin" />
+                                        <span>Uploading...</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <CheckCircle className="h-4 w-4" />
+                                        <span>Upload</span>
+                                      </>
+                                    )}
+                                  </Button>
+                                )}
+                              </div>
+                              <p className="text-xs text-slate-500">Recommended size: 500x500px, Max file size: 5MB</p>
+                            </div>
+                          )}
+
+                          {errors.logo && (
+                            <p className="text-sm text-red-500 flex items-center space-x-1">
+                              <AlertCircle className="h-3 w-3" />
+                              <span>{errors.logo}</span>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </MotionDiv>
+
+                {/* Rest of your form components remain the same */}
+                {/* Financial Settings */}
+                <MotionDiv variants={cardVariants}>
+                  <Card className="hover:shadow-lg transition-all duration-300 border-slate-200 dark:border-slate-700">
+                    <CardHeader className="pb-4">
+                      <div className="flex items-center space-x-2">
+                        <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" />
+                        <CardTitle className="text-xl">Financial Settings</CardTitle>
+                      </div>
+                      <CardDescription>Configure currency, tax rates, and fiscal year settings</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="space-y-2">
+                          <Label htmlFor="defaultCurrency">Default Currency *</Label>
+                          <Select
+                            value={formData.defaultCurrency}
+                            onValueChange={value => handleInputChange('defaultCurrency', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select currency" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {currencyOptions.map(currency => (
+                                <SelectItem key={currency.value} value={currency.value}>
+                                  {currency.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Label htmlFor="taxRate">Tax Rate (%) *</Label>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <Info className="h-4 w-4 text-slate-400" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Default tax rate for transactions (e.g., 8.25)</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                          <Input
+                            id="taxRate"
+                            value={formData.taxRate}
+                            onChange={e => handleInputChange('taxRate', e.target.value)}
+                            placeholder="8.25"
+                            className={errors.taxRate ? 'border-red-500' : ''}
+                          />
+                          {errors.taxRate && (
+                            <p className="text-sm text-red-500 flex items-center space-x-1">
+                              <AlertCircle className="h-3 w-3" />
+                              <span>{errors.taxRate}</span>
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Label htmlFor="fiscalYearStart">Fiscal Year Start *</Label>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <Info className="h-4 w-4 text-slate-400" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Month when your fiscal year begins</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                          <Select
+                            value={formData.fiscalYearStart}
+                            onValueChange={value => handleInputChange('fiscalYearStart', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select month" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {monthOptions.map(month => (
+                                <SelectItem key={month.value} value={month.value}>
+                                  {month.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Label htmlFor="expenseApprovalThreshold">Expense Approval Threshold *</Label>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <Info className="h-4 w-4 text-slate-400" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Expenses below this amount are auto-approved.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                          <Input
+                            id="expenseApprovalThreshold"
+                            value={formData.expenseApprovalThreshold}
+                            onChange={e => handleInputChange('expenseApprovalThreshold', e.target.value)}
+                            placeholder="1000"
+                            type="number"
+                            min="0"
+                            className={errors.expenseApprovalThreshold ? 'border-red-500' : ''}
+                          />
+                          {errors.expenseApprovalThreshold && (
+                            <p className="text-sm text-red-500 flex items-center space-x-1">
+                              <AlertCircle className="h-3 w-3" />
+                              <span>{errors.expenseApprovalThreshold}</span>
+                            </p>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Label htmlFor="expenseReceiptThreshold">Expense Receipt Threshold *</Label>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <Info className="h-4 w-4 text-slate-400" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Expenses above this amount require a receipt.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                          <Input
+                            id="expenseReceiptThreshold"
+                            value={formData.expenseReceiptThreshold}
+                            onChange={e => handleInputChange('expenseReceiptThreshold', e.target.value)}
+                            placeholder="50"
+                            type="number"
+                            min="0"
+                            className={errors.expenseReceiptThreshold ? 'border-red-500' : ''}
+                          />
+                          {errors.expenseReceiptThreshold && (
+                            <p className="text-sm text-red-500 flex items-center space-x-1">
+                              <AlertCircle className="h-3 w-3" />
+                              <span>{errors.expenseReceiptThreshold}</span>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </MotionDiv>
+
+                {/* Inventory Settings */}
+                <MotionDiv variants={cardVariants}>
+                  <Card className="hover:shadow-lg transition-all duration-300 border-slate-200 dark:border-slate-700">
+                    <CardHeader className="pb-4">
+                      <div className="flex items-center space-x-2">
+                        <Package className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                        <CardTitle className="text-xl">Inventory Settings</CardTitle>
+                      </div>
+                      <CardDescription>Configure inventory tracking and stock management</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Label htmlFor="lowStockThreshold">Low Stock Threshold *</Label>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <Info className="h-4 w-4 text-slate-400" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Minimum quantity before low stock alerts</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                          <Input
+                            id="lowStockThreshold"
+                            value={formData.lowStockThreshold}
+                            onChange={e => handleInputChange('lowStockThreshold', e.target.value)}
+                            placeholder="10"
+                            type="number"
+                            min="0"
+                            className={errors.lowStockThreshold ? 'border-red-500' : ''}
+                          />
+                          {errors.lowStockThreshold && (
+                            <p className="text-sm text-red-500 flex items-center space-x-1">
+                              <AlertCircle className="h-3 w-3" />
+                              <span>{errors.lowStockThreshold}</span>
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Label htmlFor="inventoryTrackingEnabled">Enable Inventory Tracking</Label>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <Info className="h-4 w-4 text-slate-400" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Track inventory levels and stock movements</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                          <div className="flex items-center space-x-3 pt-2">
+                            <Switch
+                              id="inventoryTrackingEnabled"
+                              checked={formData.inventoryTrackingEnabled}
+                              onCheckedChange={checked => handleInputChange('inventoryTrackingEnabled', checked)}
+                            />
+                            <span className="text-sm text-slate-600 dark:text-slate-400">
+                              {formData.inventoryTrackingEnabled ? 'Enabled' : 'Disabled'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                       <div className="space-y-2">
-                        <Label
-                          htmlFor="defaultCurrency"
-                          className="text-gray-700 font-medium"
-                        >
-                          Default Currency*
-                        </Label>
+                        <div className="flex items-center space-x-2">
+                          <Archive className="h-4 w-4 text-slate-500" />
+                          <Label htmlFor="inventoryPolicy">Inventory Policy</Label>
+                        </div>
                         <Select
-                          onValueChange={handleCurrencyChange}
-                          defaultValue={watch("defaultCurrency")}
+                          value={formData.inventoryPolicy}
+                          onValueChange={value => handleInputChange('inventoryPolicy', value)}
                         >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select a currency" />
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select inventory policy" />
                           </SelectTrigger>
                           <SelectContent>
-                            {currencyOptions.map((currency) => (
-                              <SelectItem
-                                key={currency.value}
-                                value={currency.value}
-                              >
-                                {currency.label}
+                            {inventoryPolicyOptions.map(policy => (
+                              <SelectItem key={policy.value} value={policy.value}>
+                                {policy.label}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
-                        {errors.defaultCurrency && (
-                          <p className="text-red-500 text-sm">
-                            {errors.defaultCurrency.message}
-                          </p>
-                        )}
                       </div>
+                    </CardContent>
+                  </Card>
+                </MotionDiv>
 
-                      {/* Tax Rate Field */}
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="taxRate"
-                          className="text-gray-700 font-medium"
-                        >
-                          Default Tax Rate (%)*
-                        </Label>
-                        <div className="flex items-center">
-                          <Input
-                            id="taxRate"
-                            placeholder="0.00"
-                            {...register("taxRate")}
-                            className={errors.taxRate ? "border-red-500" : ""}
-                          />
-                          <span className="ml-2 text-gray-500">%</span>
-                        </div>
-                        {errors.taxRate && (
-                          <p className="text-red-500 text-sm">
-                            {errors.taxRate.message}
-                          </p>
-                        )}
+                {/* Contact Information */}
+                <MotionDiv variants={cardVariants}>
+                  <Card className="hover:shadow-lg transition-all duration-300 border-slate-200 dark:border-slate-700">
+                    <CardHeader className="pb-4">
+                      <div className="flex items-center space-x-2">
+                        <Settings className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                        <CardTitle className="text-xl">Contact Information</CardTitle>
                       </div>
-
-                      {/* Fiscal Year Start */}
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="fiscalYearStart"
-                          className="text-gray-700 font-medium"
-                        >
-                          Fiscal Year Start Date*
-                        </Label>
-                        <Input
-                          id="fiscalYearStart"
-                          placeholder="MM-DD"
-                          {...register("fiscalYearStart")}
-                          className={
-                            errors.fiscalYearStart ? "border-red-500" : ""
-                          }
-                        />
-                        {errors.fiscalYearStart && (
-                          <p className="text-red-500 text-sm">
-                            {errors.fiscalYearStart.message}
-                          </p>
-                        )}
-                      </div>
-                    </TabsContent>
-
-                    {/* Inventory Settings Tab */}
-                    <TabsContent value="inventory" className="space-y-6">
-                      {/* Low Stock Threshold */}
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="lowStockThreshold"
-                          className="text-gray-700 font-medium"
-                        >
-                          Low Stock Threshold*
-                        </Label>
-                        <Input
-                          id="lowStockThreshold"
-                          type="number"
-                          placeholder="10"
-                          {...register("lowStockThreshold")}
-                          className={
-                            errors.lowStockThreshold ? "border-red-500" : ""
-                          }
-                        />
-                        {errors.lowStockThreshold && (
-                          <p className="text-red-500 text-sm">
-                            {errors.lowStockThreshold.message}
-                          </p>
-                        )}
-                        <p className="text-gray-500 text-sm">
-                          Items with stock below this number will be marked as
-                          low stock
-                        </p>
-                      </div>
-
-                      {/* Inventory Tracking Toggle */}
-                      <div className="space-y-4 pt-2">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <Label className="text-gray-700 font-medium">
-                              Enable Inventory Tracking
-                            </Label>
-                            <p className="text-gray-500 text-sm">
-                              Automatically track stock levels for all products
-                            </p>
+                      <CardDescription>Add your organization&#39;s contact details and social presence</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Globe className="h-4 w-4 text-slate-500" />
+                            <Label htmlFor="website">Website</Label>
                           </div>
-                          <Switch
-                            checked={watch("inventoryTrackingEnabled")}
-                            onCheckedChange={handleInventoryTrackingChange}
-                          />
-                        </div>
-                      </div>
-                    </TabsContent>
-
-                    {/* Contact Information Tab */}
-                    <TabsContent value="contact" className="space-y-6">
-                      {/* Website Field */}
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="website"
-                          className="text-gray-700 font-medium"
-                        >
-                          Website
-                        </Label>
-                        <div className="flex items-center">
-                          <Globe className="mr-2 h-4 w-4 text-gray-500" />
                           <Input
                             id="website"
-                            placeholder="https://example.com"
-                            {...register("website")}
-                            className={errors.website ? "border-red-500" : ""}
+                            value={formData.website}
+                            onChange={e => handleInputChange('website', e.target.value)}
+                            placeholder="https://yourwebsite.com"
+                            type="url"
+                            className={errors.website ? 'border-red-500' : ''}
                           />
+                          {errors.website && (
+                            <p className="text-sm text-red-500 flex items-center space-x-1">
+                              <AlertCircle className="h-3 w-3" />
+                              <span>{errors.website}</span>
+                            </p>
+                          )}
                         </div>
-                        {errors.website && (
-                          <p className="text-red-500 text-sm">
-                            {errors.website.message}
-                          </p>
-                        )}
-                      </div>
 
-                      {/* Email Field */}
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="email"
-                          className="text-gray-700 font-medium"
-                        >
-                          Email Address
-                        </Label>
-                        <div className="flex items-center">
-                          <Mail className="mr-2 h-4 w-4 text-gray-500" />
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Mail className="h-4 w-4 text-slate-500" />
+                            <Label htmlFor="email">Email *</Label>
+                          </div>
                           <Input
                             id="email"
+                            value={formData.email}
+                            onChange={e => handleInputChange('email', e.target.value)}
+                            placeholder="contact@yourorg.com"
                             type="email"
-                            placeholder="contact@example.com"
-                            {...register("email")}
-                            className={errors.email ? "border-red-500" : ""}
+                            className={errors.email ? 'border-red-500' : ''}
                           />
+                          {errors.email && (
+                            <p className="text-sm text-red-500 flex items-center space-x-1">
+                              <AlertCircle className="h-3 w-3" />
+                              <span>{errors.email}</span>
+                            </p>
+                          )}
                         </div>
-                        {errors.email && (
-                          <p className="text-red-500 text-sm">
-                            {errors.email.message}
-                          </p>
-                        )}
-                      </div>
 
-                      {/* Phone Field */}
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="phone"
-                          className="text-gray-700 font-medium"
-                        >
-                          Phone Number
-                        </Label>
-                        <div className="flex items-center">
-                          <Phone className="mr-2 h-4 w-4 text-gray-500" />
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Phone className="h-4 w-4 text-slate-500" />
+                            <Label htmlFor="phone">Phone</Label>
+                          </div>
                           <Input
                             id="phone"
-                            placeholder="+1 (123) 456-7890"
-                            {...register("phone")}
-                            className={errors.phone ? "border-red-500" : ""}
+                            value={formData.phone}
+                            onChange={e => handleInputChange('phone', e.target.value)}
+                            placeholder="+1 (555) 123-4567"
+                            type="tel"
                           />
                         </div>
-                        {errors.phone && (
-                          <p className="text-red-500 text-sm">
-                            {errors.phone.message}
-                          </p>
-                        )}
-                      </div>
 
-                      {/* Address Field */}
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="address"
-                          className="text-gray-700 font-medium"
-                        >
-                          Address
-                        </Label>
-                        <div className="flex items-center">
-                          <MapPin className="mr-2 h-4 w-4 text-gray-500" />
-                          <Textarea
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <MapPin className="h-4 w-4 text-slate-500" />
+                            <Label htmlFor="address">Address *</Label>
+                          </div>
+                          <Input
                             id="address"
-                            placeholder="123 Main St, City, Country"
-                            {...register("address")}
-                            className={errors.address ? "border-red-500" : ""}
+                            value={formData.address}
+                            onChange={e => handleInputChange('address', e.target.value)}
+                            placeholder="123 Main St, City, State 12345"
+                            className={errors.address ? 'border-red-500' : ''}
                           />
+                          {errors.address && (
+                            <p className="text-sm text-red-500 flex items-center space-x-1">
+                              <AlertCircle className="h-3 w-3" />
+                              <span>{errors.address}</span>
+                            </p>
+                          )}
                         </div>
-                        {errors.address && (
-                          <p className="text-red-500 text-sm">
-                            {errors.address.message}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </MotionDiv>
+
+                {/* Additional Settings */}
+                <MotionDiv variants={cardVariants}>
+                  <Card className="hover:shadow-lg transition-all duration-300 border-slate-200 dark:border-slate-700">
+                    <CardHeader className="pb-4">
+                      <div className="flex items-center space-x-2">
+                        <Clock className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                        <CardTitle className="text-xl">Additional Settings</CardTitle>
+                      </div>
+                      <CardDescription>Optional settings for your organization</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <Label htmlFor="autoCheckoutTime">Auto-Checkout Time (HH:mm)</Label>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="h-4 w-4 text-slate-400" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Set a time for automatic checkout of logged-in users.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                        <Input
+                          id="autoCheckoutTime"
+                          value={formData.autoCheckoutTime}
+                          onChange={e => handleInputChange('autoCheckoutTime', e.target.value)}
+                          placeholder="HH:mm"
+                          className={errors.autoCheckoutTime ? 'border-red-500' : ''}
+                        />
+                        {errors.autoCheckoutTime && (
+                          <p className="text-sm text-red-500 flex items-center space-x-1">
+                            <AlertCircle className="h-3 w-3" />
+                            <span>{errors.autoCheckoutTime}</span>
                           </p>
                         )}
                       </div>
-                    </TabsContent>
-                  </Tabs>
+                    </CardContent>
+                  </Card>
+                </MotionDiv>
 
-                  {/* Error Alert */}
-                  {error && (
-                    <Alert variant="destructive" className="mt-6">
-                      <AlertTriangle className="h-4 w-4" />
-                      <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                  )}
-
-                  {/* Footer with navigation and submit */}
-                  <div className="flex items-center justify-between pt-6 border-t mt-6">
-                    <div className="flex space-x-2">
-                      {activeTab !== tabs[0] && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={handlePrevious}
-                        >
-                          <ChevronLeft className="h-4 w-4 mr-1" />
-                          Previous
-                        </Button>
-                      )}
-
-                      {!isLastTab && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={handleNext}
-                        >
-                          Next
-                          <ChevronRight className="h-4 w-4 ml-1" />
-                        </Button>
-                      )}
-                    </div>
-
-                    {/* Submit Button */}
-                    {isLastTab ? (
-                      <Button
-                        type="submit"
-                        disabled={isSubmitting || !isValid}
-                        className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
-                      >
-                        {isSubmitting ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Creating...
-                          </>
-                        ) : (
-                          <>
-                            <Save className="mr-2 h-4 w-4" />
-                            Create Organization
-                          </>
-                        )}
-                      </Button>
-                    ) : (
-                      <Button
-                        type="button"
-                        onClick={handleNext}
-                        variant="default"
-                      >
-                        Next
-                        <ChevronRight className="h-4 w-4 ml-1" />
-                      </Button>
-                    )}
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Image and Information Section */}
-          <div className="lg:col-span-2">
-            <Card className="shadow-lg border-t-4 border-blue-500 sticky top-6">
-              <div className="aspect-video relative overflow-hidden rounded-t-lg">
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/90 to-indigo-600/90 flex items-center justify-center">
-                  <Image
-                    src="https://cdn.sanity.io/images/7rkl59hi/production/90692709b593f4ddb6765bf69aab47f46e78b1b1-1339x905.jpg?fm=webp&q=75&auto=format"
-                    alt="Organization Setup"
-                    width={800}
-                    height={400}
-                    className="object-cover mix-blend-overlay"
-                  />
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-8">
-                    <Building className="h-16 w-16 mb-4" />
-                    <h3 className="text-2xl font-bold text-center">
-                      Build Your Organization
-                    </h3>
-                    <p className="text-center mt-2 max-w-xs">
-                      Set up your organization profile with all the essential
-                      details
-                    </p>
-                  </div>
-                </div>
+                {/* Submit Button */}
+                <MotionDiv variants={cardVariants} className="flex justify-end pt-6">
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="min-w-[200px] h-12 text-base font-medium hover:scale-105 transition-all duration-200"
+                    onClick={handleSubmit}
+                  >
+                    <MotionDiv
+                      animate={isSubmitting ? { rotate: 360 } : { rotate: 0 }}
+                      transition={{
+                        duration: 1,
+                        repeat: isSubmitting ? Infinity : 0,
+                      }}
+                      className="mr-2"
+                    >
+                      {isSubmitting ? <Settings className="h-5 w-5" /> : <CheckCircle className="h-5 w-5" />}
+                    </MotionDiv>
+                    {isSubmitting ? 'Saving...' : 'Save Organization Settings'}
+                  </Button>
+                </MotionDiv>
               </div>
-
-              <CardContent className="p-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                  Why these details matter
-                </h3>
-
-                <div className="space-y-4">
-                  <div className="flex items-start">
-                    <div className="bg-blue-100 p-2 rounded-full mr-3">
-                      <DollarSign className="h-4 w-4 text-blue-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-gray-800">
-                        Financial Settings
-                      </h4>
-                      <p className="text-gray-600 text-sm">
-                        Set your default currency and tax rate to ensure
-                        accurate financial reporting from day one.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start">
-                    <div className="bg-blue-100 p-2 rounded-full mr-3">
-                      <Package className="h-4 w-4 text-blue-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-gray-800">
-                        Inventory Management
-                      </h4>
-                      <p className="text-gray-600 text-sm">
-                        Configure inventory tracking and low stock alerts to
-                        maintain optimal stock levels.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start">
-                    <div className="bg-blue-100 p-2 rounded-full mr-3">
-                      <Globe className="h-4 w-4 text-blue-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-gray-800">
-                        Contact Information
-                      </h4>
-                      <p className="text-gray-600 text-sm">
-                        Your organization&apos;s contact details will be used on
-                        invoices, reports, and customer communications.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                  <div className="flex items-start">
-                    <AlertTriangle className="h-5 w-5 text-amber-500 mr-2 mt-0.5" />
-                    <p className="text-amber-800 text-sm">
-                      Make sure to fill in all required fields marked with an
-                      asterisk (*). You can always update these settings later.
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            </MotionDiv>
+            <div className="hidden lg:block w-2/5 pl-8">
+              <div className="sticky top-8">
+                <Image
+                  width={1024}
+                  height={1024}
+                  src="https://cdn.sanity.io/images/7rkl59hi/production/d8ea510f70826369e9f7eb1b9c65bae870cdaf0c-1024x1024.jpg?fm=webp&q=75&auto=format"
+                  alt="Organization"
+                  className="rounded-lg shadow-lg"
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
-}
+};
+
+export default OrganizationForm;

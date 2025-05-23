@@ -17,7 +17,7 @@ import {
 // GET - Fetch a specific member
 export async function GET(
   request: Request,
-  { params }: { params: { memberId: string } }
+  { params }: { params:Promise< { memberId: string }> }
 ) {
   try {
     // 1. Authentication
@@ -174,7 +174,7 @@ export async function PATCH(
 // DELETE - Remove a member from the organization
 export async function DELETE(
   request: Request,
-  { params }: { params: { memberId: string } }
+  { params }: { params:Promise< { memberId: string }> }
 ) {
   try {
     // 1. Authentication & Base Authorization

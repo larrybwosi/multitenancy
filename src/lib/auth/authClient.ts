@@ -8,17 +8,9 @@ import {
 import { auth } from "../auth";
 import { ac, ADMIN, CASHIER, DEVELOPER } from "./permissions";
 
-export const {
-  signIn,
-  signUp,
-  useSession,
-  signOut,
-  admin,
-  changePassword,
-  organization,
-  apiKey
-} = createAuthClient({
-  baseURL: process.env.BETTER_AUTH_URL,
+export const { signIn, signUp, useSession, signOut, admin, changePassword, organization, apiKey } = createAuthClient({
+  baseURL: process.env.BETTER_AUTH_ENDPOINT,
+  basePath:process.env.BETTER_AUTH_ENDPOINT,
   plugins: [
     customSessionClient<typeof auth>(),
     apiKeyClient(),

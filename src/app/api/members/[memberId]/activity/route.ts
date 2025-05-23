@@ -4,7 +4,7 @@ import { getServerAuthContext } from "@/actions/auth";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { memberId: string } }
+  { params }: { params: Promise<{ memberId: string }> }
 ) {
   try {
   const { organizationId } = await getServerAuthContext();

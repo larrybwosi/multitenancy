@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AppError } from '@/utils/errors';
 import { getAllMembersAttendanceForOrganization } from '@/actions/attendance';
+import { getServerAuthContext } from '@/actions/auth';
 
-export async function GET(request: NextRequest, { params }: { params: { organizationId: string } }) {
+export async function GET(request: NextRequest,) {
   try {
-    const { organizationId } = params;
+    const { organizationId } = await getServerAuthContext();
     const { searchParams } = new URL(request.url);
     const periodStart = searchParams.get('periodStart');
     const periodEnd = searchParams.get('periodEnd');

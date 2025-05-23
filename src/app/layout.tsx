@@ -4,6 +4,7 @@ import "./globals.css";
 import { Providers } from "@/providers";
 import { Suspense } from "react";
 import {GoogleAnalytics} from '@next/third-parties/google';
+// import WarmLayout from "@/components/warm-layout";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -43,7 +44,11 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Providers>
           <GoogleAnalytics gaId="G-M6G43VGKNX" />
-          <Suspense>{children}</Suspense>
+          <Suspense>
+            {/* <WarmLayout> */}
+              {children}
+              {/* </WarmLayout> */}
+          </Suspense>
         </Providers>
       </body>
     </html>

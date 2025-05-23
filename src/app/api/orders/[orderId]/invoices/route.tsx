@@ -220,9 +220,9 @@ const InvoiceDocument: React.FC<InvoiceProps> = ({ order }) => (
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { orderId: string } }
+  { params }: { params: Promise<{ orderId: string }> }
 ) {
-  const orderId = params.orderId;
+  const {orderId} = await params;
   // TODO: Add authentication and authorization here to ensure the user
   // requesting the invoice has the right to access this order.
   // This might involve getting the current user/member session.

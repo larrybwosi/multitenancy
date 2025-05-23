@@ -4,11 +4,11 @@ import prisma from "@/lib/db";
 // GET /api/approval-workflows/:id - Get a specific workflow
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
 
-    const workflowId = params.id;
+    const { id: workflowId } = await params;
     if (!workflowId) {
       return NextResponse.json({ error: "Workflow ID is required" }, { status: 400 });
     }

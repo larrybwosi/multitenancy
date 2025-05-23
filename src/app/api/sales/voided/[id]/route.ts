@@ -3,10 +3,10 @@ import prisma from "@/lib/db";
 // DELETE - Permanently delete a voided sale
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<Promise<{ id: string }>> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     // First verify the sale is actually voided
     const sale = await prisma.sale.findUnique({
@@ -45,10 +45,10 @@ export async function DELETE(
 // POST - Restore a voided sale
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     // First verify the sale is actually voided
     const sale = await prisma.sale.findUnique({

@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ValidationError, NotFoundError, AppError } from '@/utils/errors';
 import { setOrganizationAutoCheckoutSettings } from '@/actions/attendance';
+import { getServerAuthContext } from '@/actions/auth';
 
-export async function PATCH(request: NextRequest, { params }: { params: { organizationId: string } }) {
+export async function PATCH(request: NextRequest) {
   try {
-    const { organizationId } = params;
+    const { organizationId } = await getServerAuthContext();
     const body = await request.json();
     const { enableAutoCheckout, autoCheckoutTime } = body;
 

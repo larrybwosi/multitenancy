@@ -4,10 +4,11 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const notification = await markNotificationRead(params.id);
+    const { id } = await params;
+    const notification = await markNotificationRead(id);
     return NextResponse.json(notification);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 400 });

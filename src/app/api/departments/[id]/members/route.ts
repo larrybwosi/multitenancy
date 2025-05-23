@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { DepartmentMemberRole } from '@/prisma/client';
 import { DepartmentMemberInput } from '@/lib/validations/department';
-import { getServerAuthContext } from '@/actions/auth';
 import { addMemberToDepartment, removeMemberFromDepartment, updateDepartmentMember } from '@/actions/departments/members';
 
 type Params = Promise<{ id: string }>;
@@ -9,7 +8,6 @@ type Params = Promise<{ id: string }>;
 // Add member to department
 export async function POST(request: Request, { params }: { params: Params }) {
   try {
-    const { memberId: requestingMemberId } = await getServerAuthContext();
     const { id } = await params;
     const body = await request.json();
 

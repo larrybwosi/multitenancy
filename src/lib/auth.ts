@@ -39,7 +39,7 @@ export const auth = betterAuth({
       maxAge: 5 * 60 * 60,
     },
     preserveSessionInDatabase: true,
-    storeSessionInDatabase: process.env.NODE_ENV === 'development',
+    // storeSessionInDatabase: process.env.NODE_ENV === 'development',
   },
   databaseHooks: {
     session: {
@@ -85,19 +85,19 @@ export const auth = betterAuth({
     nextCookies(),
   ],
 
-  // secondaryStorage: {
-  //   get: async key => {
-  //     const value = (await redis.get(key)) as string | null;
-  //     return value ? JSON.stringify(value) : null;
-  //   },
-  //   set: async (key, value, ttl) => {
-  //     if (ttl) await redis.setex(key, ttl, value);
-  //     else await redis.set(key, value);
-  //   },
-  //   delete: async key => {
-  //     await redis.del(key);
-  //   },
-  // },
+  secondaryStorage: {
+    get: async key => {
+      const value = (await redis.get(key)) as string | null;
+      return value ? JSON.stringify(value) : null;
+    },
+    set: async (key, value, ttl) => {
+      if (ttl) await redis.setex(key, ttl, value);
+      else await redis.set(key, value);
+    },
+    delete: async key => {
+      await redis.del(key);
+    },
+  },
   rateLimit: {
     window: 60,
     max: 100,

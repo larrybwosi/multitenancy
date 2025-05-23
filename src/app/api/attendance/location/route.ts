@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { AppError } from '@/utils/errors';
 import { getLocationAttendance } from '@/actions/attendance';
 
-export async function GET(request: NextRequest, { params }: { params: { inventoryLocationId: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ inventoryLocationId: string }> }) {
   try {
-    const { inventoryLocationId } = params;
+    const { inventoryLocationId } = await params;
     const { searchParams } = new URL(request.url);
     const organizationId = searchParams.get('organizationId');
     const periodStart = searchParams.get('periodStart');

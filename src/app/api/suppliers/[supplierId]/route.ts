@@ -6,10 +6,9 @@ import type { NextRequest } from "next/server";
 // Context contains params for dynamic routes
 export async function GET(
   request: NextRequest,
-  { params }: { params: { supplierId: string } }
+  { params }: { params: Promise<{ supplierId: string }> }
 ) {
-  
-  const {supplierId} = await params;
+  const { supplierId } = await params;
   try {
     const supplier = await getSupplier(supplierId);
     if (!supplier.success) {
@@ -29,14 +28,14 @@ export async function GET(
 // Add PUT for updating supplier
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { supplierId: string } }
+  { params }: { params: Promise<{ supplierId: string }> }
 ) {
   // Add Auth checks
   const { supplierId } = await params;
   try {
-    const body = (await request.json())
+    const body = await request.json();
 
-    const updatedSupplier = await updateSupplier({...body, supplierId});
+    const updatedSupplier = await updateSupplier({ ...body, supplierId });
     return NextResponse.json(updatedSupplier);
   } catch (error: unknown) {
     console.error(`Failed to update supplier ${supplierId}:`, error);
@@ -50,13 +49,13 @@ export async function PUT(
 // Add DELETE (soft delete recommended)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { supplierId: string } }
+  { params }: { params: Promise<{ supplierId: string }> }
 ) {
   // Add Auth checks
-  const supplierId = params.supplierId;
+  const {supplierId} = await params;
   try {
     // Soft delete: Mark as inactive instead of removing
-    const supplier = await deleteSupplier({id: supplierId});
+    const supplier = await deleteSupplier({ id: supplierId });
 
     return NextResponse.json(supplier);
   } catch (error: unknown) {
