@@ -21,27 +21,8 @@ import { Badge } from '@/components/ui/badge';
 import { Building2, User, Mail, Phone, MapPin, Calendar, Clock, Check, X, Loader2, TruckElectric } from 'lucide-react';
 import { useState } from 'react';
 import { useCreateSupplier } from '@/lib/hooks/use-supplier';
+import { CreateSupplierPayloadSchema } from '@/lib/validations/suppliers';
 
-// Base schemas
-const BaseStringSchema = z.string().trim();
-const OptionalStringSchema = BaseStringSchema.optional().nullable();
-const OptionalEmailSchema = z.string().trim().email().optional().nullable();
-const OptionalNumberSchema = z.number().optional().nullable();
-
-// Supplier schema
-export const CreateSupplierPayloadSchema = z.object({
-  name: BaseStringSchema.min(2, { message: 'Supplier name must be at least 2 characters.' }).max(255, {
-    message: 'Supplier name must be less than 255 characters.',
-  }),
-  contactName: BaseStringSchema.max(100).optional().nullable(),
-  email: OptionalEmailSchema,
-  phone: BaseStringSchema.max(30).optional().nullable(),
-  address: OptionalStringSchema,
-  paymentTerms: BaseStringSchema.max(100).optional().nullable(),
-  leadTime: z.preprocess(val => (val === '' ? null : Number(val)), OptionalNumberSchema),
-  isActive: z.boolean().default(true),
-  customFields: z.record(z.any()).optional().nullable(),
-});
 
 type FormValues = z.infer<typeof CreateSupplierPayloadSchema>;
 

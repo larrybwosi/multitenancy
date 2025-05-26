@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   CalendarIcon,
@@ -9,9 +9,9 @@ import {
   DollarSign,
   MapPin,
   Building,
-  Tag,
   FileText,
   AlertCircle,
+  PlusCircle,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -31,7 +31,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { useCreateExpense } from '@/lib/hooks/use-expenses';
@@ -42,6 +41,7 @@ import { CreateExpenseSchema } from '@/lib/validations/expenses';
 import { PaymentMethod } from '@/prisma/client';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui';
+import Link from 'next/link';
 
 const ExpenseModal = ({ isOpen, onClose }:{isOpen:boolean , onClose:()=>void}) => {
   const [isUploading, setIsUploading] = useState(false);
@@ -74,7 +74,7 @@ const ExpenseModal = ({ isOpen, onClose }:{isOpen:boolean , onClose:()=>void}) =
     },
   });
 
-  const handleFileUpload = async event => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -102,7 +102,7 @@ const ExpenseModal = ({ isOpen, onClose }:{isOpen:boolean , onClose:()=>void}) =
 
       const data = await response.json();
       form.setValue('receiptUrl', data.url);
-    } catch (error) {
+    } catch (error:any) {
       toast.error('Failed to upload receipt: ', {
         description: error.message,
       });
@@ -111,7 +111,7 @@ const ExpenseModal = ({ isOpen, onClose }:{isOpen:boolean , onClose:()=>void}) =
     }
   };
 
-  const onSubmit = async data => {
+  const onSubmit = async (data: typeof CreateExpenseSchema) => {
     try {
       await createExpense(data);
       onClose();
@@ -265,6 +265,10 @@ const ExpenseModal = ({ isOpen, onClose }:{isOpen:boolean , onClose:()=>void}) =
                                 {category.name}
                               </SelectItem>
                             ))}
+                            <Link href={`/finances/expenses/categories/new`} className="flex items-center gap-2 p-2 hover:bg-gray-100">
+                              <PlusCircle className="mr-2 h-4 w-4" />
+                              <span className="text-sm">New Category</span>
+                            </Link>
                           </SelectContent>
                         </Select>
                         <FormMessage />

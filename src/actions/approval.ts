@@ -1,8 +1,6 @@
 import { db } from "@/lib/db";
-import { Prisma } from "@/prisma/client";
+import { Prisma, PrismaClient } from "@/prisma/client";
 import { ApprovalWorkflowInput, ApprovalWorkflowInputSchema } from "@/lib/validations/approval";
-
-const prisma = db;
 
 interface WorkflowResult {
   success: boolean;
@@ -19,9 +17,21 @@ interface WorkflowResult {
  * @param workflowData Raw input data for the workflow.
  * @returns Promise resolving to a WorkflowResult object.
  */
+
+/**
+ * Creates an approval workflow for an organization.
+ * Can be used standalone or within an existing Prisma transaction.
+ * @param orgId - The organization ID.
+ * @param workflowData - The workflow input data.
+ * @param prismaClient - The Prisma client (optional, defaults to global prisma).
+ * @param tx - Optional Prisma transaction client.
+ * @returns A WorkflowResult object.
+ */
 export async function createApprovalWorkflow(
   orgId: string,
-  workflowData: unknown // Accept unknown initially for Zod parsing
+  workflowData: unknown,
+  prismaClient: PrismaClient = new PrismaClient(),
+  tx?: Prisma.TransactionClient
 ): Promise<WorkflowResult> {
   // 1. Validate Input Data
   const validationResult = ApprovalWorkflowInputSchema.safeParse(workflowData);
@@ -36,22 +46,21 @@ export async function createApprovalWorkflow(
   const validatedData: ApprovalWorkflowInput = validationResult.data;
 
   try {
-    // 2. Use Prisma Transaction for atomic creation
-    const result = await prisma.$transaction(async tx => {
+    // 2. Define the workflow creation logic
+    const createWorkflow = async (client: PrismaClient | Prisma.TransactionClient) => {
       // Create the main workflow record
-      const newWorkflow = await tx.approvalWorkflow.create({
+      const newWorkflow = await client.approvalWorkflow.create({
         data: {
           organizationId: orgId,
           name: validatedData.name,
           description: validatedData.description,
-          // isActive default is true in schema, can be overridden if passed
           isActive: validatedData.isActive,
         },
       });
 
       // Create steps, conditions, and actions
       for (const stepData of validatedData.steps) {
-        const newStep = await tx.approvalWorkflowStep.create({
+        const newStep = await client.approvalWorkflowStep.create({
           data: {
             approvalWorkflowId: newWorkflow.id,
             stepNumber: stepData.stepNumber,
@@ -62,7 +71,7 @@ export async function createApprovalWorkflow(
         });
 
         // Create conditions for the step
-        await tx.approvalStepCondition.createMany({
+        await client.approvalStepCondition.createMany({
           data: stepData.conditions.map(condition => ({
             stepId: newStep.id,
             type: condition.type,
@@ -70,25 +79,28 @@ export async function createApprovalWorkflow(
             maxAmount: condition.maxAmount,
             expenseCategoryId: condition.expenseCategoryId,
             locationId: condition.locationId,
-            // Add other condition fields
           })),
         });
 
         // Create actions for the step
-        await tx.approvalStepAction.createMany({
+        await client.approvalStepAction.createMany({
           data: stepData.actions.map(action => ({
             stepId: newStep.id,
             type: action.type,
             approverRole: action.approverRole,
             specificMemberId: action.specificMemberId,
             approvalMode: action.approvalMode,
-            // Add other action fields
           })),
         });
-      } // End loop through steps
+      }
 
-      return newWorkflow; // Return the created workflow
-    }); // End transaction
+      return newWorkflow;
+    };
+
+    // 3. Execute with transaction client if provided, otherwise use a new transaction
+    const result = tx
+      ? await createWorkflow(tx)
+      : await prismaClient.$transaction(createWorkflow);
 
     return {
       success: true,
@@ -99,12 +111,16 @@ export async function createApprovalWorkflow(
     console.error('Error creating approval workflow:', error);
     let message = 'Failed to create approval workflow.';
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      // Handle specific Prisma errors (e.g., unique constraint violation)
       if (error.code === 'P2002') {
         message = `A workflow with the name '${validatedData.name}' already exists for this organization.`;
       }
     }
     return { success: false, message, error };
+  } finally {
+    // Only disconnect if no transaction client was provided
+    if (!tx) {
+      await prismaClient.$disconnect();
+    }
   }
 }
 

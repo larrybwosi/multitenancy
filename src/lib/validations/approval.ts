@@ -114,7 +114,12 @@ export const WorkflowUpdateInputSchema = z.object({
             path: ['steps'],
         }),
 });
-
+export interface WorkflowResult {
+  success: boolean;
+  message: string;
+  workflowId?: string;
+  error?: any;
+}
 // Type alias for easier use
 export type ApprovalWorkflowInput = z.infer<typeof ApprovalWorkflowInputSchema>;
 export type ApprovalWorkflowStepInput = z.infer<typeof ApprovalWorkflowStepSchema>;

@@ -122,11 +122,11 @@ async function getServerAuthContext(): Promise<ServerAuthContextResult> {
     // 3. Determine Active Organization ID
     let activeOrgId: string | null = null;
     try {
-      const userPrefs = await db.user.findUnique({
+      const userDetails = await db.user.findUnique({
         where: { id: userId },
         select: { activeOrganizationId: true },
       });
-      activeOrgId = userPrefs?.activeOrganizationId || null;
+      activeOrgId = userDetails?.activeOrganizationId || null;
     } catch (dbError) {
       //@ts-expect-error ignore
       console.error('Error fetching user preferences:', dbError.message);

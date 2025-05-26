@@ -92,16 +92,15 @@ async function handleActionError(error: unknown, context: string): ActionRespons
     };
   }
 }
-// --- CRUD Actions ---
 
 /**
- * Creates a new supplier for the current organization.
- * @param input - The supplier data payload.
+ * Creates a new supplier for the current organization and optionally links products.
+ * @param input - The supplier data payload, including optional products.
  * @returns ActionResponse containing the created supplier or an error.
  */
 export async function createSupplier(input: CreateSupplierPayload): Promise<ActionResponse<Supplier>> {
   try {
-    const { organizationId } = await getServerAuthContext(); // Throws if unauthorized
+    const { organizationId } = await getServerAuthContext();
 
     // Validate input payload
     const validation = CreateSupplierPayloadSchema.safeParse(input);
@@ -114,15 +113,12 @@ export async function createSupplier(input: CreateSupplierPayload): Promise<Acti
       };
     }
 
-    const { name, email, customFields, ...restData } = validation.data;
+    const { name, email, customFields, products, ...restData } = validation.data;
 
-    const customFieldsString = JSON.stringify(customFields);
-
-    // Manually check for unique constraints *before* attempting creation
-    // Check name uniqueness within the organization [cite: 42]
+    // Check name uniqueness
     const existingName = await db.supplier.findUnique({
       where: { organizationId_name: { organizationId, name } },
-      select: { id: true }, // Select only needed field
+      select: { id: true },
     });
     if (existingName) {
       return {
@@ -131,7 +127,7 @@ export async function createSupplier(input: CreateSupplierPayload): Promise<Acti
       };
     }
 
-    // Check email uniqueness within the organization if provided (schema doesn't enforce uniqueness) [cite: 42]
+    // Check email uniqueness if provided
     if (email) {
       const existingEmail = await db.supplier.findFirst({
         where: { organizationId, email },
@@ -145,25 +141,51 @@ export async function createSupplier(input: CreateSupplierPayload): Promise<Acti
       }
     }
 
-    // Create the supplier
-    const newSupplier = await db.supplier.create({
-      data: {
-        ...restData,
-        name,
-        email,
-        customFields: customFieldsString,
-        organizationId: organizationId, // Assign to the correct organization
-      },
+    // Create supplier and product links within a transaction
+    const newSupplier = await db.$transaction(async tx => {
+      // Create the supplier
+      const supplier = await tx.supplier.create({
+        data: {
+          ...restData,
+          name,
+          email,
+          customFields: customFields ? JSON.stringify(customFields) : undefined,
+          organizationId,
+        },
+      });
+
+      // If products are provided, create the ProductSupplier links
+      if (products && products.length > 0) {
+        await tx.productSupplier.createMany({
+          data: products.map(product => ({
+            supplierId: supplier.id,
+            productId: product.productId, // This is the ProductVariant ID
+            costPrice: product.costPrice,
+            supplierSku: product.supplierSku,
+            minimumOrderQuantity: product.minimumOrderQuantity,
+            packagingUnit: product.packagingUnit,
+            isPreferred: product.isPreferred,
+          })),
+        });
+      }
+
+      return supplier;
     });
 
     // Revalidate cache paths
     revalidatePath(`/suppliers`);
     return { success: true, data: newSupplier };
   } catch (error) {
+    // Handle potential Prisma errors (like unique constraints during transaction)
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      // P2002 is the code for unique constraint violation
+      if (error.code === 'P2002') {
+        return { success: false, error: 'A supplier or product link with these details already exists.' };
+      }
+    }
     return handleActionError(error, 'creating supplier');
   }
 }
-
 /**
  * Updates an existing supplier.
  * @param input - The update payload including the supplier ID.
@@ -183,8 +205,7 @@ export async function updateSupplier(input: UpdateSupplierPayload): Promise<Acti
       };
     }
 
-    const { id: supplierId, customFields, ...updateData } = validation.data;
-    const customFieldsString = JSON.stringify(customFields);
+    const { id: supplierId, customFields, addProducts, removeProductIds, ...updateData } = validation.data;
 
     // Ensure the supplier exists within the org before checking uniqueness/updating
     const supplierToUpdate = await db.supplier.findUnique({
@@ -230,18 +251,78 @@ export async function updateSupplier(input: UpdateSupplierPayload): Promise<Acti
       }
     }
 
-    // Perform the update
-    const updatedSupplier = await db.supplier.update({
-      where: {
-        id: supplierId,
-        organizationId,
-      },
-      data: { ...updateData, customFields: customFieldsString },
-    });
+    const updatedSupplier = await db.$transaction(async tx => {
+      // 1. Remove Products if specified
+      if (removeProductIds && removeProductIds.length > 0) {
+        await tx.productSupplier.deleteMany({
+          where: {
+            supplierId: supplierId,
+            productId: {
+              // productId here refers to ProductVariant ID
+              in: removeProductIds,
+            },
+          },
+        });
+      }
 
-    // Revalidate cache paths
-    revalidatePath(`/dashboard/${organizationId}/suppliers`);
-    revalidatePath(`/dashboard/${organizationId}/suppliers/${supplierId}`);
+      // 2. Add or Update Products if specified
+      if (addProducts && addProducts.length > 0) {
+        for (const productToAdd of addProducts) {
+          await tx.productSupplier.upsert({
+            where: {
+              productId_supplierId: {
+                // Use the unique constraint [cite: 57]
+                productId: productToAdd.productId,
+                supplierId: supplierId,
+              },
+            },
+            update: {
+              // Update existing link
+              costPrice: productToAdd.costPrice,
+              supplierSku: productToAdd.supplierSku,
+              minimumOrderQuantity: productToAdd.minimumOrderQuantity,
+              packagingUnit: productToAdd.packagingUnit,
+              ...(productToAdd.isPreferred !== undefined && { isPreferred: productToAdd.isPreferred }),
+            },
+            create: {
+              // Create new link
+              supplierId: supplierId,
+              productId: productToAdd.productId,
+              costPrice: productToAdd.costPrice,
+              supplierSku: productToAdd.supplierSku,
+              minimumOrderQuantity: productToAdd.minimumOrderQuantity,
+              packagingUnit: productToAdd.packagingUnit,
+              isPreferred: productToAdd.isPreferred ?? false,
+            },
+          });
+        }
+      }
+
+      // 3. Update Supplier Core Details (only if there are updates)
+      if (Object.keys(updateData).length > 0 || customFields !== undefined) {
+        await tx.supplier.update({
+          where: {
+            id: supplierId,
+            organizationId,
+          },
+          data: {
+            ...updateData,
+            ...(customFields !== undefined && { customFields: customFields ? JSON.stringify(customFields) : undefined }),
+          },
+        });
+      }
+
+      // Fetch the potentially updated supplier to return
+      const finalSupplier = await tx.supplier.findUnique({
+        where: { id: supplierId },
+      });
+
+      if (!finalSupplier) {
+        throw new Error('Failed to retrieve updated supplier during transaction.');
+      }
+
+      return finalSupplier;
+    });
     return { success: true, data: updatedSupplier };
   } catch (error) {
     return handleActionError(error, 'updating supplier');

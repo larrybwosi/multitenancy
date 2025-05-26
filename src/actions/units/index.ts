@@ -395,15 +395,25 @@ interface UnitSeedData {
   conversionFactor?: Prisma.Decimal;
 }
 
+/**
+ * Seeds default units of measure for an organization.
+ * Can be used standalone or within an existing Prisma transaction.
+ * @param organizationId - The organization ID.
+ * @param prismaClient - The Prisma client (required).
+ * @param tx - Optional Prisma transaction client.
+ * @returns A Promise that resolves when seeding is complete.
+ * @throws Error if seeding fails or inputs are invalid.
+ */
 export async function seedOrganizationUnits(
   organizationId: string,
-  prisma: PrismaClient
+  prismaClient: PrismaClient,
+  tx?: Prisma.TransactionClient
 ): Promise<void> {
   // Validate inputs
   if (!organizationId) {
     throw new Error('Invalid or missing organizationId. Must be a valid UUID.');
   }
-  if (!prisma) {
+  if (!prismaClient) {
     throw new Error('PrismaClient instance is required.');
   }
 
@@ -421,7 +431,7 @@ export async function seedOrganizationUnits(
       unitType: UnitType.COUNT,
       organizationId,
       baseUnitName: 'Piece',
-      conversionFactor: new Prisma.Decimal(10), // Assuming a pack contains 10 pieces
+      conversionFactor: new Prisma.Decimal(10),
     },
     {
       name: 'Dozen',
@@ -455,14 +465,15 @@ export async function seedOrganizationUnits(
   ];
 
   try {
-    await prisma.$transaction(async (tx) => {
+    // Define the unit seeding logic
+    const seedUnits = async (client: PrismaClient | Prisma.TransactionClient) => {
       // Separate base and derived units
-      const baseUnits = unitsToCreate.filter((unit) => !unit.baseUnitName);
-      const derivedUnits = unitsToCreate.filter((unit) => unit.baseUnitName);
+      const baseUnits = unitsToCreate.filter(unit => !unit.baseUnitName);
+      const derivedUnits = unitsToCreate.filter(unit => unit.baseUnitName);
 
       // Create base units first
       for (const unitData of baseUnits) {
-        const existingUnit = await tx.unitOfMeasure.findFirst({
+        const existingUnit = await client.unitOfMeasure.findFirst({
           where: {
             organizationId: unitData.organizationId,
             OR: [
@@ -473,7 +484,7 @@ export async function seedOrganizationUnits(
         });
 
         if (!existingUnit) {
-          await tx.unitOfMeasure.create({
+          await client.unitOfMeasure.create({
             data: {
               name: unitData.name,
               symbol: unitData.symbol,
@@ -483,14 +494,16 @@ export async function seedOrganizationUnits(
           });
           console.log(`Created base unit: ${unitData.name} (${unitData.symbol}) for organization ${organizationId}`);
         } else {
-          console.log(`Base unit: ${unitData.name} or symbol ${unitData.symbol} already exists for organization ${organizationId}. Skipping.`);
+          console.log(
+            `Base unit: ${unitData.name} or symbol ${unitData.symbol} already exists for organization ${organizationId}. Skipping.`
+          );
         }
       }
 
       // Create derived units
       for (const unitData of derivedUnits) {
         // Find the base unit
-        const baseUnit = await tx.unitOfMeasure.findFirst({
+        const baseUnit = await client.unitOfMeasure.findFirst({
           where: {
             organizationId: unitData.organizationId,
             name: { equals: unitData.baseUnitName, mode: 'insensitive' },
@@ -502,7 +515,7 @@ export async function seedOrganizationUnits(
           continue;
         }
 
-        const existingUnit = await tx.unitOfMeasure.findFirst({
+        const existingUnit = await client.unitOfMeasure.findFirst({
           where: {
             organizationId: unitData.organizationId,
             OR: [
@@ -513,7 +526,7 @@ export async function seedOrganizationUnits(
         });
 
         if (!existingUnit) {
-          await tx.unitOfMeasure.create({
+          await client.unitOfMeasure.create({
             data: {
               name: unitData.name,
               symbol: unitData.symbol,
@@ -523,17 +536,33 @@ export async function seedOrganizationUnits(
               conversionFactor: unitData.conversionFactor,
             },
           });
-          console.log(`Created derived unit: ${unitData.name} (${unitData.symbol}) based on ${unitData.baseUnitName} for organization ${organizationId}`);
+          console.log(
+            `Created derived unit: ${unitData.name} (${unitData.symbol}) based on ${unitData.baseUnitName} for organization ${organizationId}`
+          );
         } else {
-          console.log(`Derived unit: ${unitData.name} or symbol ${unitData.symbol} already exists for organization ${organizationId}. Skipping.`);
+          console.log(
+            `Derived unit: ${unitData.name} or symbol ${unitData.symbol} already exists for organization ${organizationId}. Skipping.`
+          );
         }
       }
-    });
+    };
+
+    // Execute with transaction client if provided, otherwise use a new transaction
+    if (tx) {
+      await seedUnits(tx);
+    } else {
+      await prismaClient.$transaction(seedUnits);
+    }
+
     console.log(`Successfully seeded units for organization ${organizationId}`);
-    //eslint-disable-next-line
-  } catch (error:any) {
+  } catch (error: any) {
     console.error(`Failed to seed units for organization ${organizationId}:`, error);
     throw new Error(`Failed to seed units: ${error.message}`);
+  } finally {
+    // Only disconnect if no transaction client was provided
+    if (!tx) {
+      await prismaClient.$disconnect();
+    }
   }
 }
 

@@ -24,6 +24,7 @@ import { QRUploadModal } from '@/components/file-upload-device';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useUnitsOfMeasure } from '@/lib/hooks/use-units';
+import { ScrollArea } from '@/components/ui';
 
 // Schema definition
 const BaseProductSchema = z.object({
@@ -137,103 +138,341 @@ export function CreateProductModal({ isOpen, onClose, categories }: CreateProduc
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[550px] max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-semibold">Create New Product</DialogTitle>
-          <DialogDescription className="text-muted-foreground flex flex-wrap gap-2 mt-2">
-            Add your product details to inventory
-            <div className="w-full flex flex-wrap gap-2 mt-1">
-              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                Required Fields
-              </Badge>
-              <Badge variant="outline" className="bg-gray-50 text-gray-600 border-gray-200">
-                Optional Fields
-              </Badge>
-            </div>
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-y-auto">
+        <ScrollArea className=''>
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold">Create New Product</DialogTitle>
+            <DialogDescription className="text-muted-foreground flex flex-wrap gap-2 mt-2">
+              Add your product details to inventory
+              <div className="w-full flex flex-wrap gap-2 mt-1">
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                  Required Fields
+                </Badge>
+                <Badge variant="outline" className="bg-gray-50 text-gray-600 border-gray-200">
+                  Optional Fields
+                </Badge>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 pt-2">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="font-medium flex items-center gap-2">
-                      Product Name
-                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs font-normal">
-                        Required
-                      </Badge>
-                    </FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter product name" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="categoryId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="font-medium flex items-center gap-2">
-                      Category
-                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs font-normal">
-                        Required
-                      </Badge>
-                    </FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 pt-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-medium flex items-center gap-2">
+                        Product Name
+                        <Badge
+                          variant="outline"
+                          className="bg-blue-50 text-blue-700 border-blue-200 text-xs font-normal"
+                        >
+                          Required
+                        </Badge>
+                      </FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
+                        <Input placeholder="Enter product name" {...field} />
                       </FormControl>
-                      <SelectContent>
-                        {categories.map(category => (
-                          <SelectItem key={category.id} value={category.id}>
-                            {category.name}
-                          </SelectItem>
-                        ))}
-                        <Link href={'/categories?modal=true'} className="items-center flex gap-1">
-                          <p className="text-blue-500 hover:text-blue-600 cursor-pointer text-sm font-light ">
-                            Create New
-                          </p>
-                          <ExternalLink className="h-3 w-3 text-blue-500" />
-                        </Link>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <FormField
+                  control={form.control}
+                  name="categoryId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-medium flex items-center gap-2">
+                        Category
+                        <Badge
+                          variant="outline"
+                          className="bg-blue-50 text-blue-700 border-blue-200 text-xs font-normal"
+                        >
+                          Required
+                        </Badge>
+                      </FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {categories.map(category => (
+                            <SelectItem key={category.id} value={category.id}>
+                              {category.name}
+                            </SelectItem>
+                          ))}
+                          <Link href={'/categories?modal=true'} className="items-center flex gap-1">
+                            <p className="text-blue-500 hover:text-blue-600 cursor-pointer text-sm font-light ">
+                              Create New
+                            </p>
+                            <ExternalLink className="h-3 w-3 text-blue-500" />
+                          </Link>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <FormField
+                  control={form.control}
+                  name="buyingPrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-medium flex items-center gap-2">
+                        Buying Price
+                        <Badge
+                          variant="outline"
+                          className="bg-blue-50 text-blue-700 border-blue-200 text-xs font-normal"
+                        >
+                          Required
+                        </Badge>
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={field.value}
+                          onChange={e => field.onChange(e.target.valueAsNumber)}
+                        />
+                      </FormControl>
+                      <FormDescription className="text-xs">Cost price per unit</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="retailPrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-medium">Retail Price</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={field.value ?? ''}
+                          onChange={e => handleNumberInputChange(e, field)}
+                        />
+                      </FormControl>
+                      <FormDescription className="text-xs">Sales price to customers</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="wholesalePrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-medium">Wholesale Price</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={field.value ?? ''}
+                          onChange={e => handleNumberInputChange(e, field)}
+                        />
+                      </FormControl>
+                      <FormDescription className="text-xs">Bulk sales price</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="sku"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-medium">SKU</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Stock Keeping Unit"
+                          value={field.value ?? ''}
+                          onChange={e => field.onChange(e.target.value || null)}
+                        />
+                      </FormControl>
+                      <FormDescription className="text-xs">Leave empty for auto-generation</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="barcode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-medium">Barcode</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="UPC, EAN, etc."
+                          value={field.value ?? ''}
+                          onChange={e => field.onChange(e.target.value || null)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <FormField
+                  control={form.control}
+                  name="baseUnitId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-medium flex items-center gap-2">
+                        Base Unit
+                        <Badge
+                          variant="outline"
+                          className="bg-blue-50 text-blue-700 border-blue-200 text-xs font-normal"
+                        >
+                          Required
+                        </Badge>
+                      </FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger disabled={unitsOfMeasureLoading || !!unitsError}>
+                            <SelectValue
+                              placeholder={unitsOfMeasureLoading ? 'Loading units...' : 'Select base unit'}
+                            />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {unitsOfMeasure?.map(unit => (
+                            <SelectItem key={unit.id} value={unit.id}>
+                              {unit.name} ({unit.symbol})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription className="text-xs">The smallest unit for inventory tracking</FormDescription>
+                      {unitsError && <p className="text-sm text-red-500">Failed to load units: {unitsError.message}</p>}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="stockingUnitId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-medium flex items-center gap-2">
+                        Stocking Unit
+                        <Badge
+                          variant="outline"
+                          className="bg-blue-50 text-blue-700 border-blue-200 text-xs font-normal"
+                        >
+                          Required
+                        </Badge>
+                      </FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger disabled={unitsOfMeasureLoading || !!unitsError}>
+                            <SelectValue
+                              placeholder={unitsOfMeasureLoading ? 'Loading units...' : 'Select stocking unit'}
+                            />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {unitsOfMeasure?.map(unit => (
+                            <SelectItem key={unit.id} value={unit.id}>
+                              {unit.name} ({unit.symbol})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription className="text-xs">Unit used for purchasing/stocking</FormDescription>
+                      {unitsError && <p className="text-sm text-red-500">Failed to load units: {unitsError.message}</p>}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="sellingUnitId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-medium flex items-center gap-2">
+                        Selling Unit
+                        <Badge
+                          variant="outline"
+                          className="bg-blue-50 text-blue-700 border-blue-200 text-xs font-normal"
+                        >
+                          Required
+                        </Badge>
+                      </FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger disabled={unitsOfMeasureLoading || !!unitsError}>
+                            <SelectValue
+                              placeholder={unitsOfMeasureLoading ? 'Loading units...' : 'Select selling unit'}
+                            />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {unitsOfMeasure?.map(unit => (
+                            <SelectItem key={unit.id} value={unit.id}>
+                              {unit.name} ({unit.symbol})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription className="text-xs">Unit used for selling</FormDescription>
+                      {unitsError && <p className="text-sm text-red-500">Failed to load units: {unitsError.message}</p>}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <QRUploadModal
+                onImageUploaded={async (imageUrl: string) => {
+                  const currentImages = form.getValues('imageUrls') || [];
+                  form.setValue('imageUrls', [...currentImages, imageUrl]);
+                }}
+                trigger={
+                  <Button variant="outline" type="button">
+                    <Smartphone className="w-5 h-5 mr-2 text-xl" />
+                    Upload from Phone
+                  </Button>
+                }
+              />
+
               <FormField
                 control={form.control}
-                name="buyingPrice"
+                name="reorderPoint"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="font-medium flex items-center gap-2">
-                      Buying Price
-                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs font-normal">
-                        Required
-                      </Badge>
-                    </FormLabel>
+                    <FormLabel className="font-medium">Reorder Point</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
-                        step="0.01"
-                        placeholder="0.00"
+                        placeholder="5"
                         value={field.value}
                         onChange={e => field.onChange(e.target.valueAsNumber)}
                       />
                     </FormControl>
-                    <FormDescription className="text-xs">Cost price per unit</FormDescription>
+                    <FormDescription className="text-xs">Stock level at which to reorder this product</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -241,334 +480,120 @@ export function CreateProductModal({ isOpen, onClose, categories }: CreateProduc
 
               <FormField
                 control={form.control}
-                name="retailPrice"
+                name="isActive"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="font-medium">Retail Price</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={field.value ?? ''}
-                        onChange={e => handleNumberInputChange(e, field)}
-                      />
-                    </FormControl>
-                    <FormDescription className="text-xs">Sales price to customers</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="wholesalePrice"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="font-medium">Wholesale Price</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={field.value ?? ''}
-                        onChange={e => handleNumberInputChange(e, field)}
-                      />
-                    </FormControl>
-                    <FormDescription className="text-xs">Bulk sales price</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="sku"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="font-medium">SKU</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Stock Keeping Unit"
-                        value={field.value ?? ''}
-                        onChange={e => field.onChange(e.target.value || null)}
-                      />
-                    </FormControl>
-                    <FormDescription className="text-xs">Leave empty for auto-generation</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="barcode"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="font-medium">Barcode</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="UPC, EAN, etc."
-                        value={field.value ?? ''}
-                        onChange={e => field.onChange(e.target.value || null)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <FormField
-                control={form.control}
-                name="baseUnitId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="font-medium flex items-center gap-2">
-                      Base Unit
-                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs font-normal">
-                        Required
-                      </Badge>
-                    </FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger disabled={unitsOfMeasureLoading || !!unitsError}>
-                          <SelectValue placeholder={unitsOfMeasureLoading ? 'Loading units...' : 'Select base unit'} />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {unitsOfMeasure?.map(unit => (
-                          <SelectItem key={unit.id} value={unit.id}>
-                            {unit.name} ({unit.symbol})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription className="text-xs">The smallest unit for inventory tracking</FormDescription>
-                    {unitsError && <p className="text-sm text-red-500">Failed to load units: {unitsError.message}</p>}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="stockingUnitId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="font-medium flex items-center gap-2">
-                      Stocking Unit
-                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs font-normal">
-                        Required
-                      </Badge>
-                    </FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger disabled={unitsOfMeasureLoading || !!unitsError}>
-                          <SelectValue
-                            placeholder={unitsOfMeasureLoading ? 'Loading units...' : 'Select stocking unit'}
-                          />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {unitsOfMeasure?.map(unit => (
-                          <SelectItem key={unit.id} value={unit.id}>
-                            {unit.name} ({unit.symbol})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription className="text-xs">Unit used for purchasing/stocking</FormDescription>
-                    {unitsError && <p className="text-sm text-red-500">Failed to load units: {unitsError.message}</p>}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="sellingUnitId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="font-medium flex items-center gap-2">
-                      Selling Unit
-                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs font-normal">
-                        Required
-                      </Badge>
-                    </FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger disabled={unitsOfMeasureLoading || !!unitsError}>
-                          <SelectValue
-                            placeholder={unitsOfMeasureLoading ? 'Loading units...' : 'Select selling unit'}
-                          />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {unitsOfMeasure?.map(unit => (
-                          <SelectItem key={unit.id} value={unit.id}>
-                            {unit.name} ({unit.symbol})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription className="text-xs">Unit used for selling</FormDescription>
-                    {unitsError && <p className="text-sm text-red-500">Failed to load units: {unitsError.message}</p>}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <QRUploadModal
-              onImageUploaded={async (imageUrl: string) => {
-                const currentImages = form.getValues('imageUrls') || [];
-                form.setValue('imageUrls', [...currentImages, imageUrl]);
-              }}
-              trigger={
-                <Button variant="outline" type="button">
-                  <Smartphone className="w-5 h-5 mr-2 text-xl" />
-                  Upload from Phone
-                </Button>
-              }
-            />
-
-            <FormField
-              control={form.control}
-              name="reorderPoint"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="font-medium">Reorder Point</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      placeholder="5"
-                      value={field.value}
-                      onChange={e => field.onChange(e.target.valueAsNumber)}
-                    />
-                  </FormControl>
-                  <FormDescription className="text-xs">Stock level at which to reorder this product</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="isActive"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                  <div className="space-y-0.5">
-                    <FormLabel className="font-medium">Active Status</FormLabel>
-                    <FormDescription>Make this product visible and available for sale</FormDescription>
-                  </div>
-                  <FormControl>
-                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="imageUrls"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="font-medium">Images</FormLabel>
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center justify-center w-full">
-                      <label
-                        htmlFor="dropzone-file"
-                        className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
-                      >
-                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                          <ImagePlus className="w-8 h-8 mb-2 text-gray-500" />
-                          <p className="mb-1 text-sm text-gray-500">
-                            <span className="font-semibold">Click to upload</span> or drag and drop
-                          </p>
-                          <p className="text-xs text-gray-500">Images will appear here</p>
-                        </div>
-                        <input
-                          id="dropzone-file"
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          multiple
-                          onChange={async e => {
-                            if (e.target.files) {
-                              const files = Array.from(e.target.files);
-                              for (const file of files) {
-                                await handleFileUpload(file);
-                              }
-                            }
-                          }}
-                        />
-                      </label>
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel className="font-medium">Active Status</FormLabel>
+                      <FormDescription>Make this product visible and available for sale</FormDescription>
                     </div>
-                    {!!field.value?.length && (
-                      <div className="grid grid-cols-3 gap-2">
-                        {field.value.map((url, index) => (
-                          <div key={index} className="relative group h-24">
-                            <Image
-                              src={url}
-                              alt={`Product image ${index + 1} for ${form.getValues('name') || 'new product'}`}
-                              fill
-                              className="object-cover rounded-md"
-                              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                            />
-                            <Button
-                              variant="destructive"
-                              size="icon"
-                              className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() => removeImage(index)}
-                            >
-                              X
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <FormDescription className="text-xs">Product images will be displayed in the catalog</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button type="button" variant="outline" onClick={() => onClose(false)} className="mt-2 sm:mt-0">
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                className="bg-indigo-600 hover:bg-indigo-700 mt-2 sm:mt-0"
-                disabled={creatingProduct || isUploading || unitsOfMeasureLoading}
-              >
-                {creatingProduct ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating...
-                  </>
-                ) : isUploading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Uploading...
-                  </>
-                ) : unitsOfMeasureLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Loading units...
-                  </>
-                ) : (
-                  'Create Product'
+                    <FormControl>
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                  </FormItem>
                 )}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+              />
+
+              <FormField
+                control={form.control}
+                name="imageUrls"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-medium">Images</FormLabel>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center justify-center w-full">
+                        <label
+                          htmlFor="dropzone-file"
+                          className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
+                        >
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                            <ImagePlus className="w-8 h-8 mb-2 text-gray-500" />
+                            <p className="mb-1 text-sm text-gray-500">
+                              <span className="font-semibold">Click to upload</span> or drag and drop
+                            </p>
+                            <p className="text-xs text-gray-500">Images will appear here</p>
+                          </div>
+                          <input
+                            id="dropzone-file"
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            multiple
+                            onChange={async e => {
+                              if (e.target.files) {
+                                const files = Array.from(e.target.files);
+                                for (const file of files) {
+                                  await handleFileUpload(file);
+                                }
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                      {!!field.value?.length && (
+                        <div className="grid grid-cols-3 gap-2">
+                          {field.value.map((url, index) => (
+                            <div key={index} className="relative group h-24">
+                              <Image
+                                src={url}
+                                alt={`Product image ${index + 1} for ${form.getValues('name') || 'new product'}`}
+                                fill
+                                className="object-cover rounded-md"
+                                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                              />
+                              <Button
+                                variant="destructive"
+                                size="icon"
+                                className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => removeImage(index)}
+                              >
+                                X
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <FormDescription className="text-xs">
+                      Product images will be displayed in the catalog
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button type="button" variant="outline" onClick={() => onClose(false)} className="mt-2 sm:mt-0">
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-indigo-600 hover:bg-indigo-700 mt-2 sm:mt-0"
+                  disabled={creatingProduct || isUploading || unitsOfMeasureLoading}
+                >
+                  {creatingProduct ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : isUploading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : unitsOfMeasureLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Loading units...
+                    </>
+                  ) : (
+                    'Create Product'
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );
